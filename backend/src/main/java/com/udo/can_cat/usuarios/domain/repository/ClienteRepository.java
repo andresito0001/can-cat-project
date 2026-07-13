@@ -1,0 +1,14 @@
+package com.udo.can_cat.usuarios.domain.repository;
+
+import java.util.Optional;
+import com.udo.can_cat.usuarios.domain.entity.Cliente;
+import com.udo.can_cat.usuarios.domain.entity.Cliente.ClienteId;
+import com.udo.can_cat.usuarios.domain.entity.Usuario.UsuarioId;
+
+public interface ClienteRepository {
+    Optional<Cliente> findById(ClienteId id);
+    Optional<Cliente> findByUsuarioId(UsuarioId usuarioId);
+    Optional<Cliente> findByDocumentoIdentidad(String documento);
+    Cliente save(Cliente cliente);
+    void delete(ClienteId id);
+}

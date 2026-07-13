@@ -1,0 +1,14 @@
+server:
+  port: 443
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${PROD_DB_HOST}:5432/can-cat-prod
+    username: ${PROD_DB_USER}
+    password: ${PROD_DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate 
+    show-sql: false
+  flyway:
+    baseline-on-migrate: true

@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: can-cat-system
+  profiles:
+    active: dev 
