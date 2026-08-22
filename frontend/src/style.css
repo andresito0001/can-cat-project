@@ -168,6 +168,13 @@ code {
   box-sizing: border-box;
 }
 
+/* Override para la vista de login - ocupa toda la pantalla */
+#app:has(.login-view),
+#app:has(.reset-password-view) {
+  width: 100%;
+  border-inline: none;
+}
+
 #center {
   display: flex;
   flex-direction: column;
@@ -293,4 +300,15 @@ code {
     right: 0;
     border-right-color: var(--border);
   }
+}
+
+/* ===== OVERRIDE PARA AUTH - QUITAR BORDE ===== */
+#app:has(.login-container),
+#app:has(.forgot-container),
+#app:has(.reset-container),
+#app:has(.registro-container) {
+  width: 100%;
+  max-width: 100%;
+  border-inline: none;
+}
 }
