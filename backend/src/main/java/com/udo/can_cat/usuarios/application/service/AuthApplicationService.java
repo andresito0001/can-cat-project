@@ -12,8 +12,13 @@ import com.udo.can_cat.usuarios.domain.entity.Usuario.UsuarioId;
 import com.udo.can_cat.usuarios.domain.repository.ClienteRepository;
 import com.udo.can_cat.usuarios.domain.repository.PersonalRepository;
 import com.udo.can_cat.usuarios.domain.repository.RolRepository;
+import com.udo.can_cat.usuarios.domain.repository.TokenRecuperacionContrasenaRepository;
 import com.udo.can_cat.usuarios.domain.repository.UsuarioRepository;
+import com.udo.can_cat.usuarios.infrastructure.persistence.TokenRecuperacionContrasenaJpaEntity;
 import com.udo.can_cat.usuarios.infrastructure.security.JwtTokenProvider;
+
+import java.time.LocalDateTime;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,6 +36,7 @@ public class AuthApplicationService {
     private final PersonalRepository personalRepository;
     private final RolRepository rolRepository;
     private final JwtTokenProvider jwtTokenProvider;
+    private final TokenRecuperacionContrasenaRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
 
@@ -40,7 +46,7 @@ public class AuthApplicationService {
                                    RolRepository rolRepository,
                                    JwtTokenProvider jwtTokenProvider,
                                    PasswordEncoder passwordEncoder,
-                                   EmailService emailService) {
+                                   EmailService emailService, TokenRecuperacionContrasenaRepository tokenRepository)  {
         this.usuarioRepository = usuarioRepository;
         this.clienteRepository = clienteRepository;
         this.personalRepository = personalRepository;
@@ -48,6 +54,7 @@ public class AuthApplicationService {
         this.jwtTokenProvider = jwtTokenProvider;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
+        this.tokenRepository = tokenRepository;
     }
 
     /**
@@ -104,7 +111,7 @@ public class AuthApplicationService {
      * Flujo alternativo: Recuperación de contraseña
      * Caso de uso 4.6.1.1 - Flujo alternativo 1
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public RecuperarPasswordResponseDTO solicitarRecuperacionPassword(RecuperarPasswordRequestDTO request) {
         logger.info("Solicitud de recuperación de contraseña para: {}", request.getCorreoElectronico());
 
@@ -125,13 +132,15 @@ public class AuthApplicationService {
         boolean esCliente = clienteRepository.findByUsuarioId(usuario.getId()).isPresent();
 
         if (esCliente) {
-            // Si es Cliente: enviar enlace de recuperación
             String tokenRecuperacion = jwtTokenProvider.generatePasswordResetToken(usuario);
-            
-            emailService.enviarCorreoRecuperacionPassword(
-                    usuario.getCorreoElectronico(), 
-                    tokenRecuperacion
-            );
+
+            TokenRecuperacionContrasenaJpaEntity resetToken = new TokenRecuperacionContrasenaJpaEntity();
+            resetToken.setToken(tokenRecuperacion); 
+            resetToken.setCorreo(usuario.getCorreoElectronico());
+            resetToken.setFechaExpiracion(LocalDateTime.now().plusHours(24));
+            tokenRepository.save(resetToken);
+
+            emailService.enviarCorreoRecuperacionPassword(usuario.getCorreoElectronico(), tokenRecuperacion);
             
             logger.info("Enlace de recuperación enviado a: {}", usuario.getCorreoElectronico());
             return RecuperarPasswordResponseDTO.enlaceEnviado(
@@ -149,22 +158,43 @@ public class AuthApplicationService {
     public void resetearContrasena(NuevaContrasenaRequestDTO request) {
         logger.info("Procesando reset de contraseña");
 
-        // 1. Validar que el token sea válido y no haya expirado
-        if (!jwtTokenProvider.validateToken(request.getToken()) && !jwtTokenProvider.isPasswordResetToken(request.getToken())) {
-            throw new RuntimeException("El enlace de recuperación es inválido o ha expirado");
+        // 1. Buscar token en BD
+        TokenRecuperacionContrasenaJpaEntity resetToken = tokenRepository
+                .findByToken(request.getToken())
+                .orElseThrow(() -> new RuntimeException("El enlace de recuperación es inválido"));
+
+        // 2. Verificar si ya fue usado
+        if (resetToken.isUsado()) {
+            throw new RuntimeException("Este enlace ya fue utilizado. Solicite uno nuevo.");
         }
 
-        // 2. Extraer el correo/username del token
-        String correo = jwtTokenProvider.getEmailFromToken(request.getToken());
-        logger.info("Token válido para el correo: {}", correo);
+        // 3. Verificar expiración
+        if (resetToken.getFechaExpiracion().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("El enlace de recuperación ha expirado");
+        }
 
-        // 3. Buscar el usuario
+        // 4. Validar firma del JWT (por si alguien inventó un token que existe en BD)
+        if (!jwtTokenProvider.validateToken(request.getToken()) 
+                || !jwtTokenProvider.isPasswordResetToken(request.getToken())) {
+            throw new RuntimeException("El enlace de recuperación es inválido");
+        }
+
+        // 5. Extraer correo y buscar usuario
+        String correo = jwtTokenProvider.getEmailFromToken(request.getToken());
+        if (!correo.equals(resetToken.getCorreo())) {
+            throw new RuntimeException("Token corrupto");
+        }
+
         Usuario usuario = usuarioRepository.findByCorreoElectronico(correo)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
-        // 4. Actualizar la contraseña (necesitas este método en tu entidad Usuario)
+        // 6. Actualizar contraseña
         usuario.setContrasenaHash(passwordEncoder.encode(request.getNuevaContrasena()));
-        usuario = usuarioRepository.save(usuario);
+        usuarioRepository.save(usuario);
+
+        // 7. MARCAR COMO USADO (¡ESTO ES LO CRÍTICO!)
+        resetToken.setUsado(true);
+        tokenRepository.save(resetToken);
         
         logger.info("Contraseña actualizada correctamente para: {}", correo);
     }
