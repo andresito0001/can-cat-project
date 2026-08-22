@@ -11,10 +11,15 @@ import java.util.Optional;
 
 @Repository
 public class RolRepositoryImpl implements RolRepository {
-
     @PersistenceContext
     private EntityManager em;
 
+    private final RolJpaRepository jpaRepository;
+
+    public RolRepositoryImpl(RolJpaRepository jpaRepository) {
+        this.jpaRepository = jpaRepository;
+    }
+    
     @Override
     public Optional<Rol> findById(Rol.RolId id) {
         RolJpaEntity entity = em.find(RolJpaEntity.class, id.value());
@@ -51,4 +56,11 @@ public class RolRepositoryImpl implements RolRepository {
             em.remove(entity);
         }
     }
+
+    @Override
+    public Optional<Rol> findByNombreRol(String nombre) {
+        return jpaRepository.findByNombreRol(nombre)
+                .map(RolJpaEntity::toDomain);
+    }
+
 }
