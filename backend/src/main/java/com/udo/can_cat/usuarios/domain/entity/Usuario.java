@@ -53,6 +53,15 @@ public class Usuario {
     public LocalDateTime getFechaRegistro() { return fechaRegistro; }
     public LocalDateTime getUltimoAcceso() { return ultimoAcceso; }
 
+    // Setters 
+    public void setContrasenaHash(String contrasenaHash) { this.contrasenaHash = contrasenaHash; }
+    public void setCorreoElectronico(String correoElectronico) { this.correoElectronico = correoElectronico; }
+    public void setEstado(EstadoUsuario estado) { this.estado = estado; }
+    public void setFechaRegistro(LocalDateTime fechaRegistro) { this.fechaRegistro = fechaRegistro; }
+    public void setId(UsuarioId id) { this.id = id; }
+    public void setRolId(RolId rolId) { this.rolId = rolId; }
+    public void setUltimoAcceso(LocalDateTime ultimoAcceso) { this.ultimoAcceso = ultimoAcceso; }
+    
     public record UsuarioId(Integer value) {
         public UsuarioId {
             Objects.requireNonNull(value, "UsuarioId no puede ser nulo");

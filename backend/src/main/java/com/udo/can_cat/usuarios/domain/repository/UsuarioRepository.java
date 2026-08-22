@@ -7,6 +7,8 @@ import java.util.Optional;
 public interface UsuarioRepository {
     Optional<Usuario> findById(UsuarioId id);
     Optional<Usuario> findByCorreoElectronico(String correo);
+    boolean existsByCorreoElectronico(String correo);
+    void updateUltimoAcceso(UsuarioId id);
     Usuario save(Usuario usuario);
     void delete(UsuarioId id);
 }
