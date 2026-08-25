@@ -1,92 +1,79 @@
 <template>
   <div class="login-container">
     <div class="login-card">
-      <h2 class="login-title">Iniciar Sesión</h2>
-      
-      <form @submit.prevent="handleLogin" class="login-form">
-        <!-- Campo: Correo Electrónico -->
+      <div class="login-title">Iniciar Sesión</div>
+
+      <Transition name="slide-fade">
+        <div v-if="mostrarError || authStore.error" class="error-message">
+          <AlertCircle :size="18" />
+          <span>{{ authStore.error || authStore.errorMessage || 'Credenciales incorrectas' }}</span>
+        </div>
+      </Transition>
+
+      <form @submit.prevent="handleLogin">
         <div class="input-group" :class="{ 'has-error': campoError.correo }">
-          <label for="email">Correo electrónico</label>
-          <input 
-            type="email" 
-            id="email" 
-            v-model="email" 
-            placeholder="correo@ejemplo.com"
+          <label for="email">Correo Electrónico</label>
+          <input
+            id="email"
+            v-model="email"
+            type="email"
+            placeholder="usuario@ejemplo.com"
             :disabled="isLoading"
             @input="limpiarError('correo')"
+            @blur="validarEmail"
           />
         </div>
 
-        <!-- Campo: Contraseña -->
         <div class="input-group" :class="{ 'has-error': campoError.password }">
           <label for="password">Contraseña</label>
           <div class="password-wrapper">
-            <input 
-              :type="mostrarPassword ? 'text' : 'password'" 
-              id="password" 
-              v-model="password" 
-              placeholder="••••••••"
+            <input
+              id="password"
+              v-model="password"
+              :type="mostrarPassword ? 'text' : 'password'"
+              placeholder="Ingrese su contraseña"
               :disabled="isLoading"
               @input="limpiarError('password')"
             />
-            <button 
-              type="button" 
-              class="toggle-password" 
+            <button
+              type="button"
+              class="toggle-password"
               @click="mostrarPassword = !mostrarPassword"
               tabindex="-1"
             >
-              <svg v-if="!mostrarPassword" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
-                <circle cx="12" cy="12" r="3"/>
-              </svg>
-              <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>
-                <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
-                <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
-                <line x1="2" x2="22" y1="2" y2="22"/>
-              </svg>
+              <Eye v-if="!mostrarPassword" :size="18" />
+              <EyeOff v-else :size="18" />
             </button>
           </div>
         </div>
 
-        <!-- Mensaje de error -->
-        <Transition name="slide-fade">
-          <p v-if="mostrarError" class="error-message">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" x2="12" y1="8" y2="12"/>
-              <line x1="12" x2="12.01" y1="16" y2="16"/>
-            </svg>
-            {{ authStore.errorMessage || 'Credenciales incorrectas' }}
-          </p>
-        </Transition>
+        <div class="options-container">
+          <router-link to="/auth/recuperar" class="forgot-link">
+            ¿Olvidó su contraseña?
+          </router-link>
+        </div>
 
-        <!-- Botón de ingreso -->
         <button type="submit" class="login-button" :disabled="isLoading">
           <span v-if="isLoading" class="spinner"></span>
-          {{ isLoading ? 'Ingresando...' : 'Ingresar' }}
+          <span v-else>Ingresar</span>
         </button>
-
-        <!-- Opciones adicionales -->
-        <div class="options-container">
-          <a href="#" class="forgot-link" @click.prevent="irARecuperacion">
-            ¿Olvidó su contraseña?
-          </a>
-        </div>
-
-        <div class="register-container">
-          <span>¿No tienes cuenta?</span>
-          <a href="#" class="register-link" @click.prevent="irARegistro">Registrarse</a>
-        </div>
       </form>
+
+      <div class="register-container">
+        ¿No tiene una cuenta?
+        <router-link to="/auth/registro" class="register-link">
+          Registrarse
+        </router-link>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useAuthStore } from '../stores/auth'
+import { useAuthStore } from '@/stores/auth.store'
 import { useRouter, useRoute } from 'vue-router'
+import { AlertCircle, Eye, EyeOff } from 'lucide-vue-next'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -104,72 +91,88 @@ const campoError = ref({
 })
 
 onMounted(() => {
-  // Verificar si viene de sesión expirada
   if (route.query.session === 'expired') {
     mostrarError.value = true
-    authStore.errorMessage = 'Su sesión ha expirado. Inicie sesión nuevamente.'
+    authStore.error = 'Su sesión ha expirado. Inicie sesión nuevamente.'
   }
 })
 
+const validarEmail = () => {
+  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (email.value.trim() && !regex.test(email.value.trim())) {
+    campoError.value.correo = true
+  }
+}
+
+
+
+
+
+
 const handleLogin = async () => {
-  // Resetear errores
   mostrarError.value = false
   campoError.value = { correo: false, password: false }
+  authStore.error = null
 
-  // Validaciones locales
   let hayError = false
-  
   if (!email.value.trim()) {
     campoError.value.correo = true
     hayError = true
   }
-  
   if (!password.value) {
     campoError.value.password = true
     hayError = true
   }
-  
   if (hayError) return
 
   isLoading.value = true
 
-  const result = await authStore.login(email.value, password.value)
-  
+  // ─── MODO DESARROLLO: escribe "mock" como correo ───
+  if (email.value === 'mock') {
+    authStore.mockLogin('Cliente')
+    router.push(authStore.dashboardRoute)
+    return
+  }
+
+  // ─── LOGIN REAL AL BACKEND ───
+  const result = await authStore.login({
+    correoElectronico: email.value,
+    contrasena: password.value
+  })
+
   isLoading.value = false
 
   if (result.success) {
-    // Paso 5: Redirigir según rol
-    router.push(authStore.getDashboardRoute())
+    router.push(authStore.dashboardRoute)
   } else {
-    // Flujo alternativo 2: Credenciales incorrectas
-    // "El sistema vacía los campos de texto y solicita al actor intentar nuevamente"
     mostrarError.value = true
-    email.value = ''
     password.value = ''
   }
 }
 
+
+
 const limpiarError = (campo) => {
   campoError.value[campo] = false
+  if (authStore.error) authStore.error = null
+  if (authStore.errorMessage) authStore.errorMessage = null
   mostrarError.value = false
 }
 
 const irARecuperacion = () => {
-  router.push('/recuperar-password')
+  router.push('/auth/recuperar')
 }
 
 const irARegistro = () => {
-  router.push('/registro')
+  router.push('/auth/registro')
 }
 </script>
 
 <style scoped>
-/* === ESTÁNDARES DE DISEÑO CAN-CAT (VINOTINTO) === */
-
-* { 
-  box-sizing: border-box; 
-  margin: 0; 
-  padding: 0; 
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 .login-container {
@@ -177,7 +180,7 @@ const irARegistro = () => {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background-color: #f4f4f5;
+  background-color: #F1F5F9;
   font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   padding: 20px;
 }
@@ -185,21 +188,19 @@ const irARegistro = () => {
 .login-card {
   background-color: #ffffff;
   padding: 40px 35px;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(15, 118, 110, 0.08);
   width: 100%;
-  max-width: 380px;
-  border-top: 5px solid #AC1A2E;
-  transition: transform 0.3s ease;
+  max-width: 400px;
+  border-top: 4px solid #0F766E;
 }
 
 .login-title {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 35px;
+  color: #1E293B;
+  margin-bottom: 32px;
   text-align: center;
-  letter-spacing: -0.5px;
 }
 
 .input-group {
@@ -234,9 +235,9 @@ const irARegistro = () => {
 }
 
 .input-group input:focus {
-  border-color: #AC1A2E;
+  border-color: #0F766E;
   background-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(172, 26, 46, 0.1);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
 }
 
 .input-group input:disabled {
@@ -244,12 +245,10 @@ const irARegistro = () => {
   cursor: not-allowed;
 }
 
-/* Error en campo individual */
 .input-group.has-error input {
-  border-color: #AC1A2E;
+  border-color: #DC2626;
 }
 
-/* Wrapper para contraseña con botón mostrar/ocultar */
 .password-wrapper {
   position: relative;
 }
@@ -277,32 +276,30 @@ const irARegistro = () => {
   color: #666666;
 }
 
-/* Mensaje de error */
 .error-message {
-  color: #AC1A2E;
+  color: #DC2626;
   font-size: 13px;
   font-weight: 500;
   margin-bottom: 15px;
   text-align: center;
-  background-color: rgba(172, 26, 46, 0.05);
+  background-color: rgba(220, 38, 38, 0.05);
   padding: 10px 12px;
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: 1px solid rgba(172, 26, 46, 0.15);
+  border: 1px solid rgba(220, 38, 38, 0.15);
 }
 
 .error-message svg {
   flex-shrink: 0;
 }
 
-/* Botón principal */
 .login-button {
   width: 100%;
   padding: 13px;
-  background-color: #AC1A2E;
+  background-color: #0F766E;
   color: #ffffff;
   border: none;
   border-radius: 8px;
@@ -321,9 +318,9 @@ const irARegistro = () => {
 }
 
 .login-button:hover:not(:disabled) {
-  background-color: #8d1525;
+  background-color: #0D5F58;
   transform: translateY(-2px);
-  box-shadow: 0 6px 15px rgba(172, 26, 46, 0.3);
+  box-shadow: 0 6px 15px rgba(15, 118, 110, 0.3);
 }
 
 .login-button:active:not(:disabled) {
@@ -331,13 +328,12 @@ const irARegistro = () => {
 }
 
 .login-button:disabled {
-  background-color: #d4a0a8;
+  background-color: #9CA3AF;
   cursor: not-allowed;
   transform: translateY(0px);
   box-shadow: none;
 }
 
-/* Spinner */
 .spinner {
   width: 18px;
   height: 18px;
@@ -351,14 +347,14 @@ const irARegistro = () => {
   to { transform: rotate(360deg); }
 }
 
-/* Opciones adicionales */
 .options-container {
   text-align: right;
   margin-top: 15px;
+  margin-bottom: 10px;
 }
 
 .forgot-link {
-  color: #AC1A2E;
+  color: #0F766E;
   text-decoration: none;
   font-size: 13px;
   font-weight: 500;
@@ -366,11 +362,10 @@ const irARegistro = () => {
 }
 
 .forgot-link:hover {
-  color: #8d1525;
+  color: #0D5F58;
   text-decoration: underline;
 }
 
-/* Registro */
 .register-container {
   text-align: center;
   margin-top: 25px;
@@ -381,7 +376,7 @@ const irARegistro = () => {
 }
 
 .register-link {
-  color: #AC1A2E;
+  color: #0F766E;
   text-decoration: none;
   font-weight: 600;
   margin-left: 5px;
@@ -389,11 +384,10 @@ const irARegistro = () => {
 }
 
 .register-link:hover {
-  color: #8d1525;
+  color: #0D5F58;
   text-decoration: underline;
 }
 
-/* Transición del error */
 .slide-fade-enter-active {
   transition: all 0.3s ease-out;
 }
