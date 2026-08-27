@@ -33,25 +33,22 @@ public class JwtTokenProvider {
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
         return Jwts.builder()
-                .subject(usuario.getId().toString())
+                .subject(String.valueOf(usuario.getId().value()))
                 .claim("correo", usuario.getCorreoElectronico())
                 .claim("rol", rol)
-                .claim("idUsuario", usuario.getId())
+                .claim("idUsuario", usuario.getId().value())
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(getSigningKey())
                 .compact();
     }
 
-    /**
-     * Genera token para recuperación de contraseña
-     */
     public String generatePasswordResetToken(Usuario usuario) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + passwordResetExpirationMs);
 
         return Jwts.builder()
-                .subject(usuario.getId().toString())
+                .subject(String.valueOf(usuario.getId().value()))
                 .claim("tipo", "PASSWORD_RESET")
                 .claim("correo", usuario.getCorreoElectronico())
                 .issuedAt(now)

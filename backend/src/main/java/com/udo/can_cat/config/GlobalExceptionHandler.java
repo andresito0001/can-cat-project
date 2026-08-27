@@ -1,9 +1,9 @@
 package com.udo.can_cat.config;
 
+import com.udo.can_cat.mascotas.application.service.MascotaApplicationService;
 import com.udo.can_cat.usuarios.application.service.CredencialesInvalidasException;
 import com.udo.can_cat.usuarios.application.service.CuentaInactivaException;
 import com.udo.can_cat.usuarios.application.service.RegistroException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -118,4 +119,16 @@ public class GlobalExceptionHandler {
             String error,
             String message
     ) {}
+
+    @ExceptionHandler(MascotaApplicationService.MascotaRegistrationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<ErrorResponse> handleMascotaRegistration(MascotaApplicationService.MascotaRegistrationException ex) {
+        ErrorResponse error = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                "Error de registro de mascota",
+                ex.getMessage()
+        );
+        return ResponseEntity.badRequest().body(error);
+    }
 }

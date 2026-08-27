@@ -46,7 +46,7 @@ public class EmailServiceImpl implements EmailService {
         //     throw new RuntimeException("No se pudo enviar el correo de recuperación");
         // }
 
-        String enlace = frontendUrl + "/nueva-contrasena?token=" + token;
+        String enlace = frontendUrl + "/auth/nueva-contrasena?token=" + token;
     
         // === MODO DESARROLLO: Loguea en consola ===
         logger.info("╔════════════════════════════════════════════════════════════╗");
