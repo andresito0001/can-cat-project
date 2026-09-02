@@ -2,6 +2,9 @@ package com.udo.can_cat.usuarios.infrastructure.persistence;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Repository;
 import com.udo.can_cat.usuarios.domain.entity.Personal;
 import com.udo.can_cat.usuarios.domain.entity.Personal.Cargo;
@@ -55,8 +58,17 @@ public class PersonalRepositoryImpl implements PersonalRepository {
 
     @Override
     public Optional<Personal> findByUsuarioId(UsuarioId id) {
-        PersonalJpaEntity entity = em.find(PersonalJpaEntity.class, id.value());
-        return Optional.ofNullable(entity).map(PersonalJpaEntity::toDomain);
+        String jpql = "SELECT p FROM PersonalJpaEntity p WHERE p.usuario.idUsuario = :usuarioId";
+        
+        try {
+            PersonalJpaEntity entity = em.createQuery(jpql, PersonalJpaEntity.class)
+                    .setParameter("usuarioId", id.value())
+                    .getSingleResult();
+            
+            return Optional.of(entity.toDomain());
+        } catch (NoResultException e) {
+            return Optional.empty();
+        }
     }
 
     @Override
@@ -141,5 +153,54 @@ public class PersonalRepositoryImpl implements PersonalRepository {
             .getSingleResult();
         
         return count > 0;
+    }
+
+    @Override
+    public List<Personal> findAllByCargoAndActivo(Cargo cargo, boolean activo) {
+        String jpql = "SELECT p FROM PersonalJpaEntity p WHERE p.cargo = :cargo AND p.activo = :activo";
+        
+        return em.createQuery(jpql, PersonalJpaEntity.class)
+                .setParameter("cargo", cargo.getDbValue())
+                .setParameter("activo", activo)
+                .getResultList()
+                .stream()
+                .map(PersonalJpaEntity::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<Personal> findAllByIds(Set<PersonalId> ids) {
+        if (ids == null || ids.isEmpty()) return List.of();
+        Set<Integer> rawIds = ids.stream()
+                .map(Personal.PersonalId::value)
+                .collect(Collectors.toSet());
+        String jpql = "SELECT p FROM PersonalJpaEntity p WHERE p.idPersonal IN :ids";
+        return em.createQuery(jpql, PersonalJpaEntity.class)
+                .setParameter("ids", rawIds)
+                .getResultList()
+                .stream()
+                .map(PersonalJpaEntity::toDomain)
+                .toList();
+    }
+
+    @Override
+    public Optional<Personal> findByIdAndCargoAndActivo(
+            Personal.PersonalId id, 
+            Personal.Cargo cargo, 
+            boolean activo) {
+
+        String jpql = "SELECT p FROM PersonalJpaEntity p " +
+                    "WHERE p.idPersonal = :idPersonal AND p.cargo = :cargo AND p.activo = :activo";
+
+        try {
+            PersonalJpaEntity entity = em.createQuery(jpql, PersonalJpaEntity.class)
+                    .setParameter("idPersonal", id.value())
+                    .setParameter("cargo", cargo.getDbValue())
+                    .setParameter("activo", activo)
+                    .getSingleResult();
+            return Optional.of(entity.toDomain());
+        } catch (NoResultException e) {
+            return Optional.empty();
+        }
     }
 }

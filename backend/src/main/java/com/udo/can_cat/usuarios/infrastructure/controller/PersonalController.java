@@ -29,7 +29,7 @@ public class PersonalController {
     public ResponseEntity<PersonalDTO> crear(@RequestBody PersonalDTO dto) {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(service.crearPeronal(dto));
+                .body(service.crearPersonal(dto));
     }
 
     @DeleteMapping("/{id}")

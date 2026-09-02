@@ -9,6 +9,7 @@ import java.util.Objects;
 public class Personal {
     private PersonalId personalId;
     private UsuarioId usuarioId;
+    private String nombreCompleto;
     private CodigoEmpleado codigoEmpleado;
     private Cargo cargo;
     private Especialidad especialidad;
@@ -21,6 +22,7 @@ public class Personal {
 
     public Personal(PersonalId personalId,
                     UsuarioId usuarioId,
+                    String nombreCompleto,
                     CodigoEmpleado codigoEmpleado,
                     Cargo cargo,
                     Especialidad especialidad,
@@ -32,6 +34,7 @@ public class Personal {
                     LocalDateTime updatedAt) {
         this.personalId = personalId;
         this.usuarioId = Objects.requireNonNull(usuarioId, "usuarioId no puede ser nulo");
+        this.nombreCompleto = nombreCompleto;
         this.codigoEmpleado = Objects.requireNonNull(codigoEmpleado, "codigoEmpleado no puede ser nulo");
         this.cargo = Objects.requireNonNull(cargo, "cargo no puede ser nulo");
         this.especialidad = especialidad;
@@ -55,6 +58,7 @@ public class Personal {
     public LicenciaProfesional getLicenciaProfesional() { return licenciaProfesional; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public String getNombreCompleto() { return nombreCompleto; }
 
     public record PersonalId(Integer value) {
         public PersonalId {

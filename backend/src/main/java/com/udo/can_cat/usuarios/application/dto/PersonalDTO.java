@@ -7,6 +7,7 @@ import java.util.Map;
 public record PersonalDTO (
     Integer personalId,     
     Integer usuarioId, 
+    String nombreCompleto,
     String codigoEmpleado,
     String cargo,
     String especialidad,

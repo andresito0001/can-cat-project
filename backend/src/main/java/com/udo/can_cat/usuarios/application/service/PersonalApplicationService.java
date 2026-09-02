@@ -21,7 +21,7 @@ public class PersonalApplicationService {
         this.usuarioRepository = usuarioRepository;
     }
 
-    public PersonalDTO crearPeronal(PersonalDTO dto) {
+    public PersonalDTO crearPersonal(PersonalDTO dto) {
         UsuarioId usuarioId = new UsuarioId(dto.usuarioId());
         usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new IllegalArgumentException("El usuario no existe"));
@@ -33,7 +33,7 @@ public class PersonalApplicationService {
                 .ifPresent(c -> { throw new IllegalStateException("El usuario ya tiene un personal asociado"); });
            
         return toDTO(personalRepository.save (
-            new Personal(null, usuarioId, 
+            new Personal(null, usuarioId, dto.nombreCompleto(),
                 new CodigoEmpleado(dto.codigoEmpleado()),
                 Cargo.fromDbValue(dto.cargo()),
                 new Especialidad(dto.especialidad()),
@@ -105,6 +105,7 @@ public class PersonalApplicationService {
         return new PersonalDTO (
             personal.getPersonalId() != null ? personal.getPersonalId().value() : null,
             personal.getUsuarioId().value(),
+            personal.getNombreCompleto(),
             personal.getCodigoEmpleado().value(),
             personal.getCargo().getDbValue(),
             personal.getEspecialidad().value(),

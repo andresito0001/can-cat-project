@@ -26,6 +26,9 @@ public class PersonalJpaEntity {
     @JoinColumn(name = "id_usuario", nullable = false, foreignKey = @ForeignKey(name = "fk_personal_usuario"))
     private UsuarioJpaEntity usuario;
 
+    @Column(name = "nombre_completo", nullable = false, length = 150)
+    private String nombreCompleto;
+
     @Column(name = "codigo_empleado", length = 20, nullable = false, unique = true)
     private String codigoEmpleado;
 
@@ -85,6 +88,8 @@ public class PersonalJpaEntity {
             entity.setUsuario(usuarioRef);
         }
 
+        entity.setNombreCompleto(domain.getNombreCompleto());
+
         entity.setCodigoEmpleado(domain.getCodigoEmpleado().value());
         entity.setCargo(domain.getCargo().getDbValue()); 
         
@@ -117,6 +122,7 @@ public class PersonalJpaEntity {
         return new Personal(
                 new Personal.PersonalId(this.idPersonal),
                 new UsuarioId(this.usuario.getIdUsuario()),
+                this.nombreCompleto,
                 new Personal.CodigoEmpleado(this.codigoEmpleado),
                 Personal.Cargo.fromDbValue(this.cargo), 
                 this.especialidad != null ? new Personal.Especialidad(this.especialidad) : null,
@@ -140,6 +146,7 @@ public class PersonalJpaEntity {
     public String getLicenciaProfesional() { return licenciaProfesional; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public String getNombreCompleto() { return nombreCompleto; }
 
     public void setIdPersonal(Integer idPersonal) { this.idPersonal = idPersonal; }
     public void setUsuario(UsuarioJpaEntity usuario) { this.usuario = usuario; }
@@ -152,4 +159,5 @@ public class PersonalJpaEntity {
     public void setLicenciaProfesional(String licenciaProfesional) { this.licenciaProfesional = licenciaProfesional; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public void setNombreCompleto(String nombreCompleto) { this.nombreCompleto = nombreCompleto; }
 }
