@@ -9,3 +9,5 @@ export const getRazasPorEspecie = (idEspecie) => api.get(`/especies/${idEspecie}
 export const registrarMascota = (payload) => api.post('/mascotas', payload)
 
 export const getMisMascotas = () => api.get('/mascotas/mias')
+
+export const getMascotasPorCliente = (idCliente) => api.get(`/mascotas/por-cliente/${idCliente}`)

@@ -8,6 +8,8 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -64,5 +66,30 @@ public class ClienteRepositoryImpl implements ClienteRepository {
         if (entity != null) {
             em.remove(entity);
         }
+    }
+
+    @Override
+    public List<Cliente> findAll() {
+        String jpql = "SELECT c FROM ClienteJpaEntity c ORDER BY c.nombreCompleto";
+        return em.createQuery(jpql, ClienteJpaEntity.class)
+                .getResultList()
+                .stream()
+                .map(ClienteJpaEntity::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<Cliente> buscarPorFiltro(String filtro) {
+        String patron = "%" + filtro.toLowerCase() + "%";
+        String jpql = "SELECT c FROM ClienteJpaEntity c " +
+                      "WHERE LOWER(c.nombreCompleto) LIKE :patron " +
+                      "OR LOWER(c.documentoIdentidad) LIKE :patron " +
+                      "ORDER BY c.nombreCompleto";
+        return em.createQuery(jpql, ClienteJpaEntity.class)
+                .setParameter("patron", patron)
+                .getResultList()
+                .stream()
+                .map(ClienteJpaEntity::toDomain)
+                .toList();
     }
 }

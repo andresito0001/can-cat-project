@@ -76,4 +76,55 @@ public class EmailServiceImpl implements EmailService {
                 El equipo de CanCat Veterinaria
                 """.formatted(enlace);
     }
+
+    @Override
+    // Sin @Async a propósito: así el servicio puede capturar el fallo de envío
+    // y reportarlo al recepcionista (opción b acordada).
+    public void enviarCorreoInvitacionCliente(String correoDestino, String nombreCliente, String token) {
+        String enlace = frontendUrl + "/auth/nueva-contrasena?token=" + token;
+
+        // === MODO DESARROLLO: Loguea en consola ===
+        logger.info("╔════════════════════════════════════════════════════════════╗");
+        logger.info("║              Invitación de Nuevo Cliente                    ║");
+        logger.info("╠════════════════════════════════════════════════════════════╣");
+        logger.info("║  Para:      {}", correoDestino);
+        logger.info("║  Cliente:   {}", nombreCliente);
+        logger.info("║  Enlace:    {}", enlace);
+        logger.info("╚════════════════════════════════════════════════════════════╝");
+
+        // === MODO PRODUCCIÓN: descomentar cuando activen el envío real ===
+        // try {
+        //     SimpleMailMessage message = new SimpleMailMessage();
+        //     message.setFrom(emailFrom);
+        //     message.setTo(correoDestino);
+        //     message.setSubject("Bienvenido a CanCat Veterinaria - Defina su contraseña");
+        //     message.setText(buildInvitacionContent(nombreCliente, enlace));
+        //     mailSender.send(message);
+        //     logger.info("Correo de invitación enviado a: {}", correoDestino);
+        // } catch (Exception e) {
+        //     logger.error("Error al enviar invitación a {}: {}", correoDestino, e.getMessage());
+        //     throw new RuntimeException("No se pudo enviar el correo de invitación");
+        // }
+    }
+
+    private String buildInvitacionContent(String nombreCliente, String enlace) {
+        return """
+                ¡Hola, %s!
+
+                Su perfil de cliente ha sido creado en CanCat Veterinaria por nuestro
+                personal de recepción.
+
+                Para acceder al sistema, defina su contraseña haciendo clic en el
+                siguiente enlace:
+
+                %s
+
+                Este enlace expirará en 24 horas por razones de seguridad.
+
+                Si usted no solicitó este registro, puede ignorar este correo.
+
+                Saludos cordiales,
+                El equipo de CanCat Veterinaria
+                """.formatted(nombreCliente, enlace);
+    }
 }

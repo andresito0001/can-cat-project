@@ -96,17 +96,6 @@ public class MascotaApplicationService {
 
     private ClienteId resolverClienteId(RegistrarMascotaRequestDTO request,
                                         UsuarioAutenticado usuarioAutenticado) {
-                                                System.out.println(usuarioAutenticado.correo());
-                System.out.println(usuarioAutenticado.correo());
-                System.out.println(usuarioAutenticado.correo());
-                System.out.println(usuarioAutenticado.correo());
-                System.out.println(usuarioAutenticado.correo());
-                System.out.println(usuarioAutenticado.correo());
-                System.out.println(usuarioAutenticado.correo());
-                System.out.println(usuarioAutenticado.correo());
-                System.out.println(usuarioAutenticado.correo());
-                System.out.println(usuarioAutenticado.correo());
-                System.out.println(usuarioAutenticado.correo());
         return switch (usuarioAutenticado.rol()) {
             case "Cliente" -> {
                 if (request.documentoIdentidadCliente() != null) {
@@ -186,6 +175,24 @@ public class MascotaApplicationService {
                 })
                 .toList();
         }
+
+        // En MascotaApplicationService:
+        @Transactional(readOnly = true)
+        public List<MascotaRegistradaResponseDTO> listarMascotasPorIdCliente(Integer idCliente) {
+                Cliente cliente = clienteRepository.findById(new Cliente.ClienteId(idCliente))
+                        .orElseThrow(() -> new MascotaRegistrationException("Cliente no encontrado"));
+
+                return mascotaRepository.findByClienteId(cliente.getId()).stream()
+                        .map(mascota -> construirRespuesta(
+                                mascota, cliente,
+                                especieRepository.findById(mascota.getEspecieId()).orElse(null),
+                                mascota.getRazaId() != null
+                                        ? razaRepository.findById(mascota.getRazaId()).orElse(null)
+                                        : null))
+                        .toList();
+        }
+
+
     // Record para encapsular los datos del usuario autenticado que necesita el servicio
     public record UsuarioAutenticado(String correo, String rol) {}
 

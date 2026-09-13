@@ -38,6 +38,12 @@ public interface CitaRepository {
                                List<Integer> idsEstadosActivos);
     
     List<Object[]> findCitasWithMascotaNombreByClienteId(ClienteId clienteId);
-
     public Cita toDomain(CitaJpaEntity entity);
+    
+    List<Cita> buscarActivasPorRangoFechas(LocalDate fechaInicio,
+                                           LocalDate fechaFin,
+                                           List<Integer> idsEstadosActivos);
+
+    List<Cita> buscarPorIdEstado(Integer idEstado);
+
 }

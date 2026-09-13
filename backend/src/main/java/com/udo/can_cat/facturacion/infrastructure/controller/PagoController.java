@@ -121,6 +121,7 @@ public class PagoController {
      */
     @GetMapping("/facturas/{id}/descargar")
     public ResponseEntity<byte[]> descargarFactura(@PathVariable Integer id) {
+        pagoService.validarAccesoFactura(id);
         var datos = pagoService.obtenerDatosPdf(id);
         byte[] pdf = pdfGenerator.generar(datos);
 
@@ -130,6 +131,48 @@ public class PagoController {
         headers.setContentLength(pdf.length);
 
         return ResponseEntity.ok().headers(headers).body(pdf);
+    }
+
+    /**
+     * GET /api/pagos/historial
+     * Retorna el historial de pagos y facturas del cliente autenticado,
+     * ordenado de la más reciente a la más antigua.
+     */
+    @GetMapping("/historial")
+    public ResponseEntity<List<HistorialPagoResponseDTO>> obtenerHistorialPagos() {
+        return ResponseEntity.ok(pagoService.obtenerHistorialPagos());
+    }
+
+
+        /**
+     * GET /api/pagos/metodos-presenciales
+     * CU 4.6.1.11 paso 5: Efectivo, Tarjeta (punto), Pago_Movil.
+     */
+    @GetMapping("/metodos-presenciales")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('Recepcionista')")
+    public ResponseEntity<List<MetodoPagoDTO>> listarMetodosPresenciales() {
+        return ResponseEntity.ok(pagoService.listarMetodosPresenciales());
+    }
+
+    /**
+     * POST /api/pagos/facturas/{id}/enviar
+     * CU 4.6.1.11 paso 8: envío del comprobante "si el cliente lo solicita".
+     */
+    @PostMapping("/facturas/{id}/enviar")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('Recepcionista')")
+    public ResponseEntity<EnvioFacturaResponseDTO> enviarFactura(@PathVariable Integer id) {
+        var datos = pagoService.obtenerDatosPdf(id);
+        byte[] pdf = pdfGenerator.generar(datos);
+
+        if (datos.clienteEmail() == null || datos.clienteEmail().isBlank()) {
+            return ResponseEntity.ok(new EnvioFacturaResponseDTO(false,
+                    "El cliente no tiene correo electrónico registrado."));
+        }
+        boolean ok = emailService.enviarFactura(
+                datos.clienteEmail(), pdf, datos.numeroControl(), datos.clienteNombre());
+        return ResponseEntity.ok(new EnvioFacturaResponseDTO(ok, ok
+                ? "Factura enviada a " + datos.clienteEmail()
+                : "No se pudo enviar el correo. Intente nuevamente o entregue la copia impresa."));
     }
 
     private Integer obtenerIdUsuarioActual() {

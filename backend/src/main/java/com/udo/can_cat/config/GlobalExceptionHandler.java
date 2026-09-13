@@ -1,5 +1,7 @@
 package com.udo.can_cat.config;
 
+import com.udo.can_cat.facturacion.domain.exception.FacturacionException;
+import org.springframework.security.access.AccessDeniedException;
 import com.udo.can_cat.citas.domain.exception.CitaNoEncontradaException;
 import com.udo.can_cat.citas.domain.exception.HorarioNoDisponibleException;
 import com.udo.can_cat.citas.domain.exception.MascotaNoPerteneceAlClienteException;
@@ -147,6 +149,22 @@ public class GlobalExceptionHandler {
                 "Error interno del servidor", "Ha ocurrido un error inesperado"));
     }
 
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
+        logger.warn("Acceso denegado: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorResponse(
+                LocalDateTime.now(), HttpStatus.FORBIDDEN.value(),
+                "Acceso denegado", "No tiene permisos para realizar esta operación"));
+    }
+
+    @ExceptionHandler(FacturacionException.class)
+    public ResponseEntity<ErrorResponse> handleFacturacion(FacturacionException ex) {
+        logger.warn("Error de facturación: {}", ex.getMessage());
+        return ResponseEntity.badRequest().body(new ErrorResponse(
+                LocalDateTime.now(), HttpStatus.BAD_REQUEST.value(),
+                "Error de facturación", ex.getMessage()));
+    }
+    
     // ================================================================
     // RECORD DE RESPUESTA
     // ================================================================

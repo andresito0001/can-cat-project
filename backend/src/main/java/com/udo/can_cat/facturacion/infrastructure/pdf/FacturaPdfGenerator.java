@@ -140,9 +140,11 @@ public class FacturaPdfGenerator {
 
             // ─── MÉTODO DE PAGO ───
             document.add(new Paragraph("Método de pago: " + datos.metodoPago(), infoFont));
-            document.add(new Paragraph("Estado: Pendiente de verificación", new Font(Font.HELVETICA, 9, Font.ITALIC, GRAY_TEXT)));
-
-            // ─── PIE ───
+            document.add(new Paragraph("Estado: " + (datos.stadoPago() != null
+                            ? datos.stadoPago().replace("_", " ") : "Emitida"),
+                            new Font(Font.HELVETICA, 9, Font.ITALIC, GRAY_TEXT)));
+            
+                            // ─── PIE ───
             document.add(new Paragraph(" "));
             document.add(new LineSeparator(0.5f, 100f, GRAY_TEXT, Element.ALIGN_CENTER, 0f));
             Font footerFont = new Font(Font.HELVETICA, 8, Font.ITALIC, GRAY_TEXT);

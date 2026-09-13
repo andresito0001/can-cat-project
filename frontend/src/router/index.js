@@ -27,22 +27,25 @@ const routes = [
       { path: 'solicitar-cita', name: 'RequestAppointment', component: () => import('@/views/cliente/RequestAppointmentView.vue') },
       { path: 'historial-pagos', name: 'PaymentHistory', component: () => import('@/views/cliente/PaymentHistoryView.vue') },
       { path: 'historial-clinico', name: 'PetHistory', component: () => import('@/views/cliente/PetHistoryView.vue') },
+      { path: 'mis-citas', name: 'MyAppointments', component: () => import('@/views/cliente/MyAppointmentsView.vue') }
     ]
   },
   
-//   // ─── RECEPCIONISTA ───
-//   {
-//     path: '/recepcion',
-//     component: () => import('@/layouts/ReceptionistLayout.vue'),
-//     meta: { requiresAuth: true, role: 'Recepcionista' },
-//     children: [
-//       { path: 'dashboard', name: 'ReceptionistDashboard', component: () => import('@/views/recepcion/DashboardReceptionistView.vue') },
-//       { path: 'citas', name: 'ManageAppointments', component: () => import('@/views/recepcion/ManageAppointmentsView.vue') },
-//       { path: 'registrar-cliente', name: 'RegisterClient', component: () => import('@/views/recepcion/RegisterClientView.vue') },
-//       { path: 'registrar-mascota', name: 'RegisterPetReception', component: () => import('@/views/recepcion/RegisterPetView.vue') },
-//       { path: 'cobrar', name: 'CounterPayment', component: () => import('@/views/recepcion/CounterPaymentView.vue') },
-//     ]
-//   },
+  // ─── RECEPCIONISTA ───
+  {
+    path: '/recepcion',
+    component: () => import('@/layouts/ReceptionistLayout.vue'),
+    meta: { requiresAuth: true, role: 'Recepcionista' },
+    children: [
+      { path: 'dashboard', name: 'ReceptionistDashboard', component: () => import('@/views/recepcion/DashboardReceptionistView.vue') },
+      { path: 'citas', name: 'ManageAppointments', component: () => import('@/views/recepcion/GestionCitasView.vue') },
+      { path: 'citas/nueva', name: 'NuevaReservaMostrador', component: () => import('@/views/recepcion/AgendarCitaMostradorView.vue') },
+      { path: 'clientes', name: 'ManageClients', component: () => import('@/views/recepcion/ClientesView.vue') },
+      { path: 'clientes/nuevo', name: 'RegisterClient', component: () => import('@/views/recepcion/RegistrarClienteView.vue') },
+      { path: 'registrar-mascota', name: 'RegisterPetReception', component: () => import('@/views/recepcion/RegisterPetView.vue') },
+      { path: 'cobrar', name: 'CounterPayment', component: () => import('@/views/recepcion/CounterPaymentView.vue') },
+    ]
+  },
   
 //   // ─── VETERINARIO ───
 //   {

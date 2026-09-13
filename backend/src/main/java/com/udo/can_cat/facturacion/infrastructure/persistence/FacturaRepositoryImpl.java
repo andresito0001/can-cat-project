@@ -7,6 +7,7 @@ import jakarta.persistence.PersistenceContext;
 import com.udo.can_cat.facturacion.domain.entity.Factura;
 import com.udo.can_cat.facturacion.domain.repository.FacturaRepository;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -69,5 +70,17 @@ public class FacturaRepositoryImpl implements FacturaRepository {
                 .setParameter("fecha", fecha)
                 .getSingleResult();
         return count != null ? count : 0;
+    }
+
+    @Override
+    public List<Factura> buscarPorClienteId(Integer idCliente) {
+        return em.createQuery(
+                    "SELECT f FROM FacturaJpaEntity f WHERE f.idCliente = :idCliente ORDER BY f.id DESC",
+                    FacturaJpaEntity.class)
+                .setParameter("idCliente", idCliente)
+                .getResultList()
+                .stream()
+                .map(FacturaJpaEntity::toDomain)
+                .toList();
     }
 }

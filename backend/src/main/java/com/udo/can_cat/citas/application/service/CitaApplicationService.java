@@ -291,50 +291,58 @@ public class CitaApplicationService {
                 "La cita ha sido cancelada exitosamente."
         );
     }
-
+    
     // ================================================================
     // MIS CITAS
     // ================================================================
-        public List<MisCitasResponseDTO> obtenerMisCitas() {
+
+    /** Mantener compatibilidad con llamadas existentes sin filtro. */
+    public List<MisCitasResponseDTO> obtenerMisCitas() {
+        return obtenerMisCitas(null);
+    }
+
+    public List<MisCitasResponseDTO> obtenerMisCitas(String estadoFiltro) {
         Integer idCliente = obtenerIdClienteActual();
         if (idCliente == null) return List.of();
 
         List<Object[]> resultados = citaRepository.findCitasWithMascotaNombreByClienteId(new Cliente.ClienteId(idCliente));
         if (resultados.isEmpty()) return List.of();
 
-        // Separar citas y nombres de mascotas
         List<Cita> citas = new ArrayList<>();
         Map<Integer, String> nombresMascotas = new HashMap<>();
         for (Object[] fila : resultados) {
-               CitaJpaEntity entity = (CitaJpaEntity) fila[0];
-                Cita cita = citaRepository.toDomain(entity);
-                String nombreMascota = (String) fila[1];
-                citas.add(cita);
-                nombresMascotas.put(cita.getIdMascota(), nombreMascota);
+            CitaJpaEntity entity = (CitaJpaEntity) fila[0];
+            Cita cita = citaRepository.toDomain(entity);
+            String nombreMascota = (String) fila[1];
+            citas.add(cita);
+            nombresMascotas.put(cita.getIdMascota(), nombreMascota);
         }
 
-        // Cargar datos auxiliares solo para las citas obtenidas
         Map<Integer, String> nombresServicios = cargarNombresServicios(citas);
-        Map<Integer, EstadoCita> estadosPorId = cargarEstados(); // solo los necesarios
+        Map<Integer, EstadoCita> estadosPorId = cargarEstados();
         Map<Integer, String> nombresVets = cargarNombresVeterinarios(citas);
 
-        return citas.stream().map(cita -> {
-                EstadoCita estado = estadosPorId.get(cita.getIdEstado());
-                return new MisCitasResponseDTO(
-                        cita.getId(),
-                        nombresMascotas.getOrDefault(cita.getIdMascota(), "Desconocida"),
-                        nombresVets.getOrDefault(cita.getIdVeterinario(), "Por asignar"),
-                        nombresServicios.getOrDefault(cita.getIdServicio(), "Desconocido"),
-                        estado != null ? estado.getNombre() : "Desconocido",
-                        estado != null ? estado.getColorUi() : "#6C757D",
-                        cita.getFechaCita().toString(),
-                        cita.getHoraInicio().toString(),
-                        cita.getHoraFin() != null ? cita.getHoraFin().toString() : "",
-                        cita.getCostoUsd(),
-                        cita.getCostoBs()
-                );
-        }).toList();
-        }
+        return citas.stream()
+                .map(cita -> {
+                    EstadoCita estado = estadosPorId.get(cita.getIdEstado());
+                    return new MisCitasResponseDTO(
+                            cita.getId(),
+                            nombresMascotas.getOrDefault(cita.getIdMascota(), "Desconocida"),
+                            nombresVets.getOrDefault(cita.getIdVeterinario(), "Por asignar"),
+                            nombresServicios.getOrDefault(cita.getIdServicio(), "Desconocido"),
+                            estado != null ? estado.getNombre() : "Desconocido",
+                            estado != null ? estado.getColorUi() : "#6C757D",
+                            cita.getFechaCita().toString(),
+                            cita.getHoraInicio().toString(),
+                            cita.getHoraFin() != null ? cita.getHoraFin().toString() : "",
+                            cita.getCostoUsd(),
+                            cita.getCostoBs()
+                    );
+                })
+                .filter(dto -> estadoFiltro == null || estadoFiltro.isBlank()
+                        || dto.estado().equalsIgnoreCase(estadoFiltro.trim()))
+                .toList();
+    }
 
     // ================================================================
     // FILTRAR BLOQUES LIBRES (usado por DisponibilidadApplicationService)

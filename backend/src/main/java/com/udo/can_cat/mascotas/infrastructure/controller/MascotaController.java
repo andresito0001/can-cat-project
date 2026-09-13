@@ -49,6 +49,17 @@ public class MascotaController {
         return ResponseEntity.ok(mascotaService.listarMascotasDeCliente(usuarioAutenticado));
     }
 
+    /**
+     * GET /api/mascotas/por-cliente/{idCliente}
+     * CU 4.6.1.11 paso 3: mascotas del cliente seleccionado (rol Recepcionista).
+     */
+    @GetMapping("/por-cliente/{idCliente}")
+    @PreAuthorize("hasRole('Recepcionista')")
+    public ResponseEntity<List<MascotaRegistradaResponseDTO>> listarMascotasPorCliente(
+            @PathVariable Integer idCliente) {
+        return ResponseEntity.ok(mascotaService.listarMascotasPorIdCliente(idCliente));
+    }
+
     private UsuarioAutenticado obtenerUsuarioAutenticado(HttpServletRequest request) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 

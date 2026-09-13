@@ -60,10 +60,23 @@ public class CitaRepositoryImpl implements CitaRepository {
     public List<Object[]> findCitasWithMascotaNombreByClienteId(ClienteId clienteId) {
         return jpaRepository.findCitasWithMascotaNombreByClienteId(clienteId.value());
     }
+
+    @Override
+    public List<Cita> buscarActivasPorRangoFechas(LocalDate fechaInicio, LocalDate fechaFin,
+                                                List<Integer> idsEstadosActivos) {
+        return jpaRepository.buscarActivasPorRangoFechas(fechaInicio, fechaFin, idsEstadosActivos)
+                .stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public List<Cita> buscarPorIdEstado(Integer idEstado) {
+        return jpaRepository.buscarPorIdEstado(idEstado).stream().map(this::toDomain).toList();
+    }
     
     public Cita toDomain(CitaJpaEntity entity) {
-    return mapper.toDomain(entity);
-}
+        return mapper.toDomain(entity);
+    }
+
     // --- Mapper interno ---
 
     private static class CitaJpaEntityMapper {

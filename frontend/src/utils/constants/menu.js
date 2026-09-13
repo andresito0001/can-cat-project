@@ -7,11 +7,12 @@ export const MENU_ITEMS = {
     { label: 'Solicitar Cita', icon: 'CalendarPlus', route: '/cliente/solicitar-cita' },
     { label: 'Historial de Pagos', icon: 'CreditCard', route: '/cliente/historial-pagos' },
     { label: 'Historial Clínico', icon: 'Stethoscope', route: '/cliente/historial-clinico' },
+    { label: 'Mis Citas', icon: 'CalendarDays', route: '/cliente/mis-citas' },
   ],
   [ROLES.RECEPTIONIST]: [
     { label: 'Dashboard', icon: 'LayoutDashboard', route: '/recepcion/dashboard' },
     { label: 'Gestionar Citas', icon: 'CalendarDays', route: '/recepcion/citas' },
-    { label: 'Registrar Cliente', icon: 'UserPlus', route: '/recepcion/registrar-cliente' },
+    { label: 'Gestión de Clientes', icon: 'Users', route: '/recepcion/clientes' },
     { label: 'Registrar Mascota', icon: 'Dog', route: '/recepcion/registrar-mascota' },
     { label: 'Cobrar en Mostrador', icon: 'Banknote', route: '/recepcion/cobrar' },
   ],

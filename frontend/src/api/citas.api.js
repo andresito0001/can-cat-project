@@ -14,4 +14,15 @@ export const confirmarPago = (id) => api.post(`/citas/${id}/confirmar-pago`)
 
 export const cancelarCita = (id) => api.post(`/citas/${id}/cancelar`)
 
-export const getMisCitas = () => api.get('/citas/mis-citas')
+export const getMisCitas = (estado) =>
+  estado ? api.get('/citas/mis-citas', { params: { estado } }) : api.get('/citas/mis-citas')
+
+export const getAgenda = (params) => api.get('/citas/agenda', { params })
+
+export const agendarMostrador = (data) => api.post('/citas/agenda-mostrador', data)
+
+export const getPendientesPago = () => api.get('/citas/pendientes-pago')
+
+export const cobrarCitaMostrador = (id, data) => api.post(`/citas/${id}/cobrar-mostrador`, data)
+
+export const cambiarEstadoCita = (id, estado) => api.post(`/citas/${id}/cambiar-estado`, { estado })

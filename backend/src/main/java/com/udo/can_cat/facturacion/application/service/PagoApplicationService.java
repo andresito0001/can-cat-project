@@ -2,6 +2,7 @@ package com.udo.can_cat.facturacion.application.service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -21,6 +22,7 @@ import com.udo.can_cat.citas.domain.exception.OperacionNoPermitidaException;
 import com.udo.can_cat.citas.domain.repository.CitaRepository;
 import com.udo.can_cat.citas.domain.repository.EstadoCitaRepository;
 import com.udo.can_cat.citas.domain.repository.ServicioRepository;
+import com.udo.can_cat.facturacion.application.dto.HistorialPagoResponseDTO;
 import com.udo.can_cat.facturacion.application.dto.MetodoPagoDTO;
 import com.udo.can_cat.facturacion.application.dto.ProcesarPagoCitaRequestDTO;
 import com.udo.can_cat.facturacion.application.dto.ProcesarPagoCitaResponseDTO;
@@ -41,6 +43,7 @@ import com.udo.can_cat.usuarios.domain.entity.Usuario.UsuarioId;
 import com.udo.can_cat.usuarios.domain.repository.ClienteRepository;
 import com.udo.can_cat.usuarios.domain.repository.PersonalRepository;
 import com.udo.can_cat.usuarios.domain.repository.UsuarioRepository;
+import java.util.List;
 
 @Service
 public class PagoApplicationService {
@@ -53,33 +56,35 @@ public class PagoApplicationService {
     private final ServicioRepository servicioRepo;
     private final MascotaRepository mascotaRepo;
     private final ClienteRepository clienteRepo;
-    // private final UsuarioRepository usuarioRepo;
-    PersonalRepository personalRepo;
+    private final PersonalRepository personalRepo;
     private final FacturaRepository facturaRepo;
     private final DetalleFacturaRepository detalleFacturaRepo;
     private final PagoRepository pagoRepo;
     private final MetodoPagoRepository metodoPagoRepo;
+    private final UsuarioRepository usuarioRepo;
 
     public PagoApplicationService(CitaRepository citaRepo,
                                   EstadoCitaRepository estadoCitaRepo,
                                   ServicioRepository servicioRepo,
                                   MascotaRepository mascotaRepo,
                                   ClienteRepository clienteRepo,
-                                  UsuarioRepository usuarioRepo,
+                                  PersonalRepository personalRepo,     
                                   FacturaRepository facturaRepo,
                                   DetalleFacturaRepository detalleFacturaRepo,
                                   PagoRepository pagoRepo,
-                                  MetodoPagoRepository metodoPagoRepo) {
+                                  MetodoPagoRepository metodoPagoRepo, 
+                                  UsuarioRepository usuarioRepository) {
         this.citaRepo = citaRepo;
         this.estadoCitaRepo = estadoCitaRepo;
         this.servicioRepo = servicioRepo;
         this.mascotaRepo = mascotaRepo;
         this.clienteRepo = clienteRepo;
-        // this.usuarioRepo = usuarioRepo;
+        this.personalRepo = personalRepo;                              
         this.facturaRepo = facturaRepo;
         this.detalleFacturaRepo = detalleFacturaRepo;
         this.pagoRepo = pagoRepo;
         this.metodoPagoRepo = metodoPagoRepo;
+        this.usuarioRepo = usuarioRepository;
     }
 
     // ═══════════════════════════════════════════════════
@@ -174,6 +179,7 @@ public class PagoApplicationService {
         pago.setIdMetodoPago(metodoPago.getId());
         pago.setIdCliente(idCliente);
         pago.setMonto(factura.getTotalNeto());
+        pago.setFechaPago(java.time.LocalDateTime.now());
         pago.setReferenciaTransaccion(request.referenciaTransaccion());
         pago.setEstadoPago("Pendiente_Verificacion");
         pago.setMetadataJson(request.datosPago() != null ? request.datosPago().entrySet().stream()
@@ -221,7 +227,9 @@ public class PagoApplicationService {
             BigDecimal subtotal,
             BigDecimal porcentajeIva,
             BigDecimal totalNeto,
-            String metodoPago
+            String metodoPago,
+            String clienteEmail,
+            String stadoPago 
     ) {}
 
     public DatosPdf obtenerDatosPdf(Integer idFactura) {
@@ -230,17 +238,23 @@ public class PagoApplicationService {
 
         java.util.List<DetalleFactura> detalles = detalleFacturaRepo.buscarPorFacturaId(idFactura);
 
-        // Datos del cliente
-        Cliente cliente = clienteRepo.findById(
-                new Cliente.ClienteId(obtenerIdClienteActual())
-        ).orElseThrow(() -> new FacturacionException("Cliente no encontrado"));
+        // FIX: cliente derivado de la FACTURA → funciona para cliente (dueño)
+        // y para recepcionista (descarga/envío en mostrador).
+        Cliente cliente = clienteRepo.findById(new Cliente.ClienteId(factura.getIdCliente()))
+                .orElseThrow(() -> new FacturacionException("Cliente no encontrado"));
 
-        // Obtener nombre del veterinario 
+        String emailCliente = usuarioRepo.findById(cliente.getUsuarioId())
+                .map(com.udo.can_cat.usuarios.domain.entity.Usuario::getCorreoElectronico)
+                .orElse(null);
+
         String vetNombre = personalRepo.findById(new Personal.PersonalId(factura.getIdPersonal()))
                 .map(Personal::getNombreCompleto)
                 .orElse("No asignado");
 
-        // Datos de la cita
+        String estadoPago = pagoRepo.buscarPorFacturaId(idFactura)
+                .map(Pago::getEstadoPago)
+                .orElse(factura.getEstadoFactura());
+
         String mascotaNombre = "-";
         String motivoConsulta = "-";
         String fechaCita = "-";
@@ -252,16 +266,12 @@ public class PagoApplicationService {
                     motivoConsulta = cita.getMotivoConsulta();
                     fechaCita = cita.getFechaCita() != null ? cita.getFechaCita().toString() : "-";
                     horaInicio = cita.getHoraInicio() != null ? cita.getHoraInicio().toString() : "-";
-
-                    // Buscar la mascota sin modificar variables dentro de lambda
-                    Optional<Mascota> mascotaOpt = mascotaRepo.findByClienteId(new Cliente.ClienteId(cliente.getId().value()))
+                    Optional<Mascota> mascotaOpt = mascotaRepo
+                            .findByClienteId(new Cliente.ClienteId(cliente.getId().value()))
                             .stream()
                             .filter(m -> m.getId().value().equals(cita.getIdMascota()))
                             .findFirst();
-
-                    if (mascotaOpt.isPresent()) {
-                        mascotaNombre = mascotaOpt.get().getNombre();
-                    }
+                    mascotaNombre = mascotaOpt.map(Mascota::getNombre).orElse("-");
                 }
             } catch (Exception ignored) {}
         }
@@ -285,8 +295,95 @@ public class PagoApplicationService {
                 factura.getSubtotal(),
                 factura.getPorcentajeIva() != null ? factura.getPorcentajeIva() : new BigDecimal("16.00"),
                 factura.getTotalNeto(),
-                factura.getMetodoPagoPrincipal()
+                factura.getMetodoPagoPrincipal(),
+                emailCliente,
+                estadoPago
         );
+    }
+
+    // ═══════════════════════════════════════════════════
+    // HISTORIAL DE PAGOS DEL CLIENTE
+    // ═══════════════════════════════════════════════════
+
+    @Transactional(readOnly = true)
+    public List<HistorialPagoResponseDTO> obtenerHistorialPagos() {
+        Integer idCliente = obtenerIdClienteActual();
+        if (idCliente == null) {
+            throw new OperacionNoPermitidaException("No se pudo identificar al cliente autenticado");
+        }
+
+        List<Factura> facturas = facturaRepo.buscarPorClienteId(idCliente);
+        if (facturas.isEmpty()) return List.of();
+
+        return facturas.stream().map(factura -> {
+            // Concepto: descripción del primer detalle de la factura
+            String concepto = detalleFacturaRepo.buscarPorFacturaId(factura.getId()).stream()
+                    .findFirst()
+                    .map(DetalleFactura::getDescripcion)
+                    .orElse("Servicio veterinario");
+
+            // Pago asociado (puede no existir si la factura vino de otro flujo)
+            Pago pago = pagoRepo.buscarPorFacturaId(factura.getId()).orElse(null);
+
+            // Fecha con fallback: fechaPago > fechaEmision > createdAt
+            LocalDateTime fecha = null;
+            if (pago != null && pago.getFechaPago() != null) {
+                fecha = pago.getFechaPago();
+            } else if (factura.getFechaEmision() != null) {
+                fecha = factura.getFechaEmision();
+            } else {
+                fecha = factura.getCreatedAt();
+            }
+
+            return new HistorialPagoResponseDTO(
+                    factura.getId(),
+                    factura.getNumeroControl(),
+                    fecha != null ? fecha.toString() : null,
+                    concepto,
+                    factura.getTotalNeto(),
+                    pago != null ? pago.getEstadoPago() : factura.getEstadoFactura(),
+                    factura.getMetodoPagoPrincipal(),
+                    pago != null ? pago.getReferenciaTransaccion() : null,
+                    factura.getIdCita()
+            );
+        }).toList();
+    }
+
+        // ═══════════════════════════════════════════════════
+    // MÉTODOS DE PAGO PRESENCIALES (CU 4.6.1.11 paso 5)
+    // ═══════════════════════════════════════════════════
+
+    public List<MetodoPagoDTO> listarMetodosPresenciales() {
+        // Presencial = todo menos Transferencia (Efectivo, Tarjeta, Pago_Movil)
+        return metodoPagoRepo.buscarActivos().stream()
+                .filter(m -> !"Transferencia".equals(m.getNombre()))
+                .map(m -> new MetodoPagoDTO(
+                        m.getId(),
+                        m.getNombre(),
+                        m.getDescripcion(),
+                        m.getDatosRequeridos() != null ? m.getDatosRequeridos() : Map.of()
+                ))
+                .toList();
+    }
+
+    /**
+     * CU 4.6.1.11: control de acceso a facturas.
+     * Recepcionista (y roles internos): acceso total. Cliente: solo sus facturas.
+     */
+    public void validarAccesoFactura(Integer idFactura) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return;
+        boolean esCliente = auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_Cliente".equals(a.getAuthority()));
+        if (!esCliente) return;
+
+        Integer idCliente = obtenerIdClienteActual();
+        Factura factura = facturaRepo.buscarPorId(idFactura)
+                .orElseThrow(() -> new FacturacionException("Factura no encontrada: " + idFactura));
+        if (idCliente == null || !factura.getIdCliente().equals(idCliente)) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "No tiene acceso a esta factura");
+        }
     }
 
     // ═══════════════════════════════════════════════════

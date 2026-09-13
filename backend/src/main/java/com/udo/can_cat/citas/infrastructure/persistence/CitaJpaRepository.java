@@ -3,7 +3,6 @@ package com.udo.can_cat.citas.infrastructure.persistence;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import com.udo.can_cat.usuarios.domain.entity.Cliente;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -50,4 +49,15 @@ public interface CitaJpaRepository extends JpaRepository<CitaJpaEntity, Integer>
         "WHERE c.idMascota = m.id AND m.idCliente = :clienteId")
     List<Object[]> findCitasWithMascotaNombreByClienteId(@Param("clienteId") Integer clienteId);
 
+    @Query("SELECT c FROM CitaJpaEntity c " +
+        "WHERE c.fechaCita >= :inicio AND c.fechaCita <= :fin " +
+        "AND c.idEstado IN :estados ORDER BY c.fechaCita ASC, c.horaInicio ASC")
+        java.util.List<CitaJpaEntity> buscarActivasPorRangoFechas(
+    @Param("inicio") LocalDate inicio,
+    @Param("fin") LocalDate fin,
+    @Param("estados") List<Integer> estados);
+    @org.springframework.data.jpa.repository.Query("SELECT c FROM CitaJpaEntity c " +
+        "WHERE c.idEstado = :estado ORDER BY c.fechaCita ASC, c.horaInicio ASC")
+    List<CitaJpaEntity> buscarPorIdEstado (
+                @org.springframework.data.repository.query.Param("estado") Integer estado);
 }

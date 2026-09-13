@@ -59,33 +59,6 @@ public class RegistroApplicationService {
 
         // 3. Crear entidad Usuario
         Usuario usuario = crearUsuario(request, rolCliente.getId());
-                System.out.println();
-        System.out.println();
-
-        System.out.println();
-        System.out.println();
-        System.out.println();
-        System.out.println();
-        System.out.println();
-        System.out.println();
-        System.out.println();
-        System.out.println();
-        System.out.println();
-        System.out.println();
-                System.out.println(rolCliente.getId());
-        System.out.println();
-        System.out.println();
-
-        System.out.println();
-        System.out.println();
-        System.out.println();
-        System.out.println();
-        System.out.println();
-        System.out.println();
-        System.out.println();
-        System.out.println();
-        System.out.println();
-        System.out.println();
 
         usuario = usuarioRepository.save(usuario);
         logger.info("Usuario creado con ID: {}", usuario.getId());
