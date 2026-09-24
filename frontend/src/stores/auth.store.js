@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import * as authApi from '@/api/auth.api'
+import { getApiErrorMessage } from '@/utils/apiError'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
@@ -31,18 +32,15 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       const { data } = await authApi.login(credentials)
-      
-      // DTO exacto del backend:
-      // data.accessToken, data.tokenType, data.expiresIn, data.usuario
+
       token.value = data.accessToken
       user.value = data.usuario
       localStorage.setItem('token', data.accessToken)
-      
+
       return { success: true }
     } catch (err) {
-      error.value = err.response?.data?.mensaje
-                 || err.response?.data?.message
-                 || 'Credenciales incorrectas'
+      // Usa el normalizador — maneja string, objeto de validación, o ausencia de response
+      error.value = getApiErrorMessage(err) || 'Credenciales incorrectas'
       return { success: false }
     } finally {
       isLoading.value = false
@@ -57,7 +55,7 @@ export const useAuthStore = defineStore('auth', () => {
       await authApi.register(data)
       return { success: true }
     } catch (err) {
-      error.value = err.response?.data?.mensaje || 'Error al registrar'
+      error.value = getApiErrorMessage(err) || 'Error al registrar'
       return { success: false }
     } finally {
       isLoading.value = false
@@ -72,7 +70,7 @@ export const useAuthStore = defineStore('auth', () => {
       const { data } = await authApi.recuperarPassword({ correoElectronico: correo })
       return { success: true, mensaje: data.mensaje || 'Revisa tu correo.' }
     } catch (err) {
-      error.value = err.response?.data?.mensaje || 'Error al procesar'
+      error.value = getApiErrorMessage(err) || 'Error al procesar'
       return { success: false }
     } finally {
       isLoading.value = false
@@ -90,7 +88,7 @@ export const useAuthStore = defineStore('auth', () => {
       })
       return { success: true }
     } catch (err) {
-      error.value = err.response?.data?.mensaje || 'No se pudo restablecer'
+      error.value = getApiErrorMessage(err) || 'No se pudo restablecer'
       return { success: false }
     } finally {
       isLoading.value = false
@@ -104,28 +102,28 @@ export const useAuthStore = defineStore('auth', () => {
     window.location.href = '/auth/login'
   }
 
-  // ─── MOCK para desarrollar dashboards sin backend ───
+  // ─── MOCK para desarrollar sin backend ───
   function mockLogin(roleName = 'Cliente') {
     const mocks = {
-      'Cliente': { 
-        id: 1, nombreCompleto: 'María González', correoElectronico: 'maria@email.com', 
-        rol: 'Cliente', permisos: ['mascotas:own', 'citas:own', 'facturas:own'] 
+      'Cliente': {
+        id: 1, nombreCompleto: 'María González', correoElectronico: 'maria@email.com',
+        rol: 'Cliente', permisos: ['mascotas:own', 'citas:own', 'facturas:own']
       },
-      'Recepcionista': { 
-        id: 2, nombreCompleto: 'Carlos Ruiz', correoElectronico: 'carlos@email.com', 
-        rol: 'Recepcionista', permisos: ['citas:*', 'facturas:*', 'pagos:*', 'clientes:read'] 
+      'Recepcionista': {
+        id: 2, nombreCompleto: 'Carlos Ruiz', correoElectronico: 'carlos@email.com',
+        rol: 'Recepcionista', permisos: ['citas:*', 'facturas:*', 'pagos:*', 'clientes:read']
       },
-      'Veterinario': { 
-        id: 3, nombreCompleto: 'Dra. Ana Pérez', correoElectronico: 'ana@email.com', 
-        rol: 'Veterinario', permisos: ['atenciones:*', 'historial:*', 'citas:read', 'productos:read'] 
+      'Veterinario': {
+        id: 3, nombreCompleto: 'Dra. Ana Pérez', correoElectronico: 'ana@email.com',
+        rol: 'Veterinario', permisos: ['atenciones:*', 'historial:*', 'citas:read', 'productos:read']
       },
-      'Encargado_Almacen': { 
-        id: 4, nombreCompleto: 'Luis Torres', correoElectronico: 'luis@email.com', 
-        rol: 'Encargado_Almacen', permisos: ['productos:*', 'movimientos:*', 'compras:*', 'proveedores:*'] 
+      'Encargado_Almacen': {
+        id: 4, nombreCompleto: 'Luis Torres', correoElectronico: 'luis@email.com',
+        rol: 'Encargado_Almacen', permisos: ['productos:*', 'movimientos:*', 'compras:*', 'proveedores:*']
       },
-      'Administrador': { 
-        id: 5, nombreCompleto: 'Admin Sistema', correoElectronico: 'admin@clinica.com', 
-        rol: 'Administrador', permisos: ['*'] 
+      'Administrador': {
+        id: 5, nombreCompleto: 'Admin Sistema', correoElectronico: 'admin@clinica.com',
+        rol: 'Administrador', permisos: ['*']
       }
     }
     user.value = mocks[roleName]

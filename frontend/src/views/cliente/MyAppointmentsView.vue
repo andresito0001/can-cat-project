@@ -6,7 +6,7 @@ import { getMetodosOnline, procesarPagoCita, descargarFactura } from '@/api/pago
 import {
   CreditCard, Download, CheckCircle2, AlertCircle, AlertTriangle,
   X, Loader2, Calendar, Clock, PawPrint, Stethoscope, CalendarPlus,
-  ReceiptText, Banknote
+  ReceiptText, Banknote, Search
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -47,6 +47,18 @@ const BANCOS_VENEZUELA = [
 // ─── ESTADO ───
 const tab = ref('pendientes')
 const citas = ref([])
+
+// ── Buscador ──
+const busqueda = ref('')
+const citasFiltradas = computed(() => {
+  const q = busqueda.value.trim().toLowerCase()
+  if (!q) return citas.value
+  return citas.value.filter((c) =>
+    [c.mascota, c.servicio, c.veterinario, c.estado]
+      .filter(Boolean)
+      .some((v) => String(v).toLowerCase().includes(q)))
+})
+
 const cargando = ref(false)
 const cancelando = ref(null)
 const toast = ref({ visible: false, message: '', type: 'success' })
@@ -325,14 +337,47 @@ onMounted(cargarCitas)
       </div>
     </div>
 
-    <!-- Tabs -->
-    <div class="tabs">
-      <button :class="{ active: tab === 'pendientes' }" @click="cambiarTab('pendientes')">
-        Pendientes de pago
-      </button>
-      <button :class="{ active: tab === 'todas' }" @click="cambiarTab('todas')">
-        Todas
-      </button>
+    <!-- Toolbar: tabs + búsqueda en la misma fila -->
+    <div class="toolbar">
+      <div class="tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="tab === 'pendientes'"
+          :class="{ active: tab === 'pendientes' }"
+          @click="cambiarTab('pendientes')"
+        >
+          Pendientes de pago
+        </button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="tab === 'todas'"
+          :class="{ active: tab === 'todas' }"
+          @click="cambiarTab('todas')"
+        >
+          Todas
+        </button>
+      </div>
+
+      <div v-if="citas.length > 0 || busqueda" class="buscador">
+        <Search :size="16" class="buscador-icono" />
+        <input
+          v-model="busqueda"
+          type="text"
+          placeholder="Buscar por mascota, servicio, veterinario o estado..."
+          aria-label="Buscar citas"
+        />
+        <button
+          v-if="busqueda"
+          type="button"
+          class="buscador-limpiar"
+          aria-label="Limpiar búsqueda"
+          @click="busqueda = ''"
+        >
+          <X :size="14" />
+        </button>
+      </div>
     </div>
 
     <!-- Loading -->
@@ -357,9 +402,15 @@ onMounted(cargarCitas)
       </button>
     </div>
 
+    <div v-else-if="citasFiltradas.length === 0" class="empty-state">
+      <Search :size="48" />
+      <h3>Sin resultados</h3>
+      <p>No hay citas que coincidan con "{{ busqueda }}".</p>
+    </div>
+
     <!-- Lista de citas -->
     <div v-else class="citas-lista">
-      <div v-for="cita in citas" :key="cita.idCita" class="cita-card">
+      <div v-for="cita in citasFiltradas" :key="cita.idCita" class="cita-card">
         <div class="cita-avatar" :style="{ backgroundColor: getAvatarColor(cita.mascota) }">
           {{ cita.mascota[0].toUpperCase() }}
         </div>
@@ -670,11 +721,20 @@ onMounted(cargarCitas)
   margin: 4px 0 0 0;
 }
 
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
 /* Tabs */
 .tabs {
   display: flex;
   gap: 8px;
-  margin-bottom: 24px;
+  flex-shrink: 0;
 }
 
 .tabs button {
@@ -688,6 +748,7 @@ onMounted(cargarCitas)
   color: #475569;
   transition: all 0.2s ease;
   font-family: inherit;
+  white-space: nowrap;
 }
 
 .tabs button:hover {
@@ -1487,4 +1548,69 @@ select.form-input:invalid {
     width: 100%;
   }
 }
+
+/* Buscador */
+.buscador {
+  position: relative;
+  flex: 1 1 320px;
+  max-width: 480px;
+  min-width: 220px;
+  margin-left: auto; /* lo empuja a la derecha del toolbar */
+}
+
+.buscador .buscador-icono {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94A3B8;
+  pointer-events: none;
+}
+
+.buscador input {
+  width: 100%;
+  padding: 10px 40px 10px 40px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #1E293B;
+  background: #fff;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+  transition: all 0.2s;
+  height: 40px; /* misma altura que los tabs */
+}
+
+.buscador input::placeholder {
+  color: #94A3B8;
+}
+
+.buscador input:focus {
+  border-color: #0F766E;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
+}
+
+.buscador .buscador-limpiar {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #94A3B8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.buscador .buscador-limpiar:hover {
+  color: #475569;
+  background: #F1F5F9;
+}
+
 </style>

@@ -20,8 +20,7 @@ export const MENU_ITEMS = {
     { label: 'Dashboard', icon: 'LayoutDashboard', route: '/veterinario/dashboard' },
     { label: 'Mi Agenda Hoy', icon: 'CalendarCheck', route: '/veterinario/agenda' },
     { label: 'Atención Clínica', icon: 'Stethoscope', route: '/veterinario/atencion' },
-    { label: 'Buscar Pacientes', icon: 'Search', route: '/veterinario/pacientes' },
-    { label: 'Historiales', icon: 'ClipboardList', route: '/veterinario/historiales' },
+    { label: 'Pacientes e historial', icon: 'ClipboardList', route: '/veterinario/historiales' },
   ],
   [ROLES.WAREHOUSE]: [
     { label: 'Dashboard', icon: 'LayoutDashboard', route: '/almacen/dashboard' },

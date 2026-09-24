@@ -47,34 +47,35 @@ const routes = [
     ]
   },
   
-//   // ─── VETERINARIO ───
-//   {
-//     path: '/veterinario',
-//     component: () => import('@/layouts/VetLayout.vue'),
-//     meta: { requiresAuth: true, role: 'Veterinario' },
-//     children: [
-//       { path: 'dashboard', name: 'VetDashboard', component: () => import('@/views/veterinario/DashboardVetView.vue') },
-//       { path: 'agenda', name: 'VetAgenda', component: () => import('@/views/veterinario/DailyAgendaView.vue') },
-//       { path: 'atencion/:citaId?', name: 'ClinicalCare', component: () => import('@/views/veterinario/ClinicalCareView.vue') },
-//       { path: 'pacientes', name: 'PatientSearch', component: () => import('@/views/veterinario/PatientSearchView.vue') },
-//       { path: 'historiales', name: 'MedicalRecords', component: () => import('@/views/veterinario/MedicalRecordsView.vue') },
-//     ]
-//   },
+  // ─── VETERINARIO ───
+  {
+    path: '/veterinario',
+    component: () => import('@/layouts/VetLayout.vue'),
+    meta: { requiresAuth: true, role: 'Veterinario' },
+    children: [
+      { path: '', redirect: '/veterinario/dashboard' },
+      { path: 'dashboard', name: 'VeterinarioDashboard', component: () => import('@/views/veterinario/DashboardVetView.vue') },
+      { path: 'agenda', name: 'VeterinarioAgenda', component: () => import('@/views/veterinario/DailyAgendaView.vue') },
+      { path: 'atencion/:citaId?', name: 'VeterinarioAtencion', component: () => import('@/views/veterinario/ClinicalCareView.vue') },
+      { path: 'pacientes', redirect: '/veterinario/historiales' },
+      { path: 'historiales', name: 'VeterinarioHistoriales', component: () => import('@/views/veterinario/PatientHistoryMasterView.vue') },
+    ],
+  },
   
-//   // ─── ALMACÉN ───
-//   {
-//     path: '/almacen',
-//     component: () => import('@/layouts/WarehouseLayout.vue'),
-//     meta: { requiresAuth: true, role: 'Encargado_Almacen' },
-//     children: [
-//       { path: 'dashboard', name: 'WarehouseDashboard', component: () => import('@/views/almacen/DashboardWarehouseView.vue') },
-//       { path: 'inventario', name: 'Inventory', component: () => import('@/views/almacen/InventoryView.vue') },
-//       { path: 'entrada', name: 'StockEntry', component: () => import('@/views/almacen/StockEntryView.vue') },
-//       { path: 'alertas', name: 'StockAlerts', component: () => import('@/views/almacen/StockAlertsView.vue') },
-//       { path: 'catalogo', name: 'Catalog', component: () => import('@/views/almacen/CatalogView.vue') },
-//     ]
-//   },
-  
+  // ─── ALMACÉN ───
+  {
+    path: '/almacen',
+    component: () => import('@/layouts/WarehouseLayout.vue'),
+    meta: { requiresAuth: true, role: 'Encargado_Almacen' },
+    children: [
+      { path: 'dashboard', name: 'WarehouseDashboard', component: () => import('@/views/almacen/DashboardWarehouseView.vue') },
+      { path: 'inventario', name: 'Inventory', component: () => import('@/views/almacen/InventoryView.vue') },
+      { path: 'entrada', name: 'StockEntry', component: () => import('@/views/almacen/StockEntryView.vue') },
+      { path: 'alertas', name: 'StockAlerts', component: () => import('@/views/almacen/StockAlertsView.vue') },
+      { path: 'catalogo', name: 'Catalog', component: () => import('@/views/almacen/CatalogView.vue') },
+    ]
+  },
+    
 //   // ─── ADMINISTRADOR ───
 //   {
 //     path: '/admin',

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getHistorialPagos, descargarFactura } from '@/api/pagos.api.js'
 import {
@@ -12,6 +12,25 @@ const router = useRouter()
 // ─── ESTADO ───
 const cargando = ref(false)
 const pagos = ref([])
+
+// ── Panel de búsqueda por fechas ──
+const filtroModo = ref('todos') // 'todos' | 'dia' | 'rango'
+const fechaDia = ref('')
+const fechaDesde = ref('')
+const fechaHasta = ref('')
+
+const pagosFiltrados = computed(() => {
+  if (filtroModo.value === 'todos' || !pagos.value.length) return pagos.value
+  const diaDe = (p) => String(p.fecha || '').slice(0, 10) // tolera "2026-09-19T14:30:00"
+  if (filtroModo.value === 'dia') {
+    return fechaDia.value ? pagos.value.filter((p) => diaDe(p) === fechaDia.value) : pagos.value
+  }
+  return pagos.value.filter((p) => {
+    const f = diaDe(p)
+    return (!fechaDesde.value || f >= fechaDesde.value) && (!fechaHasta.value || f <= fechaHasta.value)
+  })
+})
+
 const errorCarga = ref('')
 
 const pagoSeleccionado = ref(null)
@@ -50,13 +69,44 @@ function fmtUsd(v) {
   return `$ ${Number(v).toFixed(2)}`
 }
 
+const ETIQUETAS_PAGO = {
+  Confirmado: 'Confirmado',
+  Emitida: 'Por cobrar',
+  Pendiente_Verificacion: 'Por verificar',
+  Verificado: 'Verificado',
+  Rechazado: 'Rechazado',
+  Anulada: 'Anulada',
+  Pagada: 'Pagada',
+}
+
 function badgeClass(estado) {
   switch (estado) {
-    case 'Verificado': return 'verificado'
-    case 'Pendiente_Verificacion': return 'pendiente'
-    case 'Rechazado': return 'rechazado'
+    case 'Verificado':
+    case 'Confirmado':
+    case 'Pagada':
+      return 'verificado'
+    case 'Pendiente_Verificacion':
+    case 'Emitida':
+      return 'pendiente'
+    case 'Rechazado':
+    case 'Anulada':
+      return 'rechazado'
+    default:
+      return 'otro'
+  }
+}
+
+function badgeClassCita(estado) {
+  switch (estado) {
+    case 'Pagada': case 'Confirmada': case 'Completada': return 'verificado'
+    case 'Pendiente_Pago': return 'pendiente'
+    case 'Cancelada': return 'rechazado'
     default: return 'otro'
   }
+}
+
+function etiquetaPago(estado) {
+  return ETIQUETAS_PAGO[estado] || String(estado ?? '—').replaceAll('_', ' ')
 }
 
 function showToast(message, type = 'success') {
@@ -112,6 +162,26 @@ onMounted(cargarHistorial)
         Volver
       </button>
     </div>
+    
+    <!-- Panel de búsqueda por fechas -->
+    <div class="filtro-fechas">
+      <div class="filtro-modos">
+        <button :class="{ activo: filtroModo === 'todos' }" @click="filtroModo = 'todos'">Todos</button>
+        <button :class="{ activo: filtroModo === 'dia' }" @click="filtroModo = 'dia'">Por día</button>
+        <button :class="{ activo: filtroModo === 'rango' }" @click="filtroModo = 'rango'">Por rango</button>
+      </div>
+      <div v-if="filtroModo === 'dia'" class="filtro-campos">
+        <input v-model="fechaDia" type="date" />
+        <button v-if="fechaDia" class="limpiar" @click="fechaDia = ''">Limpiar</button>
+      </div>
+      <div v-else-if="filtroModo === 'rango'" class="filtro-campos">
+        <input v-model="fechaDesde" type="date" title="Desde" />
+        <span>hasta</span>
+        <input v-model="fechaHasta" type="date" title="Hasta" />
+        <button v-if="fechaDesde || fechaHasta" class="limpiar" @click="fechaDesde = ''; fechaHasta = ''">Limpiar</button>
+      </div>
+      <span class="filtro-conteo">{{ pagosFiltrados.length }} de {{ pagos.length }}</span>
+    </div>
 
     <!-- Loading -->
     <div v-if="cargando" class="loading-state">
@@ -135,9 +205,15 @@ onMounted(cargarHistorial)
       </button>
     </div>
 
+    <div v-else-if="pagosFiltrados.length === 0" class="empty-state">
+      <Calendar :size="48" />
+      <h3>Sin resultados</h3>
+      <p>No hay pagos para el filtro de fechas seleccionado.</p>
+    </div>
+
     <!-- Lista de transacciones -->
     <ul v-else class="pagos-lista">
-      <li v-for="pago in pagos" :key="pago.idFactura">
+      <li v-for="pago in pagosFiltrados" :key="pago.idFactura">
         <div class="pago-card" @click="verDetalle(pago)">
           <div class="pago-icono">
             <ReceiptText :size="22" />
@@ -153,7 +229,7 @@ onMounted(cargarHistorial)
           <div class="pago-lateral">
             <strong class="pago-monto">{{ fmtUsd(pago.monto) }}</strong>
             <span class="badge" :class="badgeClass(pago.estadoPago)">
-              {{ pago.estadoPago.replaceAll('_', ' ') }}
+              {{ etiquetaPago(pago.estadoPago) }}
             </span>
           </div>
         </div>
@@ -198,7 +274,13 @@ onMounted(cargarHistorial)
                   <div class="detalle-fila">
                     <span class="detalle-label"><AlertCircle :size="14" /> Estado</span>
                     <span class="badge" :class="badgeClass(pagoSeleccionado.estadoPago)">
-                      {{ pagoSeleccionado.estadoPago.replaceAll('_', ' ') }}
+                      {{ etiquetaPago(pagoSeleccionado.estadoPago) }}
+                    </span>
+                  </div>
+                  <div v-if="pagoSeleccionado.estadoCita" class="detalle-fila">
+                    <span class="detalle-label"><Calendar :size="14" /> Estado de la cita</span>
+                    <span class="badge" :class="badgeClassCita(pagoSeleccionado.estadoCita)">
+                      {{ pagoSeleccionado.estadoCita.replaceAll('_', ' ') }}
                     </span>
                   </div>
                   <div class="detalle-fila total">
@@ -739,4 +821,27 @@ onMounted(cargarHistorial)
     justify-content: center;
   }
 }
+
+/* ── Panel de filtros de fecha ── */
+.filtro-fechas { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
+.filtro-modos { display: flex; gap: 8px; }
+.filtro-modos button {
+  padding: 8px 16px; border: 1px solid #E2E8F0; background: #fff; border-radius: 20px;
+  font-size: 13px; font-weight: 600; color: #475569; cursor: pointer; font-family: inherit; transition: all .2s;
+}
+.filtro-modos button:hover { border-color: #99F6E4; color: #0F766E; }
+.filtro-modos button.activo { background: #0F766E; border-color: #0F766E; color: #fff; }
+.filtro-campos { display: flex; align-items: center; gap: 10px; }
+.filtro-campos input[type="date"] {
+  padding: 8px 12px; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 13px;
+  color: #1E293B; background: #F8FAFC; font-family: inherit; outline: none;
+}
+.filtro-campos input[type="date"]:focus { border-color: #0F766E; background: #fff; box-shadow: 0 0 0 3px rgba(15,118,110,.1); }
+.filtro-campos span { font-size: 13px; color: #64748B; }
+.filtro-campos .limpiar {
+  background: none; border: none; color: #0F766E; font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: inherit; text-decoration: underline;
+}
+.filtro-conteo { margin-left: auto; font-size: 13px; color: #64748B; font-weight: 500; }
+
 </style>

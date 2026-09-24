@@ -1,7 +1,7 @@
 <template>
   <div class="mascotas-view">
     <!-- Header -->
-    <div class="page-header">
+    <header class="page-header">
       <div>
         <h2>Mis Mascotas</h2>
         <p class="subtitle">Gestiona y registra las mascotas asociadas a tu cuenta</p>
@@ -10,14 +10,15 @@
         <Plus :size="18" />
         Nueva Mascota
       </button>
-    </div>
+    </header>
 
-    <!-- Lista de Mascotas -->
+    <!-- Loading -->
     <div v-if="cargando" class="loading-state">
       <Loader2 :size="32" class="spin" />
       <p>Cargando mascotas...</p>
     </div>
 
+    <!-- Empty -->
     <div v-else-if="mascotas.length === 0" class="empty-state">
       <PawPrint :size="48" />
       <h3>No tienes mascotas registradas</h3>
@@ -28,34 +29,54 @@
       </button>
     </div>
 
+    <!-- Grid: card completa es un botón -->
     <div v-else class="mascotas-grid">
-      <div v-for="mascota in mascotas" :key="mascota.id" class="mascota-card">
-        <div class="mascota-avatar" :style="{ backgroundColor: getAvatarColor(mascota.nombre) }">
-          {{ mascota.nombre[0].toUpperCase() }}
+      <button
+        v-for="mascota in mascotas"
+        :key="mascota.idMascota"
+        type="button"
+        class="mascota-card"
+        :style="{ '--pet-color': getAvatarColor(mascota.nombre) }"
+        :aria-label="`Ver historial clínico de ${mascota.nombre}`"
+        @click="verHistorial(mascota.idMascota)"
+      >
+        <div
+          class="mascota-avatar"
+          :style="{ backgroundColor: getAvatarColor(mascota.nombre) }"
+        >
+          {{ inicialNombre(mascota.nombre) }}
         </div>
+
         <div class="mascota-info">
-          <h4>{{ mascota.nombre }}</h4>
+          <h4 class="mascota-nombre">{{ mascota.nombre }}</h4>
+
           <p class="mascota-meta">
             <span class="badge-especie">{{ getEspecieLabel(mascota.idEspecie) }}</span>
-            <span v-if="mascota.sexo" class="badge-sexo">{{ mascota.sexo === 'M' ? 'Macho' : 'Hembra' }}</span>
+            <span v-if="mascota.sexo" class="badge-sexo">
+              {{ mascota.sexo === 'M' ? 'Macho' : 'Hembra' }}
+            </span>
           </p>
-          <p v-if="mascota.fechaNacimiento" class="mascota-detail">
-            <Calendar :size="14" />
-            {{ formatFecha(mascota.fechaNacimiento) }}
-          </p>
-          <p v-if="mascota.pesoActual" class="mascota-detail">
-            <Weight :size="14" />
-            {{ mascota.pesoActual }} kg
-          </p>
-          <p v-if="mascota.esterilizado" class="mascota-detail esterilizado">
-            <CheckCircle2 :size="14" />
-            Esterilizado/a
-          </p>
+
+          <div class="mascota-datos">
+            <p v-if="mascota.fechaNacimiento" class="mascota-detail">
+              <Calendar :size="14" />
+              {{ formatFecha(mascota.fechaNacimiento) }}
+            </p>
+            <p v-if="mascota.pesoActual" class="mascota-detail">
+              <Weight :size="14" />
+              {{ mascota.pesoActual }} kg
+            </p>
+            <p v-if="mascota.esterilizado" class="mascota-detail esterilizado">
+              <CheckCircle2 :size="14" />
+              Esterilizado/a
+            </p>
+          </div>
         </div>
-        <button class="btn-icon" @click="verHistorial(mascota.id)" title="Ver historial clínico">
-          <FileText :size="18" />
-        </button>
-      </div>
+
+        <span class="mascota-cta" aria-hidden="true">
+          <FileText :size="16" />
+        </span>
+      </button>
     </div>
 
     <!-- Modal Registrar Mascota -->
@@ -104,7 +125,10 @@
                         {{ raza.nombre }}
                       </option>
                     </select>
-                    <small v-if="form.idEspecie && razas.length === 0 && !cargandoRazas" class="hint">
+                    <small
+                      v-if="form.idEspecie && razas.length === 0 && !cargandoRazas"
+                      class="hint"
+                    >
                       No hay razas registradas para esta especie
                     </small>
                     <small v-else class="hint">Opcional</small>
@@ -175,7 +199,12 @@
 
                 <!-- Botones -->
                 <div class="modal-footer">
-                  <button type="button" class="btn-secondary" @click="cerrarModal" :disabled="guardando">
+                  <button
+                    type="button"
+                    class="btn-secondary"
+                    :disabled="guardando"
+                    @click="cerrarModal"
+                  >
                     Cancelar
                   </button>
                   <button type="submit" class="btn-primary" :disabled="guardando">
@@ -191,7 +220,7 @@
       </Transition>
     </Teleport>
 
-    <!-- Toast de éxito -->
+    <!-- Toast -->
     <Transition name="slide-down">
       <div v-if="toast.visible" class="toast" :class="toast.type">
         <CheckCircle2 v-if="toast.type === 'success'" :size="18" />
@@ -209,7 +238,9 @@ import {
   Plus, PawPrint, Calendar, Weight, CheckCircle2,
   FileText, Loader2, X, Save, AlertCircle
 } from 'lucide-vue-next'
-import { registrarMascota, getMisMascotas, getEspecies, getRazasPorEspecie } from '@/api/mascotas.api.js'
+import {
+  registrarMascota, getMisMascotas, getEspecies, getRazasPorEspecie
+} from '@/api/mascotas.api.js'
 
 const router = useRouter()
 
@@ -238,12 +269,10 @@ const form = ref({
   esterilizado: false
 })
 
-// ─── WATCH: Cuando cambia especie, cargar razas ───
+// ─── WATCH: al cambiar especie, cargar razas ───
 watch(() => form.value.idEspecie, async (nuevoId) => {
-  // Limpiar raza seleccionada
   form.value.idRaza = ''
   razas.value = []
-
   if (!nuevoId) return
 
   cargandoRazas.value = true
@@ -258,12 +287,17 @@ watch(() => form.value.idEspecie, async (nuevoId) => {
 })
 
 // ─── HELPERS ───
+const PALETA_AVATARES = ['#0F766E', '#3B82F6', '#F59E0B', '#F43F5E', '#8B5CF6', '#0EA5E9']
 
 function getAvatarColor(str) {
-  const colors = ['#0F766E', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899']
   let hash = 0
-  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash)
-  return colors[Math.abs(hash) % colors.length]
+  const s = String(str || '')
+  for (let i = 0; i < s.length; i++) hash = s.charCodeAt(i) + ((hash << 5) - hash)
+  return PALETA_AVATARES[Math.abs(hash) % PALETA_AVATARES.length]
+}
+
+function inicialNombre(nombre) {
+  return String(nombre || '?').trim().charAt(0).toUpperCase() || '?'
 }
 
 function getEspecieLabel(id) {
@@ -283,7 +317,6 @@ function showToast(message, type = 'success') {
 }
 
 // ─── MÉTODOS ───
-
 async function cargarEspecies() {
   try {
     const { data } = await getEspecies()
@@ -315,7 +348,8 @@ function cerrarModal() {
 }
 
 function verHistorial(mascotaId) {
-  router.push(`/cliente/historial-clinico?mascota=${mascotaId}`)
+  if (!mascotaId) return
+  router.push({ path: '/cliente/historial-clinico', query: { mascota: mascotaId } })
 }
 
 async function cargarMascotas() {
@@ -334,8 +368,6 @@ async function guardarMascota() {
   error.value = ''
   guardando.value = true
 
-  // El cliente NO envía documentoIdentidadCliente
-  // El backend lo obtiene automáticamente del JWT
   const payload = {
     idEspecie: parseInt(form.value.idEspecie),
     idRaza: form.value.idRaza ? parseInt(form.value.idRaza) : null,
@@ -374,12 +406,15 @@ onMounted(() => {
   padding: 24px;
 }
 
-/* Header */
+button { font-family: inherit; }
+
+/* ── Header ── */
 .page-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 32px;
+  gap: 16px;
 }
 
 .page-header h2 {
@@ -395,7 +430,7 @@ onMounted(() => {
   margin: 4px 0 0 0;
 }
 
-/* Botones */
+/* ── Botones ── */
 .btn-primary {
   display: inline-flex;
   align-items: center;
@@ -410,6 +445,7 @@ onMounted(() => {
   cursor: pointer;
   transition: all 0.2s;
   font-family: inherit;
+  white-space: nowrap;
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -440,27 +476,12 @@ onMounted(() => {
   background: #E2E8F0;
 }
 
-.btn-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  border: 1px solid #E2E8F0;
-  background: white;
-  color: #64748B;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
+.btn-secondary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
-.btn-icon:hover {
-  background: #0F766E;
-  color: white;
-  border-color: #0F766E;
-}
-
-/* Loading & Empty */
+/* ── Loading & Empty ── */
 .loading-state,
 .empty-state {
   display: flex;
@@ -500,31 +521,68 @@ onMounted(() => {
   to { transform: rotate(360deg); }
 }
 
-/* Grid de mascotas */
+/* ── Grid de mascotas ── */
 .mascotas-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
 }
 
+/* Card = botón accesible completo */
 .mascota-card {
-  background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid #E2E8F0;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 10px 15px -3px rgba(0, 0, 0, 0.05);
-  padding: 20px;
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 16px;
-  transition: all 0.2s;
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  font-family: inherit;
+  color: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+/* Barra de acento izquierda con color de la mascota */
+.mascota-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--pet-color, #0F766E);
+  transform: scaleY(.35);
+  transform-origin: center;
+  opacity: 0;
+  transition: opacity .25s ease, transform .25s ease;
 }
 
 .mascota-card:hover {
-  border-color: #0F766E;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 20px 25px -5px rgba(0, 0, 0, 0.05);
+  border-color: rgba(15, 118, 110, 0.35);
   transform: translateY(-2px);
+  box-shadow:
+    0 10px 24px -8px rgba(15, 118, 110, 0.18),
+    0 4px 8px -4px rgba(15, 23, 42, 0.06);
 }
 
+.mascota-card:hover::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+.mascota-card:focus-visible {
+  outline: none;
+  border-color: #0F766E;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15);
+}
+
+/* Avatar */
 .mascota-avatar {
   width: 52px;
   height: 52px;
@@ -536,23 +594,28 @@ onMounted(() => {
   font-weight: 700;
   font-size: 20px;
   flex-shrink: 0;
+  box-shadow: 0 4px 10px -3px rgba(15, 23, 42, 0.12);
 }
 
+/* Info */
 .mascota-info {
   flex: 1;
   min-width: 0;
 }
 
-.mascota-info h4 {
+.mascota-nombre {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
   color: #1E293B;
   margin: 0 0 6px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .mascota-meta {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   margin: 0 0 10px 0;
   flex-wrap: wrap;
 }
@@ -565,6 +628,7 @@ onMounted(() => {
   font-size: 11px;
   font-weight: 600;
   border: 1px solid #A7F3D0;
+  white-space: nowrap;
 }
 
 .badge-sexo {
@@ -575,6 +639,13 @@ onMounted(() => {
   font-size: 11px;
   font-weight: 600;
   border: 1px solid #BFDBFE;
+  white-space: nowrap;
+}
+
+.mascota-datos {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .mascota-detail {
@@ -583,14 +654,36 @@ onMounted(() => {
   gap: 6px;
   font-size: 13px;
   color: #64748B;
-  margin: 4px 0 0 0;
+  margin: 0;
 }
 
 .mascota-detail.esterilizado {
   color: #059669;
+  font-weight: 600;
 }
 
-/* ─── MODAL Y FORMULARIO CORREGIDO ─── */
+/* CTA circular */
+.mascota-cta {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94A3B8;
+  background: #F1F5F9;
+  flex-shrink: 0;
+  align-self: center;
+  transition: background-color .2s ease, color .2s ease, transform .2s ease;
+}
+
+.mascota-card:hover .mascota-cta {
+  background: #0F766E;
+  color: #fff;
+  transform: translateX(2px);
+}
+
+/* ── MODAL ── */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -615,23 +708,13 @@ onMounted(() => {
   font-family: inherit;
 }
 
-/* Scrollbar del modal */
-.modal-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.modal-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
+.modal-container::-webkit-scrollbar { width: 8px; }
+.modal-container::-webkit-scrollbar-track { background: transparent; }
 .modal-container::-webkit-scrollbar-thumb {
   background: #CBD5E1;
   border-radius: 4px;
 }
-
-.modal-container::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
-}
+.modal-container::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
 
 .modal-header {
   padding: 20px 24px;
@@ -667,9 +750,7 @@ onMounted(() => {
   color: #1E293B;
 }
 
-.modal-body {
-  padding: 24px;
-}
+.modal-body { padding: 24px; }
 
 .modal-footer {
   display: flex;
@@ -680,10 +761,8 @@ onMounted(() => {
   border-top: 1px solid #E2E8F0;
 }
 
-/* ─── FORMULARIO CON TIPOGRAFÍA Y ESTILOS CORREGIDOS ─── */
-.form-group {
-  margin-bottom: 16px;
-}
+/* ── FORMULARIO ── */
+.form-group { margin-bottom: 16px; }
 
 .form-row {
   display: grid;
@@ -700,11 +779,8 @@ onMounted(() => {
   font-family: inherit;
 }
 
-.required {
-  color: #EF4444;
-}
+.required { color: #EF4444; }
 
-/* Inputs y selects con fuente forzada y bordes consistentes */
 .form-group input,
 .form-group select {
   width: 100%;
@@ -733,7 +809,6 @@ onMounted(() => {
   box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.08);
 }
 
-/* Select disabled */
 .form-group select:disabled {
   background: #F8FAFC;
   color: #94A3B8;
@@ -741,7 +816,6 @@ onMounted(() => {
   opacity: 0.7;
 }
 
-/* Input number: ocultar flechas */
 .form-group input[type="number"]::-webkit-outer-spin-button,
 .form-group input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -752,7 +826,6 @@ onMounted(() => {
   -moz-appearance: textfield;
 }
 
-/* Input date: icono de calendenda consistente */
 .form-group input[type="date"]::-webkit-calendar-picker-indicator {
   opacity: 0.5;
   cursor: pointer;
@@ -771,10 +844,7 @@ onMounted(() => {
   font-family: inherit;
 }
 
-/* Checkbox corregido */
-.checkbox-group {
-  margin: 12px 0;
-}
+.checkbox-group { margin: 12px 0; }
 
 .checkbox-label {
   display: flex;
@@ -787,9 +857,7 @@ onMounted(() => {
   font-family: inherit;
 }
 
-.checkbox-label input {
-  display: none;
-}
+.checkbox-label input { display: none; }
 
 .checkmark {
   width: 20px;
@@ -819,7 +887,6 @@ onMounted(() => {
   margin-bottom: 1px;
 }
 
-/* Alerta */
 .alert-error {
   display: flex;
   align-items: center;
@@ -835,7 +902,7 @@ onMounted(() => {
   font-family: inherit;
 }
 
-/* Toast */
+/* ── Toast ── */
 .toast {
   position: fixed;
   top: 24px;
@@ -864,22 +931,16 @@ onMounted(() => {
   border: 1px solid #FECACA;
 }
 
-/* Transiciones */
+/* ── Transiciones ── */
 .fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
+.fade-leave-active { transition: opacity 0.3s ease; }
 .fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
+.fade-leave-to { opacity: 0; }
 
 .slide-up-enter-active,
 .slide-up-leave-active {
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
-
 .slide-up-enter-from,
 .slide-up-leave-to {
   opacity: 0;
@@ -887,17 +948,14 @@ onMounted(() => {
 }
 
 .slide-down-enter-active,
-.slide-down-leave-active {
-  transition: all 0.3s ease;
-}
-
+.slide-down-leave-active { transition: all 0.3s ease; }
 .slide-down-enter-from,
 .slide-down-leave-to {
   opacity: 0;
   transform: translateY(-20px);
 }
 
-/* Responsive */
+/* ── Responsive ── */
 @media (max-width: 640px) {
   .page-header {
     flex-direction: column;
@@ -905,17 +963,10 @@ onMounted(() => {
     gap: 16px;
   }
 
-  .form-row {
-    grid-template-columns: 1fr;
-  }
+  .form-row { grid-template-columns: 1fr; }
+  .mascotas-grid { grid-template-columns: 1fr; }
 
-  .mascotas-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .modal-footer {
-    flex-direction: column-reverse;
-  }
+  .modal-footer { flex-direction: column-reverse; }
 
   .modal-footer .btn-primary,
   .modal-footer .btn-secondary {
