@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -173,6 +174,29 @@ public class PagoController {
         return ResponseEntity.ok(new EnvioFacturaResponseDTO(ok, ok
                 ? "Factura enviada a " + datos.clienteEmail()
                 : "No se pudo enviar el correo. Intente nuevamente o entregue la copia impresa."));
+    }
+
+
+    /**
+     * GET /api/pagos/facturas-pendientes
+     * Fase B (B1): facturas Emitida sin pago, para el mostrador de recepción.
+     */
+    @GetMapping("/facturas-pendientes")
+    @PreAuthorize("hasRole('Recepcionista')")
+    public ResponseEntity<List<FacturaPendienteDTO>> listarFacturasPendientes() {
+        return ResponseEntity.ok(pagoService.listarFacturasPendientes());
+    }
+
+    /**
+     * POST /api/pagos/facturas/{id}/cobrar
+     * Fase B (B2): cobra presencialmente → pago Confirmado + método en la factura.
+     */
+    @PostMapping("/facturas/{id}/cobrar")
+    @PreAuthorize("hasRole('Recepcionista')")
+    public ResponseEntity<CobroFacturaResponseDTO> cobrarFactura(
+            @PathVariable Integer id,
+            @jakarta.validation.Valid @RequestBody CobroFacturaRequestDTO request) {
+        return ResponseEntity.ok(pagoService.cobrarFactura(id, request));
     }
 
     private Integer obtenerIdUsuarioActual() {

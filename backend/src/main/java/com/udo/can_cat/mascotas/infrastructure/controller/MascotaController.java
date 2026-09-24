@@ -5,7 +5,6 @@ import com.udo.can_cat.mascotas.application.dto.RegistrarMascotaRequestDTO;
 import com.udo.can_cat.mascotas.application.service.MascotaApplicationService;
 import com.udo.can_cat.mascotas.application.service.MascotaApplicationService.UsuarioAutenticado;
 import com.udo.can_cat.usuarios.infrastructure.security.JwtTokenProvider;
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;

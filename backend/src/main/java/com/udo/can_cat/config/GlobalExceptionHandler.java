@@ -1,5 +1,6 @@
 package com.udo.can_cat.config;
 
+import com.udo.can_cat.facturacion.domain.exception.FacturaYaPagadaException;
 import com.udo.can_cat.facturacion.domain.exception.FacturacionException;
 import org.springframework.security.access.AccessDeniedException;
 import com.udo.can_cat.citas.domain.exception.CitaNoEncontradaException;
@@ -11,6 +12,15 @@ import com.udo.can_cat.shared.tasa.TasaCambioException;
 import com.udo.can_cat.usuarios.application.service.CredencialesInvalidasException;
 import com.udo.can_cat.usuarios.application.service.CuentaInactivaException;
 import com.udo.can_cat.usuarios.application.service.RegistroException;
+import com.udo.can_cat.almacen.domain.exception.EntradaInvalidaException;
+import com.udo.can_cat.almacen.domain.exception.ProductoNoEncontradoException;
+import com.udo.can_cat.almacen.domain.exception.ProveedorNoEncontradoException;
+import com.udo.can_cat.almacen.domain.exception.SkuDuplicadoException;
+import com.udo.can_cat.almacen.domain.exception.StockInsuficienteException;
+import com.udo.can_cat.atenciones.domain.exception.AtencionYaRegistradaException;
+import com.udo.can_cat.atenciones.domain.exception.MascotaNoEncontradaException;
+import com.udo.can_cat.atenciones.domain.exception.OperacionAtencionInvalidaException;
+import com.udo.can_cat.atenciones.domain.exception.RecetaNoEncontradaException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -138,6 +148,117 @@ public class GlobalExceptionHandler {
     }
 
     // ================================================================
+    // FACTURACIÓN / SEGURIDAD
+    // ================================================================
+
+    @ExceptionHandler(FacturacionException.class)
+    public ResponseEntity<ErrorResponse> handleFacturacion(FacturacionException ex) {
+        logger.warn("Error de facturación: {}", ex.getMessage());
+        return ResponseEntity.badRequest().body(new ErrorResponse(
+                LocalDateTime.now(), HttpStatus.BAD_REQUEST.value(),
+                "Error de facturación", ex.getMessage()));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
+        logger.warn("Acceso denegado: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorResponse(
+                LocalDateTime.now(), HttpStatus.FORBIDDEN.value(),
+                "Acceso denegado", "No tiene permisos para realizar esta operación"));
+    }
+
+    // ================================================================
+    // MÓDULO ATENCIONES / ALMACÉN (CU 4.6.1.9)
+    // ⚠️ Nombres FQN donde hay colisión de nombre simple con citas.
+    // ================================================================
+
+    /** Alterno B (concurrencia): rollback total + 409 (5.2-B). */
+    @ExceptionHandler(StockInsuficienteException.class)
+    public ResponseEntity<ErrorResponse> handleStockInsuficiente(StockInsuficienteException ex) {
+        logger.warn("Stock insuficiente: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(LocalDateTime.now(), 409, "Conflict", ex.getMessage()));
+    }
+
+    /** Alterno D: cita ya atendida → la vista entra en modo solo lectura. */
+    @ExceptionHandler(AtencionYaRegistradaException.class)
+    public ResponseEntity<ErrorResponse> handleAtencionYaRegistrada(AtencionYaRegistradaException ex) {
+        logger.warn("Atención ya registrada: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(LocalDateTime.now(), 409, "Conflict", ex.getMessage()));
+    }
+
+    /** Estado de cita inválido para la operación (iniciar/guardar) → 409. */
+    @ExceptionHandler(OperacionAtencionInvalidaException.class)
+    public ResponseEntity<ErrorResponse> handleOperacionAtencionInvalida(OperacionAtencionInvalidaException ex) {
+        logger.warn("Operación de atención inválida: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(LocalDateTime.now(), 409, "Conflict", ex.getMessage()));
+    }
+
+    /** Récipe no encontrado → 404. */
+    @ExceptionHandler(RecetaNoEncontradaException.class)
+    public ResponseEntity<ErrorResponse> handleRecetaNoEncontrada(RecetaNoEncontradaException ex) {
+        logger.warn("Récipe no encontrado: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(LocalDateTime.now(), 404, "Not Found", ex.getMessage()));
+    }
+
+    /** Paciente (mascota) no encontrado → 404. */
+    @ExceptionHandler(MascotaNoEncontradaException.class)
+    public ResponseEntity<ErrorResponse> handleMascotaNoEncontradaAtenciones(MascotaNoEncontradaException ex) {
+        logger.warn("Paciente no encontrado: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(LocalDateTime.now(), 404, "Not Found", ex.getMessage()));
+    }
+
+    /** Cita no encontrada desde el módulo ATENCIONES → 404.
+     *  FQN obligatorio: el nombre simple ya está importado desde citas. */
+    @ExceptionHandler(com.udo.can_cat.atenciones.domain.exception.CitaNoEncontradaException.class)
+    public ResponseEntity<ErrorResponse> handleCitaNoEncontradaAtenciones(
+            com.udo.can_cat.atenciones.domain.exception.CitaNoEncontradaException ex) {
+        logger.warn("Cita no encontrada (atenciones): {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(LocalDateTime.now(), 404, "Not Found", ex.getMessage()));
+    }
+    
+    
+    @ExceptionHandler(FacturaYaPagadaException.class)
+    public ResponseEntity<ErrorResponse> handleFacturaYaPagada(FacturaYaPagadaException ex) {
+        logger.warn("Factura ya pagada: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(LocalDateTime.now(), 409, "Conflict", ex.getMessage()));
+    }
+
+    // ================================================================
+    // MÓDULO ALMACÉN — CU 4.6.1.12
+    // ================================================================
+
+    @ExceptionHandler(EntradaInvalidaException.class)
+    public ResponseEntity<ErrorResponse> handleEntradaInvalida(EntradaInvalidaException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(
+                LocalDateTime.now(), HttpStatus.BAD_REQUEST.value(), "Datos inválidos", ex.getMessage()));
+    }
+
+    @ExceptionHandler(ProductoNoEncontradoException.class)
+    public ResponseEntity<ErrorResponse> handleProductoNoEncontrado(ProductoNoEncontradoException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(
+                LocalDateTime.now(), HttpStatus.NOT_FOUND.value(), "Recurso no encontrado", ex.getMessage()));
+    }
+
+    @ExceptionHandler(SkuDuplicadoException.class)
+    public ResponseEntity<ErrorResponse> handleSkuDuplicado(SkuDuplicadoException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse(
+                LocalDateTime.now(), HttpStatus.CONFLICT.value(), "Conflicto de datos", ex.getMessage()));
+    }
+
+    @ExceptionHandler(ProveedorNoEncontradoException.class)
+    public ResponseEntity<ErrorResponse> handleProveedorNoEncontrado(ProveedorNoEncontradoException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(
+                LocalDateTime.now(), HttpStatus.NOT_FOUND.value(), "Recurso no encontrado", ex.getMessage()));
+    }
+    
+    // ================================================================
     // CATCH-ALL — DEBE SER EL ÚLTIMO
     // ================================================================
 
@@ -149,22 +270,6 @@ public class GlobalExceptionHandler {
                 "Error interno del servidor", "Ha ocurrido un error inesperado"));
     }
 
-    @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
-        logger.warn("Acceso denegado: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorResponse(
-                LocalDateTime.now(), HttpStatus.FORBIDDEN.value(),
-                "Acceso denegado", "No tiene permisos para realizar esta operación"));
-    }
-
-    @ExceptionHandler(FacturacionException.class)
-    public ResponseEntity<ErrorResponse> handleFacturacion(FacturacionException ex) {
-        logger.warn("Error de facturación: {}", ex.getMessage());
-        return ResponseEntity.badRequest().body(new ErrorResponse(
-                LocalDateTime.now(), HttpStatus.BAD_REQUEST.value(),
-                "Error de facturación", ex.getMessage()));
-    }
-    
     // ================================================================
     // RECORD DE RESPUESTA
     // ================================================================

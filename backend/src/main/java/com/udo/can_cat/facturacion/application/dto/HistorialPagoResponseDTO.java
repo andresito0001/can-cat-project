@@ -11,5 +11,6 @@ public record HistorialPagoResponseDTO(
         String estadoPago,
         String metodoPago,
         String referenciaTransaccion,
-        Integer idCita
+        Integer idCita,
+        String estadoCita
 ) {}

@@ -1,5 +1,11 @@
 package com.udo.can_cat.facturacion.application.service;
 
+import com.udo.can_cat.facturacion.application.dto.CobroFacturaRequestDTO;
+import com.udo.can_cat.facturacion.application.dto.CobroFacturaResponseDTO;
+import com.udo.can_cat.facturacion.application.dto.FacturaPendienteDTO;
+import com.udo.can_cat.facturacion.application.port.CobroMostradorPort;
+import com.udo.can_cat.facturacion.domain.exception.FacturaYaPagadaException;
+import java.math.RoundingMode;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -62,6 +68,7 @@ public class PagoApplicationService {
     private final PagoRepository pagoRepo;
     private final MetodoPagoRepository metodoPagoRepo;
     private final UsuarioRepository usuarioRepo;
+    private final CobroMostradorPort cobroMostradorPort;
 
     public PagoApplicationService(CitaRepository citaRepo,
                                   EstadoCitaRepository estadoCitaRepo,
@@ -73,7 +80,8 @@ public class PagoApplicationService {
                                   DetalleFacturaRepository detalleFacturaRepo,
                                   PagoRepository pagoRepo,
                                   MetodoPagoRepository metodoPagoRepo, 
-                                  UsuarioRepository usuarioRepository) {
+                                  UsuarioRepository usuarioRepository,
+                                  CobroMostradorPort cobroMostradorPort) {
         this.citaRepo = citaRepo;
         this.estadoCitaRepo = estadoCitaRepo;
         this.servicioRepo = servicioRepo;
@@ -85,6 +93,7 @@ public class PagoApplicationService {
         this.pagoRepo = pagoRepo;
         this.metodoPagoRepo = metodoPagoRepo;
         this.usuarioRepo = usuarioRepository;
+        this.cobroMostradorPort = cobroMostradorPort;
     }
 
     // ═══════════════════════════════════════════════════
@@ -316,6 +325,14 @@ public class PagoApplicationService {
         if (facturas.isEmpty()) return List.of();
 
         return facturas.stream().map(factura -> {
+            String estadoCita = null;
+
+            if (factura.getIdCita() != null) {
+                estadoCita = citaRepo.buscarPorId(factura.getIdCita())
+                        .map(c -> obtenerNombreEstado(c.getIdEstado()))
+                        .orElse(null);
+            }
+
             // Concepto: descripción del primer detalle de la factura
             String concepto = detalleFacturaRepo.buscarPorFacturaId(factura.getId()).stream()
                     .findFirst()
@@ -335,7 +352,7 @@ public class PagoApplicationService {
                 fecha = factura.getCreatedAt();
             }
 
-            return new HistorialPagoResponseDTO(
+            return new HistorialPagoResponseDTO (
                     factura.getId(),
                     factura.getNumeroControl(),
                     fecha != null ? fecha.toString() : null,
@@ -344,12 +361,13 @@ public class PagoApplicationService {
                     pago != null ? pago.getEstadoPago() : factura.getEstadoFactura(),
                     factura.getMetodoPagoPrincipal(),
                     pago != null ? pago.getReferenciaTransaccion() : null,
-                    factura.getIdCita()
+                    factura.getIdCita(),
+                    estadoCita
             );
         }).toList();
     }
 
-        // ═══════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════
     // MÉTODOS DE PAGO PRESENCIALES (CU 4.6.1.11 paso 5)
     // ═══════════════════════════════════════════════════
 
@@ -364,6 +382,85 @@ public class PagoApplicationService {
                         m.getDatosRequeridos() != null ? m.getDatosRequeridos() : Map.of()
                 ))
                 .toList();
+    }
+
+    // ═══════════════════════════════════════════════════
+    // FASE B — COBRO EN MOSTRADOR (CU 4.6.1.9 / B1-B3)
+    // ═══════════════════════════════════════════════════
+
+    @Transactional(readOnly = true)
+    public List<FacturaPendienteDTO> listarFacturasPendientes() {
+        return cobroMostradorPort.listarFacturasPendientes();
+    }
+
+    @Transactional
+    public CobroFacturaResponseDTO cobrarFactura(Integer idFactura, CobroFacturaRequestDTO request) {
+        Factura factura = facturaRepo.buscarPorId(idFactura)
+                .orElseThrow(() -> new FacturacionException("Factura no encontrada: " + idFactura));
+
+        if (!"Emitida".equals(factura.getEstadoFactura())) {
+            throw new FacturacionException("Solo se pueden cobrar facturas en estado 'Emitida' "
+                    + "(estado actual: " + factura.getEstadoFactura() + ")");
+        }
+        if (pagoRepo.buscarPorFacturaId(idFactura).isPresent()) {
+            throw new FacturaYaPagadaException(factura.getNumeroControl());   // → 409
+        }
+
+        MetodoPago metodoPago = metodoPagoRepo.buscarPorId(request.idMetodoPago())
+                .orElseThrow(() -> new FacturacionException("Método de pago no encontrado"));
+        if ("Transferencia".equals(metodoPago.getNombre())) {
+            throw new FacturacionException("El método 'Transferencia' no es válido para el cobro en mostrador");
+        }
+        validarDatosPago(metodoPago, request.datosPago());   // reutiliza el privado existente
+
+        BigDecimal monto = calcularTotal(factura.getSubtotal(), factura.getPorcentajeIva());
+
+        Pago pago = new Pago();
+        pago.setIdFactura(factura.getId());
+        pago.setIdMetodoPago(metodoPago.getId());
+        pago.setIdCliente(factura.getIdCliente());
+        pago.setMonto(monto);
+        pago.setFechaPago(LocalDateTime.now());
+        pago.setReferenciaTransaccion(request.referenciaTransaccion());
+        pago.setEstadoPago("Confirmado");
+        pago.setMetadataJson(request.datosPago() != null
+                ? new LinkedHashMap<>(request.datosPago()) : Map.of());
+        // ⚠️ Si el dominio Pago no expone estos setters, BORRA las 2 líneas siguientes
+        //    (verificado_por / fecha_verificacion quedarán NULL, que el esquema permite)
+        //    y avísame para darte la variante con SQL nativo.
+        pago.setVerificadoPor(obtenerPersonalActual());
+        pago.setFechaVerificacion(LocalDateTime.now());
+        pagoRepo.guardar(pago);
+
+        factura.setMetodoPagoPrincipal(metodoPago.getNombre());
+        facturaRepo.guardar(factura);
+
+        log.info("Factura cobrada en mostrador: idFactura={}, numeroControl={}, metodo={}, monto={}",
+                idFactura, factura.getNumeroControl(), metodoPago.getNombre(), monto);
+
+        return new CobroFacturaResponseDTO(
+                idFactura, factura.getNumeroControl(), monto, metodoPago.getNombre(),
+                "Confirmado", "Cobro registrado correctamente");
+    }
+
+    /** Misma fórmula que las columnas GENERATED de factura (descuento = 0 aquí). */
+    private BigDecimal calcularTotal(BigDecimal subtotal, BigDecimal porcentajeIva) {
+        BigDecimal st = subtotal != null ? subtotal : BigDecimal.ZERO;
+        BigDecimal iva = porcentajeIva != null ? porcentajeIva : new BigDecimal("16.00");
+        return st.multiply(BigDecimal.ONE.add(iva.divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP)))
+                .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /** Patrón 1.2: recepcionista autenticado (principal Integer = usuarioId). */
+    private Integer obtenerPersonalActual() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            return null;
+        }
+        if (!(auth.getPrincipal() instanceof Integer usuarioId)) return null;
+        return personalRepo.findByUsuarioId(new UsuarioId(usuarioId))
+                .map(p -> p.getUsuarioId().value())
+                .orElse(null);
     }
 
     /**
