@@ -20,6 +20,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.udo.can_cat.citas.application.service.CitaTransitionService;
 import com.udo.can_cat.citas.domain.entity.Cita;
 import com.udo.can_cat.citas.domain.entity.EstadoCita;
 import com.udo.can_cat.citas.domain.entity.Servicio;
@@ -30,8 +31,10 @@ import com.udo.can_cat.citas.domain.repository.EstadoCitaRepository;
 import com.udo.can_cat.citas.domain.repository.ServicioRepository;
 import com.udo.can_cat.facturacion.application.dto.HistorialPagoResponseDTO;
 import com.udo.can_cat.facturacion.application.dto.MetodoPagoDTO;
+import com.udo.can_cat.facturacion.application.dto.PagoPendienteVerificacionDTO;
 import com.udo.can_cat.facturacion.application.dto.ProcesarPagoCitaRequestDTO;
 import com.udo.can_cat.facturacion.application.dto.ProcesarPagoCitaResponseDTO;
+import com.udo.can_cat.facturacion.application.dto.VerificarPagoRequestDTO;
 import com.udo.can_cat.facturacion.domain.entity.DetalleFactura;
 import com.udo.can_cat.facturacion.domain.entity.Factura;
 import com.udo.can_cat.facturacion.domain.entity.MetodoPago;
@@ -57,6 +60,12 @@ public class PagoApplicationService {
     private static final Logger log = LoggerFactory.getLogger(PagoApplicationService.class);
     private static final String PREFIJO_FACTURA = "FC";
 
+    // Estados que manejamos explícitamente
+    private static final String ESTADO_CITA_PENDIENTE_PAGO = "Pendiente_Pago";
+    private static final String PAGO_PENDIENTE_VERIF     = "Pendiente_Verificacion";
+    private static final String PAGO_CONFIRMADO          = "Confirmado";
+    private static final String PAGO_RECHAZADO           = "Rechazado";
+    private static final String FACTURA_EMITIDA          = "Emitida";
     private final CitaRepository citaRepo;
     private final EstadoCitaRepository estadoCitaRepo;
     private final ServicioRepository servicioRepo;
@@ -69,39 +78,41 @@ public class PagoApplicationService {
     private final MetodoPagoRepository metodoPagoRepo;
     private final UsuarioRepository usuarioRepo;
     private final CobroMostradorPort cobroMostradorPort;
+    private final CitaTransitionService citaTransitionService;
 
     public PagoApplicationService(CitaRepository citaRepo,
                                   EstadoCitaRepository estadoCitaRepo,
                                   ServicioRepository servicioRepo,
                                   MascotaRepository mascotaRepo,
                                   ClienteRepository clienteRepo,
-                                  PersonalRepository personalRepo,     
+                                  PersonalRepository personalRepo,
                                   FacturaRepository facturaRepo,
                                   DetalleFacturaRepository detalleFacturaRepo,
                                   PagoRepository pagoRepo,
-                                  MetodoPagoRepository metodoPagoRepo, 
+                                  MetodoPagoRepository metodoPagoRepo,
                                   UsuarioRepository usuarioRepository,
-                                  CobroMostradorPort cobroMostradorPort) {
+                                  CobroMostradorPort cobroMostradorPort,
+                                  CitaTransitionService citaTransitionService) {
         this.citaRepo = citaRepo;
         this.estadoCitaRepo = estadoCitaRepo;
         this.servicioRepo = servicioRepo;
         this.mascotaRepo = mascotaRepo;
         this.clienteRepo = clienteRepo;
-        this.personalRepo = personalRepo;                              
+        this.personalRepo = personalRepo;
         this.facturaRepo = facturaRepo;
         this.detalleFacturaRepo = detalleFacturaRepo;
         this.pagoRepo = pagoRepo;
         this.metodoPagoRepo = metodoPagoRepo;
         this.usuarioRepo = usuarioRepository;
         this.cobroMostradorPort = cobroMostradorPort;
+        this.citaTransitionService = citaTransitionService;
     }
 
     // ═══════════════════════════════════════════════════
     // LISTAR MÉTODOS DE PAGO ONLINE
     // ═══════════════════════════════════════════════════
 
-    public java.util.List<MetodoPagoDTO> listarMetodosOnline() {
-        // Solo Transferencia y Pago_Movil son viables para pago remoto
+    public List<MetodoPagoDTO> listarMetodosOnline() {
         return metodoPagoRepo.buscarActivos().stream()
                 .filter(m -> "Transferencia".equals(m.getNombre()) || "Pago_Movil".equals(m.getNombre()))
                 .map(m -> new MetodoPagoDTO(
@@ -114,8 +125,11 @@ public class PagoApplicationService {
     }
 
     // ═══════════════════════════════════════════════════
-    // PROCESAR PAGO DE CITA (transaccional)
+    // PROCESAR PAGO ONLINE DE CITA
     // ═══════════════════════════════════════════════════
+    // El pago queda en Pendiente_Verificacion.
+    // La cita permanece en Pendiente_Pago.
+    // El recepcionista, al verificar (verificarPago), transiciona a Confirmada.
 
     @Transactional
     public ProcesarPagoCitaResponseDTO procesarPagoCita(ProcesarPagoCitaRequestDTO request) {
@@ -127,10 +141,11 @@ public class PagoApplicationService {
 
         // 2. Buscar y validar cita
         Cita cita = citaRepo.buscarPorId(request.idCita())
-                .orElseThrow(() -> new CitaNoEncontradaException("Cita no encontrada con ID: " + request.idCita()));
+                .orElseThrow(() -> new CitaNoEncontradaException(
+                        "Cita no encontrada con ID: " + request.idCita()));
 
         String estadoActual = obtenerNombreEstado(cita.getIdEstado());
-        if (!"Pendiente_Pago".equals(estadoActual)) {
+        if (!ESTADO_CITA_PENDIENTE_PAGO.equals(estadoActual)) {
             throw new OperacionNoPermitidaException(
                     "Solo se puede pagar citas en estado 'Pendiente_Pago'. Estado actual: " + estadoActual);
         }
@@ -146,8 +161,6 @@ public class PagoApplicationService {
         // 3. Validar método de pago
         MetodoPago metodoPago = metodoPagoRepo.buscarPorId(request.idMetodoPago())
                 .orElseThrow(() -> new FacturacionException("Método de pago no encontrado"));
-
-        // Validar campos requeridos del método
         validarDatosPago(metodoPago, request.datosPago());
 
         // 4. Buscar servicio para el detalle
@@ -167,7 +180,7 @@ public class PagoApplicationService {
         factura.setSubtotal(cita.getCostoUsd());
         factura.setPorcentajeDescuento(BigDecimal.ZERO);
         factura.setPorcentajeIva(new BigDecimal("16.00"));
-        factura.setEstadoFactura("Emitida");
+        factura.setEstadoFactura(FACTURA_EMITIDA);
         factura.setMetodoPagoPrincipal(metodoPago.getNombre());
         factura = facturaRepo.guardar(factura);
 
@@ -182,34 +195,44 @@ public class PagoApplicationService {
         detalle.setDescuentoAplicado(BigDecimal.ZERO);
         detalleFacturaRepo.guardar(detalle);
 
-        // 8. Crear pago
+        // 8. Crear pago en Pendiente_Verificacion
         Pago pago = new Pago();
         pago.setIdFactura(factura.getId());
         pago.setIdMetodoPago(metodoPago.getId());
         pago.setIdCliente(idCliente);
         pago.setMonto(factura.getTotalNeto());
-        pago.setFechaPago(java.time.LocalDateTime.now());
+        pago.setFechaPago(LocalDateTime.now());
         pago.setReferenciaTransaccion(request.referenciaTransaccion());
-        pago.setEstadoPago("Pendiente_Verificacion");
-        pago.setMetadataJson(request.datosPago() != null ? request.datosPago().entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> (Object) e.getValue(), (a, b) -> a, LinkedHashMap::new))
+        pago.setEstadoPago(PAGO_PENDIENTE_VERIF);
+        pago.setMetadataJson(request.datosPago() != null
+                ? request.datosPago().entrySet().stream()
+                    .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        e -> (Object) e.getValue(),
+                        (a, b) -> a,
+                        LinkedHashMap::new))
                 : Map.of());
         pagoRepo.guardar(pago);
 
-        // 9. Cambiar estado de cita a "Pagada"
-        EstadoCita estadoPagada = estadoCitaRepo.buscarPorNombre("Pagada")
-                .orElseThrow(() -> new OperacionNoPermitidaException("Estado 'Pagada' no encontrado"));
-        cita.setIdEstado(estadoPagada.getId());
-        citaRepo.guardar(cita);
+        // ─── 9. NO se cambia el estado de la cita ───
+        // La cita permanece en Pendiente_Pago hasta que un recepcionista
+        // verifique el pago (verificarPago → transiciona a Confirmada).
+        // El dinero y la agenda son conceptos independientes.
 
-        log.info("Pago procesado: cita={}, factura={}, numeroControl={}, metodo={}",
+        log.info("Pago online procesado (pendiente verificación): cita={}, factura={}, numeroControl={}, metodo={}",
                 cita.getId(), factura.getId(), numeroControl, metodoPago.getNombre());
 
+        if (cita.getExpiraEn() != null) {
+            cita.setExpiraEn(null);
+            citaRepo.guardar(cita);
+        }
+        
         return new ProcesarPagoCitaResponseDTO(
                 factura.getId(),
                 numeroControl,
-                "Pagada",
-                "Su pago ha sido procesado exitosamente.",
+                ESTADO_CITA_PENDIENTE_PAGO,
+                "Su pago fue registrado y está siendo verificado. " +
+                "Recibirá una confirmación cuando el pago sea aprobado por recepción.",
                 true,
                 null
         );
@@ -232,23 +255,23 @@ public class PagoApplicationService {
             String motivoConsulta,
             String fechaCita,
             String horaInicio,
-            java.util.List<DetalleFactura> detalles,
+            List<DetalleFactura> detalles,
             BigDecimal subtotal,
             BigDecimal porcentajeIva,
             BigDecimal totalNeto,
             String metodoPago,
             String clienteEmail,
-            String stadoPago 
+            String stadoPago,
+            Map<String, Object> metadataPago,
+            String referenciaPago
     ) {}
 
     public DatosPdf obtenerDatosPdf(Integer idFactura) {
         Factura factura = facturaRepo.buscarPorId(idFactura)
                 .orElseThrow(() -> new FacturacionException("Factura no encontrada: " + idFactura));
 
-        java.util.List<DetalleFactura> detalles = detalleFacturaRepo.buscarPorFacturaId(idFactura);
+        List<DetalleFactura> detalles = detalleFacturaRepo.buscarPorFacturaId(idFactura);
 
-        // FIX: cliente derivado de la FACTURA → funciona para cliente (dueño)
-        // y para recepcionista (descarga/envío en mostrador).
         Cliente cliente = clienteRepo.findById(new Cliente.ClienteId(factura.getIdCliente()))
                 .orElseThrow(() -> new FacturacionException("Cliente no encontrado"));
 
@@ -260,9 +283,10 @@ public class PagoApplicationService {
                 .map(Personal::getNombreCompleto)
                 .orElse("No asignado");
 
-        String estadoPago = pagoRepo.buscarPorFacturaId(idFactura)
-                .map(Pago::getEstadoPago)
-                .orElse(factura.getEstadoFactura());
+        Pago pago = pagoRepo.buscarPorFacturaId(idFactura).orElse(null);
+        String estadoPago = pago != null ? pago.getEstadoPago() : factura.getEstadoFactura();
+        Map<String, Object> metadataPago = pago != null ? pago.getMetadataJson() : null;
+        String referenciaPago = pago != null ? pago.getReferenciaTransaccion() : null;
 
         String mascotaNombre = "-";
         String motivoConsulta = "-";
@@ -306,7 +330,9 @@ public class PagoApplicationService {
                 factura.getTotalNeto(),
                 factura.getMetodoPagoPrincipal(),
                 emailCliente,
-                estadoPago
+                estadoPago,
+                metadataPago,
+                referenciaPago
         );
     }
 
@@ -326,23 +352,19 @@ public class PagoApplicationService {
 
         return facturas.stream().map(factura -> {
             String estadoCita = null;
-
             if (factura.getIdCita() != null) {
                 estadoCita = citaRepo.buscarPorId(factura.getIdCita())
                         .map(c -> obtenerNombreEstado(c.getIdEstado()))
                         .orElse(null);
             }
 
-            // Concepto: descripción del primer detalle de la factura
             String concepto = detalleFacturaRepo.buscarPorFacturaId(factura.getId()).stream()
                     .findFirst()
                     .map(DetalleFactura::getDescripcion)
                     .orElse("Servicio veterinario");
 
-            // Pago asociado (puede no existir si la factura vino de otro flujo)
             Pago pago = pagoRepo.buscarPorFacturaId(factura.getId()).orElse(null);
 
-            // Fecha con fallback: fechaPago > fechaEmision > createdAt
             LocalDateTime fecha = null;
             if (pago != null && pago.getFechaPago() != null) {
                 fecha = pago.getFechaPago();
@@ -352,7 +374,7 @@ public class PagoApplicationService {
                 fecha = factura.getCreatedAt();
             }
 
-            return new HistorialPagoResponseDTO (
+            return new HistorialPagoResponseDTO(
                     factura.getId(),
                     factura.getNumeroControl(),
                     fecha != null ? fecha.toString() : null,
@@ -368,11 +390,10 @@ public class PagoApplicationService {
     }
 
     // ═══════════════════════════════════════════════════
-    // MÉTODOS DE PAGO PRESENCIALES (CU 4.6.1.11 paso 5)
+    // MÉTODOS DE PAGO PRESENCIALES
     // ═══════════════════════════════════════════════════
 
     public List<MetodoPagoDTO> listarMetodosPresenciales() {
-        // Presencial = todo menos Transferencia (Efectivo, Tarjeta, Pago_Movil)
         return metodoPagoRepo.buscarActivos().stream()
                 .filter(m -> !"Transferencia".equals(m.getNombre()))
                 .map(m -> new MetodoPagoDTO(
@@ -385,7 +406,7 @@ public class PagoApplicationService {
     }
 
     // ═══════════════════════════════════════════════════
-    // FASE B — COBRO EN MOSTRADOR (CU 4.6.1.9 / B1-B3)
+    // COBRO EN MOSTRADOR
     // ═══════════════════════════════════════════════════
 
     @Transactional(readOnly = true)
@@ -398,7 +419,7 @@ public class PagoApplicationService {
         Factura factura = facturaRepo.buscarPorId(idFactura)
                 .orElseThrow(() -> new FacturacionException("Factura no encontrada: " + idFactura));
 
-        if (!"Emitida".equals(factura.getEstadoFactura())) {
+        if (!FACTURA_EMITIDA.equals(factura.getEstadoFactura())) {
             throw new FacturacionException("Solo se pueden cobrar facturas en estado 'Emitida' "
                     + "(estado actual: " + factura.getEstadoFactura() + ")");
         }
@@ -411,7 +432,10 @@ public class PagoApplicationService {
         if ("Transferencia".equals(metodoPago.getNombre())) {
             throw new FacturacionException("El método 'Transferencia' no es válido para el cobro en mostrador");
         }
-        validarDatosPago(metodoPago, request.datosPago());   // reutiliza el privado existente
+        validarDatosPago(metodoPago, request.datosPago());
+
+        // Cachear el verificador (se usa 2 veces)
+        Integer verificadorId = obtenerPersonalActual();
 
         BigDecimal monto = calcularTotal(factura.getSubtotal(), factura.getPorcentajeIva());
 
@@ -422,15 +446,28 @@ public class PagoApplicationService {
         pago.setMonto(monto);
         pago.setFechaPago(LocalDateTime.now());
         pago.setReferenciaTransaccion(request.referenciaTransaccion());
-        pago.setEstadoPago("Confirmado");
+        pago.setEstadoPago(PAGO_CONFIRMADO);
         pago.setMetadataJson(request.datosPago() != null
                 ? new LinkedHashMap<>(request.datosPago()) : Map.of());
-        // ⚠️ Si el dominio Pago no expone estos setters, BORRA las 2 líneas siguientes
-        //    (verificado_por / fecha_verificacion quedarán NULL, que el esquema permite)
-        //    y avísame para darte la variante con SQL nativo.
-        pago.setVerificadoPor(obtenerPersonalActual());
+        pago.setVerificadoPor(verificadorId);
         pago.setFechaVerificacion(LocalDateTime.now());
         pagoRepo.guardar(pago);
+
+        // ─── Transicionar la cita a Confirmada SOLO si está Pendiente_Pago ───
+        // Si es una factura de insumos de una atención completada (idCita → Completada),
+        // no se toca el estado de la cita (la agenda ya avanzó).
+        if (factura.getIdCita() != null) {
+            String estadoCitaActual = citaRepo.buscarPorId(factura.getIdCita())
+                    .map(c -> obtenerNombreEstado(c.getIdEstado()))
+                    .orElse(null);
+            if (ESTADO_CITA_PENDIENTE_PAGO.equals(estadoCitaActual)) {
+                citaTransitionService.transicionar(
+                        factura.getIdCita(),
+                        CitaTransitionService.CONFIRMADA,
+                        CitaTransitionService.Actor.recepcionista(verificadorId)
+                );
+            }
+        }
 
         factura.setMetodoPagoPrincipal(metodoPago.getNombre());
         facturaRepo.guardar(factura);
@@ -440,33 +477,109 @@ public class PagoApplicationService {
 
         return new CobroFacturaResponseDTO(
                 idFactura, factura.getNumeroControl(), monto, metodoPago.getNombre(),
-                "Confirmado", "Cobro registrado correctamente");
+                PAGO_CONFIRMADO, "Cobro registrado correctamente");
     }
 
-    /** Misma fórmula que las columnas GENERATED de factura (descuento = 0 aquí). */
-    private BigDecimal calcularTotal(BigDecimal subtotal, BigDecimal porcentajeIva) {
-        BigDecimal st = subtotal != null ? subtotal : BigDecimal.ZERO;
-        BigDecimal iva = porcentajeIva != null ? porcentajeIva : new BigDecimal("16.00");
-        return st.multiply(BigDecimal.ONE.add(iva.divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP)))
-                .setScale(2, RoundingMode.HALF_UP);
+    // ═══════════════════════════════════════════════════
+    // VERIFICACIÓN DE PAGOS ONLINE
+    // ═══════════════════════════════════════════════════
+
+    @Transactional(readOnly = true)
+    public List<PagoPendienteVerificacionDTO> listarPagosPendientesVerificacion() {
+        List<Pago> pagos = pagoRepo.buscarPorEstado(PAGO_PENDIENTE_VERIF);
+        if (pagos.isEmpty()) return List.of();
+        return pagos.stream().map(this::toPagoVerificacionDTO).toList();
     }
 
-    /** Patrón 1.2: recepcionista autenticado (principal Integer = usuarioId). */
-    private Integer obtenerPersonalActual() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
-            return null;
+    @Transactional
+    public PagoPendienteVerificacionDTO verificarPago(Integer idPago,
+                                                       VerificarPagoRequestDTO req) {
+        Pago pago = pagoRepo.buscarPorId(idPago)
+                .orElseThrow(() -> new FacturacionException("Pago no encontrado: " + idPago));
+
+        if (!PAGO_PENDIENTE_VERIF.equals(pago.getEstadoPago())) {
+            throw new FacturacionException("Este pago ya fue procesado (estado actual: "
+                    + pago.getEstadoPago() + ")");
         }
-        if (!(auth.getPrincipal() instanceof Integer usuarioId)) return null;
-        return personalRepo.findByUsuarioId(new UsuarioId(usuarioId))
-                .map(p -> p.getUsuarioId().value())
-                .orElse(null);
+
+        Integer verificadorId = obtenerPersonalActual();
+        boolean aprobado = Boolean.TRUE.equals(req.aprobado());
+
+        pago.setEstadoPago(aprobado ? PAGO_CONFIRMADO : PAGO_RECHAZADO);
+        pago.setVerificadoPor(verificadorId);
+        pago.setFechaVerificacion(LocalDateTime.now());
+        pago.setObservacionesVerificacion(req.observaciones());
+        pagoRepo.actualizar(pago);
+
+        // ─── Delegar la transición de la cita al Transition Service ───
+        Factura factura = facturaRepo.buscarPorId(pago.getIdFactura()).orElse(null);
+        if (factura != null && factura.getIdCita() != null) {
+            String estadoCitaActual = citaRepo.buscarPorId(factura.getIdCita())
+                    .map(c -> obtenerNombreEstado(c.getIdEstado()))
+                    .orElse(null);
+
+            // Solo transicionar si la cita está en un estado transicionable.
+            // Facturas de insumos de atenciones completadas no deben tocarse.
+            if (ESTADO_CITA_PENDIENTE_PAGO.equals(estadoCitaActual)) {
+                var actor = CitaTransitionService.Actor.recepcionista(verificadorId);
+                citaTransitionService.transicionar(
+                        factura.getIdCita(),
+                        aprobado ? CitaTransitionService.CONFIRMADA : CitaTransitionService.CANCELADA,
+                        actor
+                );
+            }
+        }
+
+        log.info("Pago verificado: idPago={}, aprobado={}, verificador={}",
+                idPago, aprobado, verificadorId);
+
+        // Construir DTO del pago ya verificado (no de la lista de pendientes)
+        return toPagoVerificacionDTO(pago);
     }
 
     /**
-     * CU 4.6.1.11: control de acceso a facturas.
-     * Recepcionista (y roles internos): acceso total. Cliente: solo sus facturas.
+     * Convierte un Pago a su DTO de verificación, resolviendo factura, cliente y mascota.
+     * Reutilizado por listarPagosPendientesVerificacion y verificarPago.
      */
+    private PagoPendienteVerificacionDTO toPagoVerificacionDTO(Pago pago) {
+        Factura factura = facturaRepo.buscarPorId(pago.getIdFactura()).orElse(null);
+        Cliente cliente = factura != null
+                ? clienteRepo.findById(new Cliente.ClienteId(factura.getIdCliente())).orElse(null)
+                : null;
+
+        String mascotaNombre = null;
+        if (factura != null && factura.getIdCita() != null) {
+            mascotaNombre = citaRepo.buscarPorId(factura.getIdCita())
+                    .flatMap(c -> mascotaRepo.findById(
+                            new com.udo.can_cat.mascotas.domain.entity.Mascota.MascotaId(c.getIdMascota())))
+                    .map(Mascota::getNombre)
+                    .orElse(null);
+        }
+
+        String metodoNombre = metodoPagoRepo.buscarPorId(pago.getIdMetodoPago())
+                .map(MetodoPago::getNombre).orElse("—");
+
+        return new PagoPendienteVerificacionDTO(
+                pago.getId(),
+                pago.getIdFactura(),
+                factura != null ? factura.getNumeroControl() : "—",
+                pago.getMonto(),
+                metodoNombre,
+                pago.getReferenciaTransaccion(),
+                pago.getMetadataJson(),
+                pago.getFechaPago(),
+                cliente != null ? cliente.getNombreCompleto() : "—",
+                cliente != null ? cliente.getDocumentoIdentidad() : "—",
+                cliente != null ? cliente.getTelefonoPrincipal() : "—",
+                factura != null ? factura.getIdCita() : null,
+                mascotaNombre
+        );
+    }
+
+    // ═══════════════════════════════════════════════════
+    // CONTROL DE ACCESO A FACTURAS
+    // ═══════════════════════════════════════════════════
+
     public void validarAccesoFactura(Integer idFactura) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null) return;
@@ -498,14 +611,35 @@ public class PagoApplicationService {
         Map<String, String> requeridos = metodoPago.getDatosRequeridos();
         if (requeridos == null || requeridos.isEmpty()) return;
         if (datosPago == null) {
-            throw new FacturacionException("Debe proporcionar los datos requeridos para el método de pago: " + metodoPago.getNombre());
+            throw new FacturacionException(
+                    "Debe proporcionar los datos requeridos para el método de pago: " + metodoPago.getNombre());
         }
         for (String campo : requeridos.keySet()) {
             String valor = datosPago.get(campo);
             if (valor == null || valor.isBlank()) {
-                throw new FacturacionException("El campo '" + campo + "' es obligatorio para " + metodoPago.getNombre());
+                throw new FacturacionException(
+                        "El campo '" + campo + "' es obligatorio para " + metodoPago.getNombre());
             }
         }
+    }
+
+    private BigDecimal calcularTotal(BigDecimal subtotal, BigDecimal porcentajeIva) {
+        BigDecimal st = subtotal != null ? subtotal : BigDecimal.ZERO;
+        BigDecimal iva = porcentajeIva != null ? porcentajeIva : new BigDecimal("16.00");
+        return st.multiply(BigDecimal.ONE.add(iva.divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP)))
+                .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /** Patrón 1.2: recepcionista autenticado (principal Integer = usuarioId). */
+    private Integer obtenerPersonalActual() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            return null;
+        }
+        if (!(auth.getPrincipal() instanceof Integer usuarioId)) return null;
+        return personalRepo.findByUsuarioId(new UsuarioId(usuarioId))
+                .map(p -> p.getPersonalId().value())
+                .orElse(null);
     }
 
     private Integer obtenerIdClienteActual() {

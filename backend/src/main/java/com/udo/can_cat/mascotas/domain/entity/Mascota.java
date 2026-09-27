@@ -72,4 +72,9 @@ public class Mascota {
             Objects.requireNonNull(value, "El ID de mascota no puede ser nulo");
         }
     }
+
+    public void desactivar() {
+        this.activo = false;
+        this.updatedAt = LocalDateTime.now();
+    }
 }

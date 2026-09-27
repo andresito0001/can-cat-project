@@ -75,16 +75,13 @@ const ETIQUETAS_PAGO = {
   Pendiente_Verificacion: 'Por verificar',
   Verificado: 'Verificado',
   Rechazado: 'Rechazado',
-  Anulada: 'Anulada',
-  Pagada: 'Pagada',
+  Anulada: 'Anulada'
 }
 
 function badgeClass(estado) {
   switch (estado) {
     case 'Verificado':
     case 'Confirmado':
-    case 'Pagada':
-      return 'verificado'
     case 'Pendiente_Verificacion':
     case 'Emitida':
       return 'pendiente'
@@ -98,7 +95,7 @@ function badgeClass(estado) {
 
 function badgeClassCita(estado) {
   switch (estado) {
-    case 'Pagada': case 'Confirmada': case 'Completada': return 'verificado'
+    case 'Confirmada': case 'Completada': return 'verificado'
     case 'Pendiente_Pago': return 'pendiente'
     case 'Cancelada': return 'rechazado'
     default: return 'otro'

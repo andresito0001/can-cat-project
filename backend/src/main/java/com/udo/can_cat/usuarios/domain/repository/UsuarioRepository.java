@@ -2,11 +2,13 @@ package com.udo.can_cat.usuarios.domain.repository;
 
 import com.udo.can_cat.usuarios.domain.entity.Usuario;
 import com.udo.can_cat.usuarios.domain.entity.Usuario.UsuarioId;
+import java.util.List;
 import java.util.Optional;
 
 public interface UsuarioRepository {
     Optional<Usuario> findById(UsuarioId id);
     Optional<Usuario> findByCorreoElectronico(String correo);
+    List<Usuario> findAll();                    
     boolean existsByCorreoElectronico(String correo);
     void updateUltimoAcceso(UsuarioId id);
     Usuario save(Usuario usuario);

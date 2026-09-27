@@ -1,22 +1,40 @@
-import { ref } from 'vue';
+import { ref } from 'vue'
 
-const toasts = ref([]);
-let contador = 0;
+const toasts = ref([])
+let seq = 0
+
+function push(message, type = 'info', duration = 3500) {
+  const id = ++seq
+  toasts.value.push({ id, message, type })
+  if (duration > 0) {
+    setTimeout(() => remove(id), duration)
+  }
+  return id
+}
+
+function remove(id) {
+  toasts.value = toasts.value.filter(t => t.id !== id)
+}
+
+function clear() {
+  toasts.value = []
+}
+
+function toastSuccess(message, duration) { return push(message, 'success', duration) }
+function toastError(message, duration)   { return push(message, 'error',   duration) }
+function toastInfo(message, duration)    { return push(message, 'info',    duration) }
+function toastWarning(message, duration) { return push(message, 'warning', duration) }
 
 export function useToast() {
-  function mostrarToast(mensaje, tipo = 'success', duracion = 4200) {
-    const id = ++contador;
-    toasts.value.push({ id, mensaje, tipo });
-    setTimeout(() => cerrarToast(id), duracion);
-  }
-  function cerrarToast(id) {
-    toasts.value = toasts.value.filter((t) => t.id !== id);
-  }
   return {
     toasts,
-    cerrarToast,
-    toastExito: (m) => mostrarToast(m, 'success'),
-    toastError: (m) => mostrarToast(m, 'error'),
-    toastInfo: (m) => mostrarToast(m, 'info'),
-  };
+    push,
+    toast: push,
+    remove,
+    clear,
+    toastSuccess,
+    toastError,
+    toastInfo,
+    toastWarning,
+  }
 }

@@ -9,6 +9,8 @@ import com.udo.can_cat.citas.domain.repository.CitaRepository;
 import com.udo.can_cat.citas.domain.repository.EstadoCitaRepository;
 import com.udo.can_cat.citas.domain.repository.ServicioRepository;
 import com.udo.can_cat.citas.infrastructure.persistence.CitaJpaEntity;
+import com.udo.can_cat.facturacion.domain.entity.Pago;
+import com.udo.can_cat.facturacion.domain.repository.PagoRepository;
 import com.udo.can_cat.mascotas.domain.entity.Mascota;
 import com.udo.can_cat.mascotas.domain.repository.MascotaRepository;
 import com.udo.can_cat.shared.tasa.TasaCambioException;
@@ -27,9 +29,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.udo.can_cat.facturacion.domain.entity.Pago;
 
 @Service
 public class CitaApplicationService {
@@ -44,6 +48,8 @@ public class CitaApplicationService {
     private final PersonalRepository personalRepo;
     private final UsuarioRepository usuarioRepo;
     private final TasaCambioService tasaCambioService;
+    private final PagoRepository pagoRepo;
+
 
     public CitaApplicationService(CitaRepository citaRepository,
                                   EstadoCitaRepository estadoCitaRepo,
@@ -52,7 +58,8 @@ public class CitaApplicationService {
                                   ClienteRepository clienteRepo,
                                   PersonalRepository personalRepo,
                                   UsuarioRepository usuarioRepo,
-                                  TasaCambioService tasaCambioService) {
+                                  TasaCambioService tasaCambioService,
+                                  PagoRepository pagoRepo) {
         this.citaRepository = citaRepository;
         this.estadoCitaRepo = estadoCitaRepo;
         this.servicioRepo = servicioRepo;
@@ -61,6 +68,7 @@ public class CitaApplicationService {
         this.personalRepo = personalRepo;
         this.usuarioRepo = usuarioRepo;
         this.tasaCambioService = tasaCambioService;
+        this.pagoRepo = pagoRepo;
     }
 
     // ================================================================
@@ -161,6 +169,13 @@ public class CitaApplicationService {
                     "Otra cita fue agendada mientras usted seleccionaba. " +
                     "Por favor, recargue la disponibilidad e intente con otro bloque.");
         }
+        
+        citaRepository.cancelarExpiradasEnSlot(
+            request.idVeterinario(),
+            request.fechaCita(),
+            request.horaInicio(),
+            LocalDateTime.now()
+        );
 
         // 7. Obtener tasa y calcular costos
         BigDecimal tasa;
@@ -192,6 +207,9 @@ public class CitaApplicationService {
         cita.setCostoBs(costoBs);
         cita.setTasaCambioAplicada(tasa);
         cita.setCostoEstimado(costoBs);
+        cita.setExpiraEn(LocalDateTime.now().plusHours(1));
+        
+        
 
         cita = citaRepository.guardar(cita);
 
@@ -248,6 +266,8 @@ public class CitaApplicationService {
                         "Estado 'Confirmada' no encontrado en el sistema"));
 
         cita.setIdEstado(estadoConfirmada.getId());
+        cita.setExpiraEn(null);
+
         citaRepository.guardar(cita);
 
         log.info("Cita {} cambiada a Confirmada (pago simulado)", idCita);
@@ -281,6 +301,8 @@ public class CitaApplicationService {
                         "Estado 'Cancelada' no encontrado en el sistema"));
 
         cita.setIdEstado(estadoCancelada.getId());
+        cita.setExpiraEn(null);
+
         citaRepository.guardar(cita);
 
         log.info("Cita {} cancelada (estado anterior: {})", idCita, estadoActual);
@@ -325,6 +347,12 @@ public class CitaApplicationService {
         return citas.stream()
                 .map(cita -> {
                     EstadoCita estado = estadosPorId.get(cita.getIdEstado());
+
+                    // Consultar el pago asociado a la cita (si existe)
+                    String estadoPago = pagoRepo.buscarPorFacturaCita(cita.getId())
+                            .map(Pago::getEstadoPago)
+                            .orElse(null);
+
                     return new MisCitasResponseDTO(
                             cita.getId(),
                             nombresMascotas.getOrDefault(cita.getIdMascota(), "Desconocida"),
@@ -336,7 +364,9 @@ public class CitaApplicationService {
                             cita.getHoraInicio().toString(),
                             cita.getHoraFin() != null ? cita.getHoraFin().toString() : "",
                             cita.getCostoUsd(),
-                            cita.getCostoBs()
+                            cita.getCostoBs(),
+                            cita.getExpiraEn(),
+                            estadoPago
                     );
                 })
                 .filter(dto -> estadoFiltro == null || estadoFiltro.isBlank()

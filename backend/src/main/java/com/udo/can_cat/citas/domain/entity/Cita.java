@@ -25,6 +25,7 @@ public class Cita {
     private LocalDateTime fechaSolicitud;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private LocalDateTime expiraEn;
 
     // --- Getters y Setters ---
 
@@ -81,4 +82,7 @@ public class Cita {
 
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    
+    public LocalDateTime getExpiraEn() { return expiraEn; }
+    public void setExpiraEn(LocalDateTime expiraEn) { this.expiraEn = expiraEn; }
 }

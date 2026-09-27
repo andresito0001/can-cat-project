@@ -4,7 +4,9 @@ import com.udo.can_cat.citas.domain.entity.Cita;
 import com.udo.can_cat.citas.domain.repository.CitaRepository;
 import com.udo.can_cat.usuarios.domain.entity.Cliente.ClienteId;
 import org.springframework.stereotype.Repository;
+
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
@@ -36,7 +38,8 @@ public class CitaRepositoryImpl implements CitaRepository {
     public List<Cita> buscarActivasPorVeterinarioYFecha(Integer idVeterinario,
                                                          LocalDate fecha,
                                                          List<Integer> idsEstadosActivos) {
-        return jpaRepository.findByVetFechaAndEstadosActivos(idVeterinario, fecha, idsEstadosActivos)
+        return jpaRepository.findByVetFechaAndEstadosActivos(
+                        idVeterinario, fecha, idsEstadosActivos, LocalDateTime.now())
                 .stream().map(mapper::toDomain).toList();
     }
 
@@ -53,7 +56,9 @@ public class CitaRepositoryImpl implements CitaRepository {
                                       LocalTime horaInicio,
                                       LocalTime horaFin,
                                       List<Integer> idsEstadosActivos) {
-        return jpaRepository.existeSolapamiento(idVeterinario, fecha, horaInicio, horaFin, idsEstadosActivos);
+        return jpaRepository.existeSolapamiento(
+                idVeterinario, fecha, horaInicio, horaFin,
+                idsEstadosActivos, LocalDateTime.now());
     }
 
     @Override
@@ -63,7 +68,7 @@ public class CitaRepositoryImpl implements CitaRepository {
 
     @Override
     public List<Cita> buscarActivasPorRangoFechas(LocalDate fechaInicio, LocalDate fechaFin,
-                                                List<Integer> idsEstadosActivos) {
+                                                  List<Integer> idsEstadosActivos) {
         return jpaRepository.buscarActivasPorRangoFechas(fechaInicio, fechaFin, idsEstadosActivos)
                 .stream().map(this::toDomain).toList();
     }
@@ -72,13 +77,28 @@ public class CitaRepositoryImpl implements CitaRepository {
     public List<Cita> buscarPorIdEstado(Integer idEstado) {
         return jpaRepository.buscarPorIdEstado(idEstado).stream().map(this::toDomain).toList();
     }
-    
+
+    @Override
+    public List<Cita> buscarPendientesExpiradas(LocalDateTime ahora) {
+        return jpaRepository.buscarPendientesExpiradas(ahora)
+                .stream().map(mapper::toDomain).toList();
+    }
+
     public Cita toDomain(CitaJpaEntity entity) {
         return mapper.toDomain(entity);
     }
 
-    // --- Mapper interno ---
+    @Override
+    public int cancelarExpiradasEnSlot(Integer idVeterinario,
+                                        LocalDate fecha,
+                                        LocalTime horaInicio,
+                                        LocalDateTime ahora) {
+        return jpaRepository.cancelarExpiradasEnSlot(idVeterinario, fecha, horaInicio, ahora);
+    }
 
+    // ────────────────────────────────────────────────────────────
+    // Mapper interno
+    // ────────────────────────────────────────────────────────────
     private static class CitaJpaEntityMapper {
 
         Cita toDomain(CitaJpaEntity e) {
@@ -101,8 +121,10 @@ public class CitaRepositoryImpl implements CitaRepository {
             c.setFechaSolicitud(e.getFechaSolicitud());
             c.setCreatedAt(e.getCreatedAt());
             c.setUpdatedAt(e.getUpdatedAt());
+            c.setExpiraEn(e.getExpiraEn());   // ← NUEVO
             return c;
         }
+
         CitaJpaEntity toEntity(Cita c) {
             CitaJpaEntity e = new CitaJpaEntity();
             e.setId(c.getId());
@@ -121,12 +143,8 @@ public class CitaRepositoryImpl implements CitaRepository {
             e.setTasaCambioAplicada(c.getTasaCambioAplicada());
             e.setObservacionesRecepcion(c.getObservacionesRecepcion());
             e.setFechaSolicitud(c.getFechaSolicitud());
+            e.setExpiraEn(c.getExpiraEn());   // ← NUEVO
             return e;
         }
-        
-
     }
-
-
-
 }

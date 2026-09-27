@@ -119,12 +119,12 @@ public class PersonalJpaEntity {
     }
 
     public Personal toDomain() {
-        return new Personal(
+        Personal personal = new Personal(
                 new Personal.PersonalId(this.idPersonal),
                 new UsuarioId(this.usuario.getIdUsuario()),
                 this.nombreCompleto,
                 new Personal.CodigoEmpleado(this.codigoEmpleado),
-                Personal.Cargo.fromDbValue(this.cargo), 
+                Personal.Cargo.fromDbValue(this.cargo),
                 this.especialidad != null ? new Personal.Especialidad(this.especialidad) : null,
                 new Personal.FechaContratacion(this.fechaContratacion),
                 this.activo,
@@ -133,6 +133,11 @@ public class PersonalJpaEntity {
                 this.createdAt,
                 this.updatedAt
         );
+        
+        if (this.usuario != null) {
+            personal.setCorreoElectronico(this.usuario.getCorreoElectronico());
+        }
+        return personal;
     }
 
     public Integer getIdPersonal() { return idPersonal; }

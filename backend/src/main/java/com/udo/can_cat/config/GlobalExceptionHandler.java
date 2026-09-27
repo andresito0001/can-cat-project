@@ -32,6 +32,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import com.udo.can_cat.citas.domain.exception.TransicionInvalidaException;
+
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -256,6 +258,14 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleProveedorNoEncontrado(ProveedorNoEncontradoException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(
                 LocalDateTime.now(), HttpStatus.NOT_FOUND.value(), "Recurso no encontrado", ex.getMessage()));
+    }
+
+    @ExceptionHandler(TransicionInvalidaException.class)
+    public ResponseEntity<ErrorResponse> handleTransicionInvalida(TransicionInvalidaException ex) {
+        logger.warn("Transición inválida: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse(
+                LocalDateTime.now(), HttpStatus.CONFLICT.value(),
+                "Transición no permitida", ex.getMessage()));
     }
     
     // ================================================================

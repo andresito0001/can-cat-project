@@ -103,4 +103,9 @@ public class ProductoRepositoryImpl implements ProductoRepository {
         
         return aDominio(jpa.save(e));
     }
+
+    @Override
+    public void cambiarEstado(Producto.ProductoId id, boolean activo) {
+        jpa.cambiarEstadoProducto(id.value(), activo);
+    }
 }

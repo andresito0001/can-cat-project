@@ -4,9 +4,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
 
-public record PersonalDTO (
-    Integer personalId,     
-    Integer usuarioId, 
+public record PersonalDTO(
+    Integer personalId,
+    Integer usuarioId,
     String nombreCompleto,
     String codigoEmpleado,
     String cargo,
@@ -16,5 +16,6 @@ public record PersonalDTO (
     Map<String, Object> horarioAtencion,
     String licenciaProfesional,
     LocalDateTime createdAt,
-    LocalDateTime updatedAt
+    LocalDateTime updatedAt,
+    String correoElectronico
 ) {}

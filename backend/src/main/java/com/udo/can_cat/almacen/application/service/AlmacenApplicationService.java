@@ -176,4 +176,42 @@ public class AlmacenApplicationService {
                 ))
                 .toList();
     }
+
+    @Transactional
+    public ProductoDTO actualizarProducto(Integer id, ActualizarProductoRequestDTO request) {
+        Producto producto = productoRepo.findById(new Producto.ProductoId(id))
+                .orElseThrow(() -> new ProductoNoEncontradoException(id));
+
+        producto.setNombre(request.nombre());
+        producto.setDescripcion(request.descripcion());
+        
+        Integer idCategoria = categoriaRepo.buscarPorNombre(request.categoria())
+                .map(c -> c.getId().value())
+                .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada: " + request.categoria()));
+        producto.setIdCategoria(idCategoria);
+        
+        producto.setUnidadMedida(request.presentacion());
+        producto.setPrecioVenta(request.precioVenta());
+        producto.setCostoAdquisicion(request.costoAdquisicion() != null ? request.costoAdquisicion() : request.precioVenta());
+        producto.setStockMinimo(request.stockMinimo());
+        producto.setStockMaximo(request.stockMaximo());
+        producto.setRequiereReceta(request.requiereReceta() != null ? request.requiereReceta() : false);
+        producto.setIdProveedorPredeterminado(request.idProveedorPredeterminado());
+
+        productoRepo.guardar(producto);
+
+        return new ProductoDTO(
+            producto.getId().value(), producto.getCodigoSku(), producto.getNombre(),
+            request.categoria(), producto.getUnidadMedida(), producto.getPrecioVenta(),
+            producto.getStockActual(), producto.getRequiereReceta()
+        );
+    }
+
+    @Transactional
+    public void cambiarEstadoProducto(Integer id, boolean activo) {
+        Producto producto = productoRepo.findById(new Producto.ProductoId(id))
+                .orElseThrow(() -> new ProductoNoEncontradoException(id));
+        
+        productoRepo.cambiarEstado(producto.getId(), activo);
+    }
 }

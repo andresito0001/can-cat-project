@@ -27,7 +27,9 @@ const routes = [
       { path: 'solicitar-cita', name: 'RequestAppointment', component: () => import('@/views/cliente/RequestAppointmentView.vue') },
       { path: 'historial-pagos', name: 'PaymentHistory', component: () => import('@/views/cliente/PaymentHistoryView.vue') },
       { path: 'historial-clinico', name: 'PetHistory', component: () => import('@/views/cliente/PetHistoryView.vue') },
-      { path: 'mis-citas', name: 'MyAppointments', component: () => import('@/views/cliente/MyAppointmentsView.vue') }
+      { path: 'mis-citas', name: 'MyAppointments', component: () => import('@/views/cliente/MyAppointmentsView.vue') },
+      { path: 'pagar-cita/:idCita', name: 'PayAppointment', component: () => import('@/views/cliente/PayAppointmentView.vue') }
+    
     ]
   },
   
@@ -75,24 +77,22 @@ const routes = [
       { path: 'catalogo', name: 'Catalog', component: () => import('@/views/almacen/CatalogView.vue') },
     ]
   },
-    
-//   // ─── ADMINISTRADOR ───
-//   {
-//     path: '/admin',
-//     component: () => import('@/layouts/AdminLayout.vue'),
-//     meta: { requiresAuth: true, role: 'Administrador' },
-//     children: [
-//       { path: 'dashboard', name: 'AdminDashboard', component: () => import('@/views/admin/DashboardAdminView.vue') },
-//       { path: 'usuarios', name: 'UserManagement', component: () => import('@/views/admin/UserManagementView.vue') },
-//       { path: 'personal', name: 'StaffManagement', component: () => import('@/views/admin/StaffManagementView.vue') },
-//       { path: 'roles', name: 'RoleManagement', component: () => import('@/views/admin/RoleManagementView.vue') },
-//       { path: 'reportes', name: 'Reports', component: () => import('@/views/admin/ReportsView.vue') },
-//       { path: 'configuracion', name: 'Settings', component: () => import('@/views/admin/SettingsView.vue') },
-//     ]
-//   },
-  
-//   { path: '/:pathMatch(.*)*', redirect: '/auth/login' }
-// ]
+
+  // ADMINISTRADOR
+  {
+    path: '/admin',
+    component: () => import('@/layouts/AppLayout.vue'),
+    meta: { requiresAuth: true, role: 'Administrador' },
+    children: [
+      { path: '', redirect: '/admin/dashboard' },
+      { path: 'dashboard', name: 'AdminDashboard', component: () => import('@/views/admin/AdminDashboardView.vue') },
+      { path: 'usuarios', name: 'AdminUsuarios', component: () => import('@/views/admin/UsuariosView.vue') },
+      { path: 'personal', name: 'AdminPersonal', component: () => import('@/views/admin/PersonalView.vue') },
+      { path: 'roles', name: 'AdminRoles', component: () => import('@/views/admin/RolesView.vue') },
+      { path: 'reportes', name: 'AdminReportes', component: () => import('@/views/admin/ReportesView.vue') },
+      { path: 'configuracion', name: 'AdminConfiguracion', component: () => import('@/views/admin/ConfiguracionView.vue') },
+    ]
+  }
 ]
 
 const router = createRouter({

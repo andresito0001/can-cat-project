@@ -50,10 +50,15 @@ public class PersonalRepositoryImpl implements PersonalRepository {
             .orElseThrow(() -> new EntityNotFoundException("No se pudo eliminar: ID no encontrado"));
     }
 
+
     @Override
     public Optional<Personal> findById(PersonalId id) {
-        PersonalJpaEntity entity = em.find(PersonalJpaEntity.class, id.value());
-        return Optional.ofNullable(entity).map(PersonalJpaEntity::toDomain);
+        String jpql = "SELECT p FROM PersonalJpaEntity p JOIN FETCH p.usuario WHERE p.idPersonal = :id";
+        return em.createQuery(jpql, PersonalJpaEntity.class)
+                .setParameter("id", id.value())
+                .getResultStream()
+                .findFirst()
+                .map(PersonalJpaEntity::toDomain);
     }
 
     @Override
@@ -88,8 +93,7 @@ public class PersonalRepositoryImpl implements PersonalRepository {
 
     @Override
     public List<Personal> findAll() {
-        String jpql = "SELECT p FROM PersonalJpaEntity p";
-        
+        String jpql = "SELECT p FROM PersonalJpaEntity p JOIN FETCH p.usuario";
         return em.createQuery(jpql, PersonalJpaEntity.class)
                 .getResultList()
                 .stream()

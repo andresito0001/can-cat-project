@@ -73,6 +73,13 @@ public class AuthApplicationService {
             throw new CuentaInactivaException(usuario.getEstado().name());
         }
 
+        var personalOpt = personalRepository.findByUsuarioId(usuario.getId());
+        if (personalOpt.isPresent() && !personalOpt.get().isActivo()) {
+            logger.warn("Intento de acceso con personal inactivo: {}",
+                request.getCorreoElectronico());
+            throw new CuentaInactivaException("Inactivo");
+        }
+
         // Validar contraseña
         if (!passwordEncoder.matches(request.getContrasena(), usuario.getContrasenaHash())) {
             logger.warn("Contraseña incorrecta para correo: {}", request.getCorreoElectronico());

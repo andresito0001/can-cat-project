@@ -11,12 +11,20 @@
         </p>
         <h1>Cobrar en Mostrador</h1>
         <p class="hero-sub">
-          Registra el pago presencial de citas y facturas de productos, y emite el comprobante al instante.
+          Registra el pago presencial de citas y facturas de productos, verifica pagos online y emite el comprobante al instante.
         </p>
       </div>
       <div class="hero-right">
-        <button class="btn-secondary" type="button" :disabled="cargando || cargandoFacturas" @click="actualizar">
-          <RefreshCw :size="15" :class="{ spin: cargando || cargandoFacturas }" />
+        <button
+          class="btn-secondary"
+          type="button"
+          :disabled="cargando || cargandoFacturas || cargandoVerificacion"
+          @click="actualizar"
+        >
+          <RefreshCw
+            :size="15"
+            :class="{ spin: cargando || cargandoFacturas || cargandoVerificacion }"
+          />
           Actualizar
         </button>
       </div>
@@ -54,15 +62,17 @@
       <article class="kpi">
         <div
           class="kpi-icon"
-          :style="citasVencidas
-            ? '--kpi-color: #DC2626; --kpi-bg: #FEF2F2;'
-            : '--kpi-color: #F59E0B; --kpi-bg: #FFFBEB;'"
+          :style="pagosPorVerificar.length
+            ? '--kpi-color: #D97706; --kpi-bg: #FFFBEB;'
+            : '--kpi-color: #94A3B8; --kpi-bg: #F1F5F9;'"
         >
-          <AlertTriangle :size="18" />
+          <ShieldCheck :size="18" />
         </div>
         <div class="kpi-texto">
-          <p class="kpi-value" :class="{ 'is-warn': citasVencidas > 0 }">{{ citasVencidas }}</p>
-          <p class="kpi-label">Citas vencidas</p>
+          <p class="kpi-value" :class="{ 'is-warn': pagosPorVerificar.length > 0 }">
+            {{ pagosPorVerificar.length }}
+          </p>
+          <p class="kpi-label">Pagos por verificar</p>
         </div>
       </article>
     </section>
@@ -102,6 +112,20 @@
         Facturas de productos
         <span v-if="facturas.length" class="tab-count">{{ facturas.length }}</span>
       </button>
+      <button
+        type="button"
+        role="tab"
+        class="tab"
+        :class="{ active: tab === 'verificacion' }"
+        :aria-selected="tab === 'verificacion'"
+        @click="tab = 'verificacion'"
+      >
+        <ShieldCheck :size="15" />
+        Pagos por verificar
+        <span v-if="pagosPorVerificar.length" class="tab-count is-warn">
+          {{ pagosPorVerificar.length }}
+        </span>
+      </button>
     </nav>
 
     <!-- ══════════════ TAB 1: CITAS ══════════════ -->
@@ -112,7 +136,6 @@
         <button type="button" class="alert-action" @click="cargarPendientes">Reintentar</button>
       </div>
 
-      <!-- Skeleton -->
       <div v-if="cargando" class="skeleton-list">
         <div v-for="i in 3" :key="i" class="skeleton-card">
           <div class="skeleton-block skeleton-fecha" />
@@ -125,7 +148,6 @@
         </div>
       </div>
 
-      <!-- Vacío -->
       <div v-else-if="pendientes.length === 0" class="empty-state">
         <div class="empty-icon"><CheckCircle2 :size="32" /></div>
         <h3>No hay citas pendientes de pago</h3>
@@ -138,7 +160,6 @@
         </button>
       </div>
 
-      <!-- Lista -->
       <div v-else class="citas-lista">
         <article
           v-for="c in pendientes"
@@ -146,24 +167,19 @@
           class="cita-card"
           :class="{ 'is-vencida': c.fecha < hoy }"
         >
-          <!-- Bloque fecha -->
           <div class="cita-fecha" :class="{ 'is-vencida': c.fecha < hoy }">
             <span class="fecha-dia">{{ partesFecha(c.fecha).dia }}</span>
             <span class="fecha-mes">{{ partesFecha(c.fecha).mes }}</span>
             <span class="fecha-hora">{{ fmtHora(c.horaInicio) }}</span>
           </div>
 
-          <!-- Info -->
           <div class="cita-info">
             <div class="cita-title-row">
               <h3 class="cita-mascota">
                 <PawPrint :size="14" />
                 {{ c.nombreMascota }}
               </h3>
-              <span
-                v-if="c.fecha < hoy"
-                class="vencida-tag"
-              >
+              <span v-if="c.fecha < hoy" class="vencida-tag">
                 <AlertTriangle :size="11" /> Vencida
               </span>
             </div>
@@ -176,7 +192,6 @@
             </div>
           </div>
 
-          <!-- Monto + acción -->
           <div class="cita-lateral">
             <span class="cita-monto-label">A cobrar</span>
             <strong class="cita-monto">{{ fmtUsd(c.costoUsd) }}</strong>
@@ -190,7 +205,7 @@
     </template>
 
     <!-- ══════════════ TAB 2: FACTURAS ══════════════ -->
-    <template v-else>
+    <template v-else-if="tab === 'facturas'">
       <div v-if="errorFacturas" class="alert alert-error">
         <AlertCircle :size="16" />
         <span>{{ errorFacturas }}</span>
@@ -304,204 +319,389 @@
       </div>
     </template>
 
-    <!-- ══════════════ MODAL DE COBRO ══════════════ -->
-  <!-- ══════════════ MODAL DE COBRO ══════════════ -->
-  <Teleport to="body">
-    <Transition name="fade">
-      <div
-        v-if="citaACobrar"
-        class="modal-overlay"
-        @click.self="!cobrando && (citaACobrar = null)"
-      >
-        <Transition name="slide-up">
-          <div v-if="citaACobrar" class="cobro-modal">
-            <!-- Header fijo -->
-            <header class="cobro-modal-header">
-              <div class="cobro-modal-titles">
-                <span class="cobro-modal-eyebrow">
-                  <Banknote :size="12" />
-                  {{ tipoCobro === 'factura' ? 'Cobro de factura' : 'Cobro de cita' }}
-                </span>
-                <h3>{{ citaACobrar.nombreCliente }}</h3>
+    <!-- ══════════════ TAB 3: PAGOS POR VERIFICAR ══════════════ -->
+    <template v-else>
+      <div v-if="errorVerificacion" class="alert alert-error">
+        <AlertCircle :size="16" />
+        <span>{{ errorVerificacion }}</span>
+        <button type="button" class="alert-action" @click="cargarPagosPorVerificar">
+          Reintentar
+        </button>
+      </div>
+
+      <div v-if="cargandoVerificacion" class="skeleton-list">
+        <div v-for="i in 3" :key="i" class="skeleton-card">
+          <div class="skeleton-block skeleton-fecha" />
+          <div class="skeleton-info">
+            <div class="skeleton-block w-60" />
+            <div class="skeleton-block w-40" />
+          </div>
+          <div class="skeleton-block skeleton-monto" />
+        </div>
+      </div>
+
+      <div v-else-if="pagosPorVerificar.length === 0" class="empty-state">
+        <div class="empty-icon" style="background: #FFFBEB; color: #D97706;">
+          <ShieldCheck :size="32" />
+        </div>
+        <h3>No hay pagos pendientes de verificación</h3>
+        <p>
+          Todos los pagos online están verificados. Los nuevos aparecerán aquí
+          automáticamente tras el pago del cliente.
+        </p>
+        <button class="btn-secondary" type="button" @click="actualizar">
+          <RefreshCw :size="15" /> Actualizar
+        </button>
+      </div>
+
+      <div v-else class="verificacion-list">
+        <article v-for="p in pagosPorVerificar" :key="p.idPago" class="verif-card">
+          <header class="verif-header">
+            <div class="verif-metodo">
+              <div class="verif-icon">
+                <component :is="iconoMetodoVerif(p.metodoPago)" :size="18" />
               </div>
-              <button
-                class="cobro-modal-close"
-                type="button"
-                :disabled="cobrando"
-                aria-label="Cerrar"
-                @click="citaACobrar = null"
+              <div>
+                <p class="verif-metodo-nombre">{{ fmtMetodoNombre(p.metodoPago) }}</p>
+                <p class="verif-metodo-tipo">Pago online · Factura {{ p.numeroControl }}</p>
+              </div>
+            </div>
+            <div class="verif-monto">
+              <span class="verif-monto-label">Monto</span>
+              <strong class="verif-monto-valor">{{ fmtUsd(p.monto) }}</strong>
+            </div>
+          </header>
+
+          <div class="verif-body">
+            <div class="verif-col">
+              <p class="verif-label"><User :size="12" /> Cliente</p>
+              <p class="verif-valor">{{ p.clienteNombre }}</p>
+              <p class="verif-meta">{{ p.clienteDocumento }} · {{ p.clienteTelefono }}</p>
+            </div>
+            <div v-if="p.mascotaNombre" class="verif-col">
+              <p class="verif-label"><PawPrint :size="12" /> Mascota</p>
+              <p class="verif-valor">{{ p.mascotaNombre }}</p>
+            </div>
+            <div class="verif-col">
+              <p class="verif-label"><CalendarDays :size="12" /> Fecha del pago</p>
+              <p class="verif-valor">{{ fmtFechaHora(p.fechaPago) }}</p>
+            </div>
+          </div>
+
+          <div class="verif-transaccion">
+            <p class="verif-transaccion-titulo">
+              <CreditCard :size="13" /> Datos de la transacción
+            </p>
+            <div class="verif-grid">
+              <div v-if="p.referenciaTransaccion" class="verif-field">
+                <span class="verif-field-label">Referencia</span>
+                <span class="verif-field-valor mono">{{ p.referenciaTransaccion }}</span>
+              </div>
+              <div
+                v-for="(val, key) in p.metadataPago || {}"
+                :key="key"
+                class="verif-field"
               >
-                <X :size="17" />
-              </button>
-            </header>
-
-            <!-- Body con scroll interno -->
-            <div class="cobro-modal-body">
-              <!-- Alerta de error -->
-              <div v-if="cobroError" class="alert alert-error" style="margin-top: 0;">
-                <AlertTriangle :size="16" />
-                <span>{{ cobroError }}</span>
+                <span class="verif-field-label">{{ fmtFieldLabelVerif(key) }}</span>
+                <span class="verif-field-valor">{{ val }}</span>
               </div>
+            </div>
+          </div>
 
-              <!-- Info del cobro -->
-              <div class="cobro-modal-info">
-                <div v-if="tipoCobro === 'cita'">
-                  <div class="info-row">
-                    <span class="info-label"><PawPrint :size="13" /> Mascota</span>
-                    <span class="info-value">{{ citaACobrar.nombreMascota }}</span>
-                  </div>
-                  <div class="info-row">
-                    <span class="info-label"><FileText :size="13" /> Servicio</span>
-                    <span class="info-value">{{ citaACobrar.nombreServicio }}</span>
-                  </div>
-                  <div class="info-row">
-                    <span class="info-label"><CalendarDays :size="13" /> Turno</span>
-                    <span class="info-value">
-                      {{ fmtFecha(citaACobrar.fecha) }} · {{ fmtHora(citaACobrar.horaInicio) }}
-                    </span>
-                  </div>
-                </div>
-                <div v-else>
-                  <div class="info-row">
-                    <span class="info-label"><CreditCard :size="13" /> Documento</span>
-                    <span class="info-value mono">{{ citaACobrar.documentoCliente }}</span>
-                  </div>
-                  <div class="info-row">
-                    <span class="info-label"><Package :size="13" /> Productos</span>
-                    <span class="info-value">{{ citaACobrar.productosResumen }}</span>
-                  </div>
-                  <div class="info-row">
-                    <span class="info-label"><CalendarDays :size="13" /> Emisión</span>
-                    <span class="info-value">{{ fmtFecha(citaACobrar.fecha) }}</span>
-                  </div>
-                </div>
-              </div>
+          <footer class="verif-actions">
+            <button class="btn-rechazar" type="button" @click="abrirVerificacion(p, false)">
+              <X :size="14" /> Rechazar
+            </button>
+            <button class="btn-aprobar" type="button" @click="abrirVerificacion(p, true)">
+              <CheckCircle2 :size="14" /> Confirmar pago
+            </button>
+          </footer>
+        </article>
+      </div>
+    </template>
 
-              <!-- Total destacado -->
-              <div class="cobro-modal-total">
-                <div class="total-left">
-                  <span class="total-label">Total a cobrar</span>
-                  <span class="total-hint">Bs. se calcula con la tasa oficial al confirmar</span>
+    <!-- ══════════════ MODAL DE COBRO ══════════════ -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div
+          v-if="citaACobrar"
+          class="modal-overlay"
+          @click.self="!cobrando && (citaACobrar = null)"
+        >
+          <Transition name="slide-up">
+            <div v-if="citaACobrar" class="cobro-modal">
+              <header class="cobro-modal-header">
+                <div class="cobro-modal-titles">
+                  <span class="cobro-modal-eyebrow">
+                    <Banknote :size="12" />
+                    {{ tipoCobro === 'factura' ? 'Cobro de factura' : 'Cobro de cita' }}
+                  </span>
+                  <h3>{{ citaACobrar.nombreCliente }}</h3>
                 </div>
-                <div class="total-right">
-                  <span class="total-monto">{{ fmtUsd(citaACobrar.costoUsd) }}</span>
-                  <span class="total-currency">USD</span>
-                </div>
-              </div>
-
-              <!-- Métodos de pago -->
-              <p class="cobro-modal-section">
-                Método de pago <span class="required">*</span>
-              </p>
-              <div class="methods-list">
                 <button
-                  v-for="m in metodos"
-                  :key="m.id"
+                  class="cobro-modal-close"
                   type="button"
-                  class="method-option"
-                  :class="{ active: selectedMetodo === m.id }"
-                  @click="selectedMetodo = m.id; datosPago = {}; referencia = ''; stepErrors = {}; cobroError = ''"
+                  :disabled="cobrando"
+                  aria-label="Cerrar"
+                  @click="citaACobrar = null"
                 >
-                  <div class="method-radio">
-                    <div class="radio-outer" :class="{ checked: selectedMetodo === m.id }">
-                      <div v-if="selectedMetodo === m.id" class="radio-inner" />
+                  <X :size="17" />
+                </button>
+              </header>
+
+              <div class="cobro-modal-body">
+                <div v-if="cobroError" class="alert alert-error" style="margin-top: 0;">
+                  <AlertTriangle :size="16" />
+                  <span>{{ cobroError }}</span>
+                </div>
+
+                <div class="cobro-modal-info">
+                  <div v-if="tipoCobro === 'cita'">
+                    <div class="info-row">
+                      <span class="info-label"><PawPrint :size="13" /> Mascota</span>
+                      <span class="info-value">{{ citaACobrar.nombreMascota }}</span>
+                    </div>
+                    <div class="info-row">
+                      <span class="info-label"><FileText :size="13" /> Servicio</span>
+                      <span class="info-value">{{ citaACobrar.nombreServicio }}</span>
+                    </div>
+                    <div class="info-row">
+                      <span class="info-label"><CalendarDays :size="13" /> Turno</span>
+                      <span class="info-value">
+                        {{ fmtFecha(citaACobrar.fecha) }} · {{ fmtHora(citaACobrar.horaInicio) }}
+                      </span>
                     </div>
                   </div>
-                  <div class="method-info">
-                    <span class="method-name">{{ METODO_LABEL[m.nombre] || m.nombre }}</span>
-                    <span class="method-desc">{{ m.descripcion }}</span>
-                  </div>
-                </button>
-              </div>
-              <span v-if="stepErrors.metodo" class="form-error mt-8">{{ stepErrors.metodo }}</span>
-
-              <!-- Campos dinámicos -->
-              <Transition name="expand">
-                <div v-if="metodoSeleccionado" class="dynamic-fields">
-                  <p class="cobro-modal-section">Datos del pago</p>
-
-                  <div v-if="'referencia' in camposActuales" class="form-group">
-                    <label class="form-label">
-                      Número de referencia <span class="required">*</span>
-                    </label>
-                    <input
-                      v-model="referencia"
-                      type="text"
-                      class="form-input"
-                      :class="{ 'is-invalid': stepErrors.referencia }"
-                      placeholder="Ej: 0000123456789"
-                    />
-                    <span v-if="stepErrors.referencia" class="form-error">{{ stepErrors.referencia }}</span>
-                  </div>
-
-                  <div v-for="campo in camposDinamicos" :key="campo.key" class="form-group">
-                    <label class="form-label">
-                      {{ fmtFieldLabel(campo.key) }} <span class="required">*</span>
-                    </label>
-                    <select
-                      v-if="campo.key === 'banco'"
-                      v-model="datosPago[campo.key]"
-                      class="form-select"
-                      :class="{ 'is-invalid': stepErrors[campo.key] }"
-                    >
-                      <option value="" disabled>Seleccione el banco emisor</option>
-                      <option v-for="b in BANCOS_VENEZUELA" :key="b.codigo" :value="b.nombre">
-                        {{ b.codigo }} - {{ b.nombre }}
-                      </option>
-                    </select>
-                    <input
-                      v-else
-                      v-model="datosPago[campo.key]"
-                      type="text"
-                      class="form-input"
-                      :class="{ 'is-invalid': stepErrors[campo.key] }"
-                    />
-                    <span v-if="stepErrors[campo.key]" class="form-error">{{ stepErrors[campo.key] }}</span>
+                  <div v-else>
+                    <div class="info-row">
+                      <span class="info-label"><CreditCard :size="13" /> Documento</span>
+                      <span class="info-value mono">{{ citaACobrar.documentoCliente }}</span>
+                    </div>
+                    <div class="info-row">
+                      <span class="info-label"><Package :size="13" /> Productos</span>
+                      <span class="info-value">{{ citaACobrar.productosResumen }}</span>
+                    </div>
+                    <div class="info-row">
+                      <span class="info-label"><CalendarDays :size="13" /> Emisión</span>
+                      <span class="info-value">{{ fmtFecha(citaACobrar.fecha) }}</span>
+                    </div>
                   </div>
                 </div>
-              </Transition>
 
-              <!-- Confirmación de fondos -->
-              <label class="check-row" :class="{ 'is-invalid': stepErrors.fondos }">
-                <input v-model="fondosConfirmados" type="checkbox" class="checkbox-input" />
-                <span class="checkbox-box">
-                  <Check v-if="fondosConfirmados" :size="12" />
-                </span>
-                <span class="checkbox-label">
-                  Confirmo la recepción de los fondos del cliente
-                </span>
-              </label>
-              <span v-if="stepErrors.fondos" class="form-error">{{ stepErrors.fondos }}</span>
+                <div class="cobro-modal-total">
+                  <div class="total-left">
+                    <span class="total-label">Total a cobrar</span>
+                    <span class="total-hint">Bs. se calcula con la tasa oficial al confirmar</span>
+                  </div>
+                  <div class="total-right">
+                    <span class="total-monto">{{ fmtUsd(citaACobrar.costoUsd) }}</span>
+                    <span class="total-currency">USD</span>
+                  </div>
+                </div>
+
+                <p class="cobro-modal-section">
+                  Método de pago <span class="required">*</span>
+                </p>
+                <div class="methods-list">
+                  <button
+                    v-for="m in metodos"
+                    :key="m.id"
+                    type="button"
+                    class="method-option"
+                    :class="{ active: selectedMetodo === m.id }"
+                    @click="selectedMetodo = m.id; datosPago = {}; referencia = ''; stepErrors = {}; cobroError = ''"
+                  >
+                    <div class="method-radio">
+                      <div class="radio-outer" :class="{ checked: selectedMetodo === m.id }">
+                        <div v-if="selectedMetodo === m.id" class="radio-inner" />
+                      </div>
+                    </div>
+                    <div class="method-info">
+                      <span class="method-name">{{ METODO_LABEL[m.nombre] || m.nombre }}</span>
+                      <span class="method-desc">{{ m.descripcion }}</span>
+                    </div>
+                  </button>
+                </div>
+                <span v-if="stepErrors.metodo" class="form-error mt-8">{{ stepErrors.metodo }}</span>
+
+                <Transition name="expand">
+                  <div v-if="metodoSeleccionado" class="dynamic-fields">
+                    <p class="cobro-modal-section">Datos del pago</p>
+
+                    <div v-if="'referencia' in camposActuales" class="form-group">
+                      <label class="form-label">
+                        Número de referencia <span class="required">*</span>
+                      </label>
+                      <input
+                        v-model="referencia"
+                        type="text"
+                        class="form-input"
+                        :class="{ 'is-invalid': stepErrors.referencia }"
+                        placeholder="Ej: 0000123456789"
+                      />
+                      <span v-if="stepErrors.referencia" class="form-error">
+                        {{ stepErrors.referencia }}
+                      </span>
+                    </div>
+
+                    <div v-for="campo in camposDinamicos" :key="campo.key" class="form-group">
+                      <label class="form-label">
+                        {{ fmtFieldLabel(campo.key) }} <span class="required">*</span>
+                      </label>
+                      <select
+                        v-if="campo.key === 'banco'"
+                        v-model="datosPago[campo.key]"
+                        class="form-select"
+                        :class="{ 'is-invalid': stepErrors[campo.key] }"
+                      >
+                        <option value="" disabled>Seleccione el banco emisor</option>
+                        <option v-for="b in BANCOS_VENEZUELA" :key="b.codigo" :value="b.nombre">
+                          {{ b.codigo }} - {{ b.nombre }}
+                        </option>
+                      </select>
+                      <input
+                        v-else
+                        v-model="datosPago[campo.key]"
+                        type="text"
+                        class="form-input"
+                        :class="{ 'is-invalid': stepErrors[campo.key] }"
+                      />
+                      <span v-if="stepErrors[campo.key]" class="form-error">
+                        {{ stepErrors[campo.key] }}
+                      </span>
+                    </div>
+                  </div>
+                </Transition>
+
+                <label class="check-row" :class="{ 'is-invalid': stepErrors.fondos }">
+                  <input v-model="fondosConfirmados" type="checkbox" class="checkbox-input" />
+                  <span class="checkbox-box">
+                    <Check v-if="fondosConfirmados" :size="12" />
+                  </span>
+                  <span class="checkbox-label">
+                    Confirmo la recepción de los fondos del cliente
+                  </span>
+                </label>
+                <span v-if="stepErrors.fondos" class="form-error">{{ stepErrors.fondos }}</span>
+              </div>
+
+              <footer class="cobro-modal-footer">
+                <button
+                  class="btn-secondary"
+                  type="button"
+                  :disabled="cobrando"
+                  @click="citaACobrar = null"
+                >
+                  Cancelar
+                </button>
+                <button
+                  class="btn-primary"
+                  type="button"
+                  :disabled="!selectedMetodo || cobrando"
+                  @click="confirmarCobro"
+                >
+                  <Loader2 v-if="cobrando" :size="15" class="spin" />
+                  <Banknote v-else :size="15" />
+                  {{ cobrando
+                    ? 'Procesando…'
+                    : (tipoCobro === 'factura' ? 'Cobrar factura' : 'Cobrar y facturar') }}
+                </button>
+              </footer>
             </div>
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
 
-            <!-- Footer fijo -->
-            <footer class="cobro-modal-footer">
-              <button
-                class="btn-secondary"
-                type="button"
-                :disabled="cobrando"
-                @click="citaACobrar = null"
-              >
-                Cancelar
-              </button>
-              <button
-                class="btn-primary"
-                type="button"
-                :disabled="!selectedMetodo || cobrando"
-                @click="confirmarCobro"
-              >
-                <Loader2 v-if="cobrando" :size="15" class="spin" />
-                <Banknote v-else :size="15" />
-                {{ cobrando
-                  ? 'Procesando…'
-                  : (tipoCobro === 'factura' ? 'Cobrar factura' : 'Cobrar y facturar') }}
-              </button>
-            </footer>
-          </div>
-        </Transition>
-      </div>
-    </Transition>
-  </Teleport>
+    <!-- ══════════════ MODAL VERIFICACIÓN ══════════════ -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div
+          v-if="verificacionModal"
+          class="modal-overlay"
+          @click.self="!verificandoPago && (verificacionModal = false)"
+        >
+          <Transition name="slide-up">
+            <div v-if="verificacionModal" class="cobro-modal" style="max-width: 520px;">
+              <header class="cobro-modal-header">
+                <div class="cobro-modal-titles">
+                  <span class="cobro-modal-eyebrow">
+                    <ShieldCheck :size="12" />
+                    Verificación de pago
+                  </span>
+                  <h3>
+                    {{ verificacionAprobada ? 'Confirmar pago' : 'Rechazar pago' }}
+                  </h3>
+                </div>
+                <button
+                  class="cobro-modal-close"
+                  type="button"
+                  :disabled="verificandoPago"
+                  @click="verificacionModal = false"
+                >
+                  <X :size="17" />
+                </button>
+              </header>
+
+              <div class="cobro-modal-body">
+                <p class="verif-modal-texto">
+                  <template v-if="verificacionAprobada">
+                    Confirma que verificaste manualmente la transacción
+                    <strong>{{ pagoAVerificar?.referenciaTransaccion }}</strong>
+                    en el {{ fmtMetodoNombre(pagoAVerificar?.metodoPago) }}.
+                    El pago quedará marcado como <strong>Confirmado</strong>.
+                  </template>
+                  <template v-else>
+                    Si rechazas, el pago se marcará como <strong>Rechazado</strong>
+                    y la cita asociada se cancelará automáticamente.
+                  </template>
+                </p>
+
+                <div class="form-group">
+                  <label class="form-label">Observaciones (opcional)</label>
+                  <textarea
+                    v-model="observacionesVerif"
+                    rows="3"
+                    class="form-textarea"
+                    placeholder="Ej: Verificado en el banco. Transacción confirmada."
+                  ></textarea>
+                </div>
+
+                <div v-if="errorVerifModal" class="alert alert-error">
+                  <AlertTriangle :size="16" />
+                  <span>{{ errorVerifModal }}</span>
+                </div>
+              </div>
+
+              <footer class="cobro-modal-footer">
+                <button
+                  class="btn-secondary"
+                  type="button"
+                  :disabled="verificandoPago"
+                  @click="verificacionModal = false"
+                >
+                  Cancelar
+                </button>
+                <button
+                  class="btn-primary"
+                  :style="!verificacionAprobada ? 'background:#DC2626' : ''"
+                  type="button"
+                  :disabled="verificandoPago"
+                  @click="confirmarVerificacion"
+                >
+                  <Loader2 v-if="verificandoPago" :size="15" class="spin" />
+                  <component :is="verificacionAprobada ? CheckCircle2 : X" v-else :size="15" />
+                  {{ verificandoPago
+                    ? 'Procesando…'
+                    : (verificacionAprobada ? 'Sí, confirmar' : 'Sí, rechazar') }}
+                </button>
+              </footer>
+            </div>
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
+
     <!-- ══════════════ COMPROBANTE ══════════════ -->
     <Teleport to="body">
       <Transition name="fade">
@@ -588,12 +788,22 @@
                 </div>
 
                 <div class="success-actions">
-                  <button class="btn-secondary" type="button" :disabled="imprimiendo" @click="imprimirComprobante">
+                  <button
+                    class="btn-secondary"
+                    type="button"
+                    :disabled="imprimiendo"
+                    @click="imprimirComprobante"
+                  >
                     <Loader2 v-if="imprimiendo" :size="15" class="spin" />
                     <Printer v-else :size="15" />
                     {{ imprimiendo ? 'Imprimiendo…' : 'Imprimir' }}
                   </button>
-                  <button class="btn-secondary" type="button" :disabled="enviando" @click="enviarPorCorreo">
+                  <button
+                    class="btn-secondary"
+                    type="button"
+                    :disabled="enviando"
+                    @click="enviarPorCorreo"
+                  >
                     <Loader2 v-if="enviando" :size="15" class="spin" />
                     <Mail v-else :size="15" />
                     {{ enviando ? 'Enviando…' : 'Enviar por correo' }}
@@ -616,7 +826,8 @@ import { ref, computed, onMounted } from 'vue'
 import { getPendientesPago, cobrarCitaMostrador } from '@/api/citas.api'
 import {
   getMetodosPresenciales, enviarFactura, descargarFactura,
-  getFacturasPendientes, cobrarFactura
+  getFacturasPendientes, cobrarFactura,
+  getPagosPendientesVerificacion, verificarPago,
 } from '@/api/pagos.api'
 import { ESTADO_COLOR } from '@/utils/constants/estadosCita'
 import ToastContainer from '@/components/ui/ToastContainer.vue'
@@ -624,7 +835,8 @@ import {
   Banknote, Loader2, AlertCircle, AlertTriangle, CheckCircle2,
   Printer, Mail, X, RefreshCw, PawPrint, CalendarDays, CreditCard,
   Receipt, ChevronDown, ChevronUp, Sparkles, DollarSign, User,
-  FileText, Stethoscope, Package, Check
+  FileText, Stethoscope, Package, Check,
+  ShieldCheck, Landmark, Smartphone,
 } from 'lucide-vue-next'
 
 const BANCOS_VENEZUELA = [
@@ -643,6 +855,7 @@ const METODO_LABEL = {
   Efectivo: 'Efectivo',
   Tarjeta: 'Tarjeta (Punto de Venta)',
   Pago_Movil: 'Pago Móvil',
+  Transferencia: 'Transferencia bancaria',
 }
 
 const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
@@ -693,8 +906,108 @@ function alternarDetalles(idFactura) {
   facturaExpandida.value = facturaExpandida.value === idFactura ? null : idFactura
 }
 
+// ─── Pagos por verificar ───
+const pagosPorVerificar = ref([])
+const cargandoVerificacion = ref(false)
+const errorVerificacion = ref('')
+
+async function cargarPagosPorVerificar() {
+  cargandoVerificacion.value = true
+  errorVerificacion.value = ''
+  try {
+    const { data } = await getPagosPendientesVerificacion()
+    pagosPorVerificar.value = data || []
+  } catch (err) {
+    errorVerificacion.value = err.response?.data?.message
+      || 'No se pudo cargar los pagos pendientes de verificación.'
+  } finally {
+    cargandoVerificacion.value = false
+  }
+}
+
+// ─── Modal verificación ───
+const verificacionModal = ref(false)
+const pagoAVerificar = ref(null)
+const verificacionAprobada = ref(true)
+const observacionesVerif = ref('')
+const verificandoPago = ref(false)
+const errorVerifModal = ref('')
+
+function abrirVerificacion(pago, aprobado) {
+  pagoAVerificar.value = pago
+  verificacionAprobada.value = aprobado
+  observacionesVerif.value = ''
+  errorVerifModal.value = ''
+  verificacionModal.value = true
+}
+
+async function confirmarVerificacion() {
+  if (!pagoAVerificar.value) return
+  verificandoPago.value = true
+  errorVerifModal.value = ''
+  try {
+    await verificarPago(pagoAVerificar.value.idPago, {
+      aprobado: verificacionAprobada.value,
+      observaciones: observacionesVerif.value.trim() || null,
+    })
+    verificacionModal.value = false
+    pagoAVerificar.value = null
+    await cargarPagosPorVerificar()
+    await cargarPendientes()
+    await cargarFacturas()
+  } catch (err) {
+    errorVerifModal.value = err.response?.data?.message
+      || 'No se pudo procesar la verificación. Intenta de nuevo.'
+  } finally {
+    verificandoPago.value = false
+  }
+}
+
+function iconoMetodoVerif(nombre) {
+  if (nombre === 'Transferencia') return Landmark
+  if (nombre === 'Pago_Movil') return Smartphone
+  return CreditCard
+}
+
+function fmtMetodoNombre(nombre) {
+  if (!nombre) return 'Pago online'
+  const map = {
+    Transferencia: 'Transferencia bancaria',
+    Pago_Movil: 'Pago Móvil',
+    Efectivo: 'Efectivo',
+    Tarjeta: 'Tarjeta',
+  }
+  return map[nombre] || nombre
+}
+
+function fmtFieldLabelVerif(key) {
+  const labels = {
+    banco: 'Banco',
+    telefono: 'Teléfono',
+    referencia: 'Referencia',
+    lote: 'Lote',
+    ultimos_digitos: 'Últimos 4 dígitos',
+    numero_cuenta: 'Número de cuenta',
+  }
+  return labels[key] || String(key).replace(/_/g, ' ')
+}
+
+function fmtFechaHora(iso) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString('es-VE', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 function actualizar() {
-  if (tab.value === 'facturas') cargarFacturas()
+  if (tab.value === 'verificacion') cargarPagosPorVerificar()
+  else if (tab.value === 'facturas') cargarFacturas()
   else cargarPendientes()
 }
 
@@ -774,7 +1087,9 @@ async function confirmarCobro() {
   const campos = camposActuales.value
   const errors = {}
   if (!selectedMetodo.value) errors.metodo = 'Seleccione un método de pago'
-  if ('referencia' in campos && !referencia.value.trim()) errors.referencia = 'La referencia es obligatoria'
+  if ('referencia' in campos && !referencia.value.trim()) {
+    errors.referencia = 'La referencia es obligatoria'
+  }
   for (const { key } of camposDinamicos.value) {
     if (!datosPago.value[key]?.trim()) errors[key] = 'Este campo es obligatorio'
   }
@@ -913,6 +1228,7 @@ function fmtFieldLabel(key) {
 onMounted(async () => {
   cargarPendientes()
   cargarFacturas()
+  cargarPagosPorVerificar()
   try {
     const { data } = await getMetodosPresenciales()
     metodos.value = data
@@ -1021,7 +1337,7 @@ button { font-family: inherit; }
   line-height: 1.1;
   letter-spacing: -0.01em;
 }
-.kpi-value.is-warn { color: #DC2626; }
+.kpi-value.is-warn { color: #D97706; }
 .kpi-label {
   margin: 3px 0 0;
   font-size: 12px;
@@ -1206,7 +1522,6 @@ button { font-family: inherit; }
   background: linear-gradient(90deg, #FEF2F2 0%, #FFFFFF 25%);
 }
 
-/* Fecha */
 .cita-fecha {
   display: flex;
   flex-direction: column;
@@ -1249,7 +1564,6 @@ button { font-family: inherit; }
   line-height: 1;
 }
 
-/* Info */
 .cita-info { min-width: 0; }
 .cita-title-row {
   display: flex;
@@ -1312,7 +1626,6 @@ button { font-family: inherit; }
 }
 .meta-item svg { color: #94A3B8; }
 
-/* Lateral */
 .cita-lateral {
   display: flex;
   flex-direction: column;
@@ -1450,7 +1763,6 @@ button { font-family: inherit; }
   background: #F0FDFA;
 }
 
-/* Detalles expandidos */
 .detalles-row td {
   background: #F0FDFA;
   padding: 0;
@@ -1488,7 +1800,208 @@ button { font-family: inherit; }
 }
 .data-table.inner tbody tr:last-child td { border-bottom: none; }
 
-/* ══════════════ MODAL DE COBRO (REDISEÑADO) ══════════════ */
+/* ══════════════ TAB 3: VERIFICACIÓN ══════════════ */
+.verificacion-list { display: flex; flex-direction: column; gap: 14px; }
+
+.verif-card {
+  background: #fff;
+  border: 1px solid #FDE68A;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .04);
+  transition: box-shadow .2s, transform .2s;
+}
+.verif-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px -12px rgba(245, 158, 11, .25);
+}
+
+.verif-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  background: linear-gradient(90deg, #FFFBEB 0%, #FFFFFF 60%);
+  border-bottom: 1px solid #FEF3C7;
+  flex-wrap: wrap;
+}
+.verif-metodo { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.verif-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  background: #fff;
+  border: 1px solid #FDE68A;
+  color: #B45309;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.verif-metodo-nombre {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1E293B;
+}
+.verif-metodo-tipo {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #64748B;
+}
+.verif-monto {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.verif-monto-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: #94A3B8;
+}
+.verif-monto-valor {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0F766E;
+  letter-spacing: -0.02em;
+}
+
+.verif-body {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #F1F5F9;
+}
+.verif-col { min-width: 0; }
+.verif-label {
+  margin: 0 0 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: #94A3B8;
+}
+.verif-valor {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1E293B;
+  word-break: break-word;
+}
+.verif-meta {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: #64748B;
+}
+
+.verif-transaccion {
+  padding: 16px 20px;
+  background: #F8FAFC;
+  border-bottom: 1px solid #E2E8F0;
+}
+.verif-transaccion-titulo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: #0F766E;
+}
+.verif-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+.verif-field {
+  background: #fff;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.verif-field-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  color: #94A3B8;
+}
+.verif-field-valor {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1E293B;
+  word-break: break-word;
+}
+.verif-field-valor.mono {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  color: #334155;
+}
+
+.verif-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 20px;
+  background: #FAFBFC;
+}
+
+.btn-aprobar,
+.btn-rechazar {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all .15s;
+  border: none;
+}
+.btn-aprobar {
+  background: #0F766E;
+  color: #fff;
+}
+.btn-aprobar:hover {
+  background: #0E6862;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -4px rgba(15, 118, 110, .4);
+}
+.btn-rechazar {
+  background: #fff;
+  color: #DC2626;
+  border: 1px solid #FECACA;
+}
+.btn-rechazar:hover {
+  background: #FEF2F2;
+  border-color: #FCA5A5;
+}
+
+.verif-modal-texto {
+  margin: 0 0 16px;
+  font-size: 13.5px;
+  color: #334155;
+  line-height: 1.55;
+}
+.verif-modal-texto strong { color: #0F172A; }
+
+/* ══════════════ MODAL DE COBRO ══════════════ */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1515,7 +2028,6 @@ button { font-family: inherit; }
   font-family: inherit;
 }
 
-/* ─── Header fijo ─── */
 .cobro-modal-header {
   display: flex;
   align-items: flex-start;
@@ -1569,7 +2081,6 @@ button { font-family: inherit; }
 }
 .cobro-modal-close:disabled { opacity: .5; cursor: not-allowed; }
 
-/* ─── Body con scroll interno ─── */
 .cobro-modal-body {
   flex: 1;
   overflow-y: auto;
@@ -1588,7 +2099,6 @@ button { font-family: inherit; }
 }
 .cobro-modal-body::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
 
-/* ─── Info del cobro ─── */
 .cobro-modal-info {
   background: #F8FAFC;
   border: 1px solid #E2E8F0;
@@ -1631,7 +2141,6 @@ button { font-family: inherit; }
   border-radius: 5px;
 }
 
-/* ─── Total destacado ─── */
 .cobro-modal-total {
   display: flex;
   align-items: center;
@@ -1680,7 +2189,6 @@ button { font-family: inherit; }
   letter-spacing: .5px;
 }
 
-/* ─── Sección ─── */
 .cobro-modal-section {
   margin: 0;
   font-size: 12px;
@@ -1691,7 +2199,6 @@ button { font-family: inherit; }
 }
 .cobro-modal-section .required { color: #EF4444; }
 
-/* ─── Métodos de pago ─── */
 .methods-list { display: flex; flex-direction: column; gap: 8px; }
 .method-option {
   display: flex;
@@ -1740,7 +2247,6 @@ button { font-family: inherit; }
 .method-name { font-size: 13.5px; font-weight: 700; color: #0F172A; }
 .method-desc { font-size: 12px; color: #64748B; }
 
-/* ─── Campos dinámicos ─── */
 .dynamic-fields {
   display: flex;
   flex-direction: column;
@@ -1759,7 +2265,8 @@ button { font-family: inherit; }
 }
 .required { color: #EF4444; }
 .form-input,
-.form-select {
+.form-select,
+.form-textarea {
   width: 100%;
   padding: 10px 14px;
   border: 1px solid #D1D5DB;
@@ -1773,6 +2280,11 @@ button { font-family: inherit; }
   appearance: none;
   -webkit-appearance: none;
 }
+.form-textarea {
+  resize: vertical;
+  min-height: 72px;
+  line-height: 1.5;
+}
 .form-select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -1781,7 +2293,8 @@ button { font-family: inherit; }
   cursor: pointer;
 }
 .form-input:focus,
-.form-select:focus {
+.form-select:focus,
+.form-textarea:focus {
   outline: none;
   border-color: #0F766E;
   box-shadow: 0 0 0 3px rgba(15, 118, 110, .1);
@@ -1790,7 +2303,6 @@ button { font-family: inherit; }
 .form-error { font-size: 12px; color: #EF4444; font-weight: 600; }
 .form-error.mt-8 { display: block; margin-top: 10px; }
 
-/* ─── Checkbox confirmación ─── */
 .check-row {
   display: flex;
   align-items: center;
@@ -1830,7 +2342,6 @@ button { font-family: inherit; }
   color: #1E293B;
 }
 
-/* ─── Footer fijo ─── */
 .cobro-modal-footer {
   display: flex;
   justify-content: flex-end;
@@ -1841,20 +2352,7 @@ button { font-family: inherit; }
   flex-shrink: 0;
 }
 
-/* ─── Alertas dentro del modal ─── */
-.alert {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px 16px;
-  border-radius: 10px;
-  font-size: 13px;
-  line-height: 1.5;
-  font-weight: 500;
-}
-.alert-error { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
-
-/* ─── Botones ─── */
+/* ─── Botones generales ─── */
 .btn-primary,
 .btn-secondary {
   display: inline-flex;
@@ -1893,28 +2391,16 @@ button { font-family: inherit; }
 }
 .btn-secondary:disabled { opacity: .55; cursor: not-allowed; }
 
-/* ─── Responsive del modal ─── */
-@media (max-width: 640px) {
-  .modal-overlay { padding: 12px; }
-  .cobro-modal { max-width: 100%; max-height: 95vh; border-radius: 14px; }
-  .cobro-modal-header { padding: 16px 18px 14px; }
-  .cobro-modal-body { padding: 16px 18px 18px; }
-  .cobro-modal-footer {
-    padding: 14px 18px;
-    flex-direction: column-reverse;
-  }
-  .cobro-modal-footer .btn-primary,
-  .cobro-modal-footer .btn-secondary { width: 100%; }
-  .total-monto { font-size: 21px; }
-  .info-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 3px;
-  }
-  .info-value { text-align: left; }
-}
-
 /* ═══ COMPROBANTE ═══ */
+.modal-card {
+  background: #fff;
+  border-radius: 18px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .3);
+}
 .success-body {
   padding: 32px 28px 26px;
   display: flex;
@@ -1955,7 +2441,71 @@ button { font-family: inherit; }
   line-height: 1.55;
   max-width: 420px;
 }
-.cobro-resumen { width: 100%; text-align: left; }
+.cobro-resumen {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.resumen-fila {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  font-size: 13px;
+  padding: 4px 0;
+  border-bottom: 1px dashed #F1F5F9;
+}
+.resumen-fila:last-child { border-bottom: none; }
+.resumen-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748B;
+  font-weight: 600;
+}
+.resumen-label svg { color: #94A3B8; }
+.resumen-value {
+  color: #0F172A;
+  font-weight: 700;
+  text-align: right;
+  word-break: break-word;
+}
+.resumen-value.mono {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  background: #F1F5F9;
+  padding: 2px 8px;
+  border-radius: 5px;
+}
+.resumen-fila.total {
+  padding-top: 10px;
+  border-top: 1px solid #E2E8F0;
+  margin-top: 6px;
+}
+.total-value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  color: #0F766E;
+  font-size: 15px;
+}
+.total-bs {
+  font-size: 11.5px;
+  color: #64748B;
+  font-weight: 600;
+}
+.pill-success {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: #ECFDF5;
+  color: #059669;
+  border: 1px solid #A7F3D0;
+  font-size: 11.5px;
+  font-weight: 700;
+}
 .success-actions {
   display: flex;
   gap: 10px;
@@ -1964,45 +2514,6 @@ button { font-family: inherit; }
   flex-wrap: wrap;
   justify-content: center;
 }
-
-/* ═══ BOTONES ═══ */
-.btn-primary,
-.btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 10px 20px;
-  border-radius: 10px;
-  font-size: 13.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all .2s ease;
-  font-family: inherit;
-  white-space: nowrap;
-}
-.btn-primary {
-  background: #0F766E;
-  color: #fff;
-  border: none;
-}
-.btn-primary:hover:not(:disabled) {
-  background: #115E59;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px -4px rgba(15, 118, 110, .4);
-}
-.btn-primary:disabled { opacity: .55; cursor: not-allowed; }
-.btn-secondary {
-  background: #fff;
-  color: #475569;
-  border: 1px solid #E2E8F0;
-}
-.btn-secondary:hover:not(:disabled) {
-  background: #F8FAFC;
-  border-color: #CBD5E1;
-  color: #0F766E;
-}
-.btn-secondary:disabled { opacity: .55; cursor: not-allowed; }
 
 /* ═══ SPIN ═══ */
 .spin { animation: spin 1s linear infinite; }
@@ -2039,6 +2550,7 @@ button { font-family: inherit; }
 /* ═══ RESPONSIVE ═══ */
 @media (max-width: 1024px) {
   .kpis { grid-template-columns: repeat(2, 1fr); }
+  .verif-body { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 768px) {
   .cobrar-mostrador { padding: 16px 16px 40px; }
@@ -2065,6 +2577,12 @@ button { font-family: inherit; }
   }
   .cita-monto { margin-bottom: 0; }
 
+  .verif-body { grid-template-columns: 1fr; gap: 12px; }
+  .verif-actions { flex-direction: column-reverse; }
+  .verif-actions button { width: 100%; justify-content: center; }
+  .verif-header { flex-direction: column; align-items: stretch; gap: 12px; }
+  .verif-monto { align-items: flex-start; }
+
   .modal-card { max-width: 100%; }
   .modal-footer { flex-direction: column-reverse; }
   .modal-footer .btn-primary,
@@ -2073,6 +2591,17 @@ button { font-family: inherit; }
   .success-actions { flex-direction: column; }
   .success-actions .btn-primary,
   .success-actions .btn-secondary { width: 100%; }
+
+  .cobro-modal-footer { flex-direction: column-reverse; }
+  .cobro-modal-footer .btn-primary,
+  .cobro-modal-footer .btn-secondary { width: 100%; }
+  .total-monto { font-size: 21px; }
+  .info-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+  }
+  .info-value { text-align: left; }
 }
 @media (max-width: 480px) {
   .cita-card { padding: 14px; gap: 12px; }

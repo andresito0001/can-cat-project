@@ -290,7 +290,7 @@ const stats = ref({
 })
 
 // ─── CONSTANTES ───
-const ESTADOS_ACTIVOS = ['Pendiente_Pago', 'Pagada', 'Confirmada']
+const ESTADOS_ACTIVOS = ['Pendiente_Pago', 'Confirmada']
 const ESTADO_PENDIENTE = 'Pendiente_Pago'
 const PALETA_AVATARES = ['#0F766E', '#3B82F6', '#F59E0B', '#F43F5E', '#8B5CF6', '#0EA5E9']
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
@@ -334,7 +334,7 @@ function edadMascota(iso) {
 // Convierte un estado de la BD a la clase visual del pill
 function estadoClase(estado) {
   if (estado === 'Pendiente_Pago') return 'pending'
-  if (estado === 'Pagada' || estado === 'Confirmada') return 'confirmed'
+  if (estado === 'Confirmada') return 'confirmed'
   if (estado === 'Cancelada') return 'cancelled'
   return 'other'
 }

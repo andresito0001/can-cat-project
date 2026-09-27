@@ -137,22 +137,53 @@ public class FacturaPdfGenerator {
 
             document.add(totalsTable);
             document.add(new Paragraph(" "));
-
+            
             // ─── MÉTODO DE PAGO ───
             document.add(new Paragraph("Método de pago: " + datos.metodoPago(), infoFont));
             document.add(new Paragraph("Estado: " + (datos.stadoPago() != null
                             ? datos.stadoPago().replace("_", " ") : "Emitida"),
                             new Font(Font.HELVETICA, 9, Font.ITALIC, GRAY_TEXT)));
+
+            // ─── DATOS DEL PAGO (si aplica: transferencia / pago móvil) ───
+            boolean tieneMetadata = datos.metadataPago() != null && !datos.metadataPago().isEmpty();
+            boolean tieneReferencia = datos.referenciaPago() != null && !datos.referenciaPago().isBlank();
+            if (tieneMetadata || tieneReferencia) {
+                document.add(new Paragraph(" "));
+                document.add(new Paragraph("Datos del Pago", sectionFont));
+                if (tieneReferencia) {
+                    document.add(new Paragraph("Referencia: " + datos.referenciaPago(), infoFont));
+                }
+                if (tieneMetadata) {
+                    for (var entry : datos.metadataPago().entrySet()) {
+                        String key = entry.getKey();
+                        // No repetir 'referencia' si ya la imprimimos arriba
+                        if ("referencia".equalsIgnoreCase(key)) continue;
+                        Object val = entry.getValue();
+                        if (val == null) continue;
+                        String label = switch (key) {
+                            case "banco" -> "Banco";
+                            case "telefono" -> "Teléfono";
+                            case "lote" -> "Lote";
+                            case "ultimos_digitos" -> "Últimos 4 dígitos";
+                            case "numero_cuenta" -> "Número de cuenta";
+                            default -> key.replace("_", " ");
+                        };
+                        document.add(new Paragraph(label + ": " + val, infoFont));
+                    }
+                }
+            }
             
-                            // ─── PIE ───
+            // ─── PIE ───
             document.add(new Paragraph(" "));
             document.add(new LineSeparator(0.5f, 100f, GRAY_TEXT, Element.ALIGN_CENTER, 0f));
             Font footerFont = new Font(Font.HELVETICA, 8, Font.ITALIC, GRAY_TEXT);
-            Paragraph footer = new Paragraph("Este comprobante está sujeto a verificación. Gracias por su preferencia.", footerFont);
+            Paragraph footer = new Paragraph(
+                    "Este comprobante está sujeto a verificación. Gracias por su preferencia.",
+                    footerFont);
             footer.setAlignment(Element.ALIGN_CENTER);
             document.add(footer);
 
-            document.close();
+            document.close();   // ← FIX: cierra el documento y vacía el PDF
             return baos.toByteArray();
 
         } catch (Exception e) {

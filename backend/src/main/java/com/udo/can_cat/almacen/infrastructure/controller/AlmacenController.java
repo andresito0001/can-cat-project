@@ -59,4 +59,21 @@ public class AlmacenController {
         // se puede agregar fácilmente al servicio si el frontend la exige estrictamente.
         return ResponseEntity.ok(service.listarMovimientosRecientes());
     }
+
+    @PutMapping("/productos/{id}")
+    @PreAuthorize("hasRole('Encargado_Almacen')")
+    public ResponseEntity<ProductoDTO> actualizarProducto(
+            @PathVariable Integer id, 
+            @Valid @RequestBody ActualizarProductoRequestDTO request) {
+        return ResponseEntity.ok(service.actualizarProducto(id, request));
+    }
+
+    @PatchMapping("/productos/{id}/activo")
+    @PreAuthorize("hasRole('Encargado_Almacen')")
+    public ResponseEntity<Void> cambiarEstadoProducto(
+            @PathVariable Integer id, 
+            @Valid @RequestBody CambiarActivoRequestDTO request) {
+        service.cambiarEstadoProducto(id, request.activo());
+        return ResponseEntity.ok().build();
+    }
 }

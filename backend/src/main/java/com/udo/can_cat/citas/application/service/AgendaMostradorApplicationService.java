@@ -14,12 +14,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import com.udo.can_cat.citas.application.dto.AgendarMostradorRequestDTO;
 import com.udo.can_cat.citas.application.dto.AgendarMostradorResponseDTO;
 import com.udo.can_cat.citas.application.dto.CitaAgendaDTO;
 import com.udo.can_cat.citas.application.dto.CitaEstadoResponseDTO;
 import com.udo.can_cat.citas.application.dto.CobrarCitaMostradorRequestDTO;
+import com.udo.can_cat.citas.application.port.PagoVerificacionPort;
 import com.udo.can_cat.citas.domain.entity.Cita;
 import com.udo.can_cat.citas.domain.entity.EstadoCita;
 import com.udo.can_cat.citas.domain.entity.Servicio;
@@ -52,19 +52,15 @@ import com.udo.can_cat.usuarios.domain.repository.PersonalRepository;
 /**
  * CU 4.6.1.11 — Gestionar Cita (mostrador) + Cobro de citas pendientes +
  * Transición de estados por recepción.
+ *
+ * Todas las transiciones de estado DELEGAN a CitaTransitionService para
+ * mantener una única fuente de verdad sobre transiciones y roles.
  */
 @Service
 public class AgendaMostradorApplicationService {
 
     private static final Logger log = LoggerFactory.getLogger(AgendaMostradorApplicationService.class);
     private static final String PREFIJO_FACTURA = "FC";
-
-    /** Matriz de transiciones de estado permitidas (Completada/Cancelada son finales). */
-    private static final Map<String, Set<String>> TRANSICIONES_PERMITIDAS = Map.of(
-            "Pendiente_Pago", Set.of("Pagada", "Confirmada", "Cancelada"),
-            "Pagada",         Set.of("Confirmada", "Cancelada"),
-            "Confirmada",     Set.of("En_Atencion", "Completada", "Cancelada"),
-            "En_Atencion",    Set.of("Completada", "Cancelada"));
 
     private final CitaRepository citaRepo;
     private final EstadoCitaRepository estadoCitaRepo;
@@ -77,6 +73,8 @@ public class AgendaMostradorApplicationService {
     private final PagoRepository pagoRepo;
     private final MetodoPagoRepository metodoPagoRepo;
     private final TasaCambioService tasaCambioService;
+    private final PagoVerificacionPort pagoVerifPort;             
+    private final CitaTransitionService citaTransitionService;    
 
     public AgendaMostradorApplicationService(CitaRepository citaRepo,
                                              EstadoCitaRepository estadoCitaRepo,
@@ -88,7 +86,9 @@ public class AgendaMostradorApplicationService {
                                              DetalleFacturaRepository detalleFacturaRepo,
                                              PagoRepository pagoRepo,
                                              MetodoPagoRepository metodoPagoRepo,
-                                             TasaCambioService tasaCambioService) {
+                                             TasaCambioService tasaCambioService,
+                                             PagoVerificacionPort pagoVerifPort,          // ← NUEVO
+                                             CitaTransitionService citaTransitionService) { // ← NUEVO
         this.citaRepo = citaRepo;
         this.estadoCitaRepo = estadoCitaRepo;
         this.servicioRepo = servicioRepo;
@@ -100,10 +100,12 @@ public class AgendaMostradorApplicationService {
         this.pagoRepo = pagoRepo;
         this.metodoPagoRepo = metodoPagoRepo;
         this.tasaCambioService = tasaCambioService;
+        this.pagoVerifPort = pagoVerifPort;
+        this.citaTransitionService = citaTransitionService;
     }
 
     // ================================================================
-    // AGENDA (CU paso 2 — ahora con rango de fechas)
+    // AGENDA (CU paso 2 — rango de fechas)
     // ================================================================
 
     @Transactional(readOnly = true)
@@ -115,18 +117,29 @@ public class AgendaMostradorApplicationService {
     // ================================================================
     // CITAS PENDIENTES DE PAGO (para "Cobrar en Mostrador")
     // ================================================================
+    // Solo las que NO tengan pago online en curso ni confirmado.
+    // Las que tienen pago Pendiente_Verificacion van a la pestaña
+    // "Pagos por verificar" del recepcionista, NO aquí.
 
     @Transactional(readOnly = true)
     public List<CitaAgendaDTO> listarPendientesPago() {
         EstadoCita pendiente = estadoCitaRepo.buscarPorNombre("Pendiente_Pago")
                 .orElseThrow(() -> new OperacionNoPermitidaException(
                         "Estado 'Pendiente_Pago' no encontrado"));
-        return mapearCitas(citaRepo.buscarPorIdEstado(pendiente.getId()));
+
+        return mapearCitas(
+                citaRepo.buscarPorIdEstado(pendiente.getId()).stream()
+                        // ← FIX 2: excluir citas con pago activo (verificación o confirmado)
+                        .filter(c -> !pagoVerifPort.existePagoActivoParaCita(c.getId()))
+                        .toList()
+        );
     }
 
     // ================================================================
     // AGENDAR + COBRAR + FACTURAR (CU pasos 3 al 8)
     // ================================================================
+    // Este método CREA una cita nueva ya Confirmada (nace con pago). No es
+    // una transición, es un alta directa. No hay transición que delegar.
 
     @Transactional
     public AgendarMostradorResponseDTO agendarYFacturar(AgendarMostradorRequestDTO request) {
@@ -208,6 +221,9 @@ public class AgendaMostradorApplicationService {
     // ================================================================
     // COBRAR CITA PENDIENTE DE PAGO (módulo "Cobrar en Mostrador")
     // ================================================================
+    // Cobra presencialmente una cita que estaba Pendiente_Pago SIN pago
+    // online en curso (esas las filtra listarPendientesPago()).
+    // Delega la transición a CitaTransitionService.
 
     @Transactional
     public AgendarMostradorResponseDTO cobrarCitaPendiente(Integer idCita,
@@ -222,6 +238,13 @@ public class AgendaMostradorApplicationService {
             throw new OperacionNoPermitidaException(
                     "Solo se pueden cobrar en mostrador citas en estado 'Pendiente_Pago'. " +
                     "Estado actual: " + estadoActual);
+        }
+
+        // Defensa: no permitir cobrar dos veces una cita con pago activo
+        if (pagoVerifPort.existePagoActivoParaCita(idCita)) {
+            throw new OperacionNoPermitidaException(
+                    "Esta cita ya tiene un pago registrado. Ve a 'Pagos por verificar' " +
+                    "para validarlo, o contacta al administrador.");
         }
 
         MetodoPago metodoPago = validarMetodoPresencial(request.idMetodoPago(), request.datosPago());
@@ -239,20 +262,30 @@ public class AgendaMostradorApplicationService {
         Personal vet = personalRepo.findById(new Personal.PersonalId(cita.getIdVeterinario()))
                 .orElseThrow(() -> new OperacionNoPermitidaException("El veterinario de la cita no existe"));
 
+        // Crear factura + pago Confirmado ANTES de la transición
         Factura factura = guardarFacturaYPago(cita, servicio, cliente.getId().value(),
                 metodoPago, recepcionista, request.referenciaTransaccion(), request.datosPago());
 
-        EstadoCita confirmada = estadoCitaRepo.buscarPorNombre("Confirmada")
-                .orElseThrow(() -> new OperacionNoPermitidaException(
-                        "Estado 'Confirmada' no encontrado"));
-        cita.setIdEstado(confirmada.getId());
+        // Nota en observaciones (antes de la transición)
         String nota = "Cobrada en mostrador (" + metodoPago.getNombre() + ") por "
                 + (recepcionista != null ? recepcionista.getNombreCompleto() : "recepción");
         cita.setObservacionesRecepcion(cita.getObservacionesRecepcion() != null
                 ? cita.getObservacionesRecepcion() + "\n" + nota : nota);
         citaRepo.guardar(cita);
 
-        log.info("Cobro mostrador: cita={} → Confirmada, factura={}", idCita, factura.getNumeroControl());
+        // ─── Transición vía CitaTransitionService ───
+        // El transition service validará: rol, transición válida, y que
+        // exista un pago Confirmado para la cita (que ya creamos arriba).
+        Integer personalId = recepcionista != null
+                ? recepcionista.getPersonalId().value() : null;
+        citaTransitionService.transicionar(
+                idCita,
+                CitaTransitionService.CONFIRMADA,
+                CitaTransitionService.Actor.recepcionista(personalId)
+        );
+
+        log.info("Cobro mostrador: cita={} → Confirmada, factura={}",
+                idCita, factura.getNumeroControl());
 
         return new AgendarMostradorResponseDTO(
                 cita.getId(), "Confirmada", factura.getId(), factura.getNumeroControl(),
@@ -263,37 +296,56 @@ public class AgendaMostradorApplicationService {
     // ================================================================
     // CAMBIO DE ESTADO MANUAL (recepción)
     // ================================================================
+    // Delega toda la validación de transiciones y roles al
+    // CitaTransitionService. Ya no mantiene su propia matriz.
 
     @Transactional
     public CitaEstadoResponseDTO cambiarEstado(Integer idCita, String estadoDestino) {
-        Cita cita = citaRepo.buscarPorId(idCita)
+        // Validar que la cita existe (para poder dar un 404 limpio antes de la transición)
+        citaRepo.buscarPorId(idCita)
                 .orElseThrow(() -> new CitaNoEncontradaException("Cita no encontrada con ID: " + idCita));
 
-        String actual = nombreEstadoPorId(cita.getIdEstado());
-        Set<String> destinos = TRANSICIONES_PERMITIDAS.get(actual);
-        if (destinos == null || !destinos.contains(estadoDestino)) {
-            throw new OperacionNoPermitidaException(
-                    "Transición inválida: no se puede pasar una cita de '" + actual +
-                    "' a '" + estadoDestino + "'");
-        }
-
-        EstadoCita destino = estadoCitaRepo.buscarPorNombre(estadoDestino)
-                .orElseThrow(() -> new OperacionNoPermitidaException(
-                        "Estado '" + estadoDestino + "' no encontrado en el sistema"));
-
         Personal recepcionista = resolverPersonalActual();
+        Integer personalId = recepcionista != null
+                ? recepcionista.getPersonalId().value() : null;
+
+        // Delegar la transición (valida destino, rol y precondiciones)
+        citaTransitionService.transicionar(
+                idCita,
+                normalizarEstado(estadoDestino),
+                CitaTransitionService.Actor.recepcionista(personalId)
+        );
+
+        // Nota de auditoría en observaciones
+        Cita cita = citaRepo.buscarPorId(idCita).orElseThrow();
         String nota = "Estado cambiado a " + estadoDestino + " por "
                 + (recepcionista != null ? recepcionista.getNombreCompleto() : "recepción")
                 + " (" + LocalDate.now() + ")";
         cita.setObservacionesRecepcion(cita.getObservacionesRecepcion() != null
                 ? cita.getObservacionesRecepcion() + "\n" + nota : nota);
-        cita.setIdEstado(destino.getId());
         citaRepo.guardar(cita);
-
-        log.info("Cita {}: {} → {}", idCita, actual, estadoDestino);
 
         return new CitaEstadoResponseDTO(idCita, estadoDestino,
                 "Estado actualizado a '" + estadoDestino + "'.");
+    }
+
+    /**
+     * Normaliza un estado destino recibido como String al valor canónico
+     * que espera el CitaTransitionService. Lanza 400 si el estado es inválido.
+     */
+    private String normalizarEstado(String estadoDestino) {
+        if (estadoDestino == null || estadoDestino.isBlank()) {
+            throw new OperacionNoPermitidaException("El estado destino es obligatorio");
+        }
+        return switch (estadoDestino.trim()) {
+            case "Confirmada"   -> CitaTransitionService.CONFIRMADA;
+            case "En_Atencion"  -> CitaTransitionService.EN_ATENCION;
+            case "Completada"   -> CitaTransitionService.COMPLETADA;
+            case "Cancelada"    -> CitaTransitionService.CANCELADA;
+            default -> throw new OperacionNoPermitidaException(
+                    "Estado destino inválido: '" + estadoDestino + "'. " +
+                    "Valores permitidos: Confirmada, En_Atencion, Completada, Cancelada.");
+        };
     }
 
     // ================================================================
@@ -395,7 +447,6 @@ public class AgendaMostradorApplicationService {
         pago.setFechaPago(LocalDateTime.now());
         pago.setReferenciaTransaccion(referenciaTransaccion);
         pago.setEstadoPago("Confirmado");
-        // ⚠️ Si tu entidad Pago no tiene estos setters, borra las 2 líneas (columnas nullable).
         pago.setVerificadoPor(recepcionista != null ? recepcionista.getPersonalId().value() : null);
         pago.setFechaVerificacion(LocalDateTime.now());
         pago.setMetadataJson(datosPago != null ? new LinkedHashMap<>(datosPago) : Map.of());

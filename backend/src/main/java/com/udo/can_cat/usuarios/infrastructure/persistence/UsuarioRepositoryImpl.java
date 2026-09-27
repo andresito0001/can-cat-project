@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.List;
 
 @Repository
 public class UsuarioRepositoryImpl implements UsuarioRepository {
@@ -74,5 +75,15 @@ public class UsuarioRepositoryImpl implements UsuarioRepository {
                 .getResultStream()
                 .findFirst()
                 .isPresent();
+    }
+
+    @Override
+    public List<Usuario> findAll() {
+        String jpql = "SELECT u FROM UsuarioJpaEntity u ORDER BY u.fechaRegistro DESC";
+        return em.createQuery(jpql, UsuarioJpaEntity.class)
+                .getResultList()
+                .stream()
+                .map(UsuarioJpaEntity::toDomain)
+                .toList();
     }
 }

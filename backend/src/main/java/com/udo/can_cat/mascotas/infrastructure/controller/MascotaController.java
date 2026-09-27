@@ -79,4 +79,13 @@ public class MascotaController {
 
         return new UsuarioAutenticado(correo, rol);
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminarMascota(
+            @PathVariable Integer id,
+            Authentication auth) {
+        Integer usuarioId = (Integer) auth.getPrincipal();
+        mascotaService.eliminarMascota(id, usuarioId);
+        return ResponseEntity.noContent().build();
+    }
 }

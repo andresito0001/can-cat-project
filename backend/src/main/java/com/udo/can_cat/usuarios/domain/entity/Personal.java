@@ -19,6 +19,7 @@ public class Personal {
     private LicenciaProfesional licenciaProfesional;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String correoElectronico;
 
     public Personal(PersonalId personalId,
                     UsuarioId usuarioId,
@@ -59,6 +60,8 @@ public class Personal {
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public String getNombreCompleto() { return nombreCompleto; }
+    public String getCorreoElectronico() { return correoElectronico; }
+    public void setCorreoElectronico(String correoElectronico) { this.correoElectronico = correoElectronico; }
 
     public record PersonalId(Integer value) {
         public PersonalId {

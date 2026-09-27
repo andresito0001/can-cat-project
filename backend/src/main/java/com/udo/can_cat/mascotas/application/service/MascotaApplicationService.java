@@ -2,9 +2,9 @@ package com.udo.can_cat.mascotas.application.service;
 
 import java.time.LocalDate;
 import java.util.List;
+import com.udo.can_cat.atenciones.domain.exception.MascotaNoEncontradaException;
 import com.udo.can_cat.mascotas.application.dto.MascotaRegistradaResponseDTO;
 import com.udo.can_cat.mascotas.application.dto.RegistrarMascotaRequestDTO;
-import com.udo.can_cat.mascotas.application.service.MascotaApplicationService.MascotaRegistrationException;
 import com.udo.can_cat.mascotas.domain.entity.Especie;
 import com.udo.can_cat.mascotas.domain.entity.Especie.EspecieId;
 import com.udo.can_cat.mascotas.domain.entity.Mascota;
@@ -17,8 +17,10 @@ import com.udo.can_cat.mascotas.domain.repository.RazaRepository;
 import com.udo.can_cat.usuarios.domain.entity.Cliente;
 import com.udo.can_cat.usuarios.domain.entity.Cliente.ClienteId;
 import com.udo.can_cat.usuarios.domain.entity.Usuario;
+import com.udo.can_cat.usuarios.domain.entity.Usuario.UsuarioId;
 import com.udo.can_cat.usuarios.domain.repository.ClienteRepository;
 import com.udo.can_cat.usuarios.domain.repository.UsuarioRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -68,6 +70,16 @@ public class MascotaApplicationService {
         // 4. Validar fecha de nacimiento
         if (request.fechaNacimiento() != null && request.fechaNacimiento().isAfter(LocalDate.now())) {
             throw new MascotaRegistrationException("La fecha de nacimiento no puede ser futura");
+        }
+
+        boolean duplicada = mascotaRepository.findByClienteId(clienteId).stream()
+                .filter(Mascota::isActivo)
+                .anyMatch(m -> normalizar(m.getNombre()).equals(normalizar(request.nombre())));
+
+        if (duplicada) {
+            throw new MascotaRegistrationException(
+                    "Ya tienes una mascota llamada \"" + request.nombre().trim()
+                    + "\". Usa un nombre distinto o revisa si ya está registrada.");
         }
 
         // 5. Crear entidad de dominio
@@ -192,6 +204,42 @@ public class MascotaApplicationService {
                         .toList();
         }
 
+        @Transactional
+        public void eliminarMascota(Integer mascotaId, Integer usuarioAutenticadoId) {
+            Mascota mascota = mascotaRepository.findById(new Mascota.MascotaId(mascotaId))
+                    .orElseThrow(() -> new MascotaNoEncontradaException(
+                            "Mascota no encontrada con id: " + mascotaId));
+
+            // Verificar que la mascota pertenece al cliente autenticado
+            Cliente cliente = clienteRepository.findByUsuarioId(new UsuarioId(usuarioAutenticadoId))
+                    .orElseThrow(() -> new RuntimeException("Cliente no encontrado para el usuario"));
+
+            if (!mascota.getClienteId().value().equals(cliente.getId().value())) {
+                throw new AccessDeniedException("No puedes eliminar una mascota que no te pertenece");
+            }
+
+            // Soft delete
+            mascota.desactivar();
+            mascotaRepository.save(mascota);
+        }
+
+        @Transactional(readOnly = true)
+        public List<MascotaRegistradaResponseDTO> getMisMascotas(Integer usuarioAutenticadoId) {
+            Cliente cliente = clienteRepository.findByUsuarioId(new UsuarioId(usuarioAutenticadoId))
+                    .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+
+            return mascotaRepository.findByClienteId(cliente.getId()).stream()
+                    .filter(Mascota::isActivo)
+                    .map(mascota -> {
+                        Especie especie = especieRepository.findById(mascota.getEspecieId())
+                                .orElse(null);
+                        Raza raza = mascota.getRazaId() != null
+                                ? razaRepository.findById(mascota.getRazaId()).orElse(null)
+                                : null;
+                        return construirRespuesta(mascota, cliente, especie, raza);
+                    })
+                    .toList();
+        }
 
     // Record para encapsular los datos del usuario autenticado que necesita el servicio
     public record UsuarioAutenticado(String correo, String rol) {}
@@ -201,5 +249,11 @@ public class MascotaApplicationService {
         public MascotaRegistrationException(String message) {
             super(message);
         }
+    }
+
+    private String normalizar(String str) {
+        if (str == null) return "";
+        return java.text.Normalizer.normalize(str.trim().toLowerCase(), java.text.Normalizer.Form.NFD)
+            .replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
     }
 }

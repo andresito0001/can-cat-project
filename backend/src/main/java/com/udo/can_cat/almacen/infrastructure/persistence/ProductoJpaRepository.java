@@ -43,4 +43,9 @@ public interface ProductoJpaRepository extends JpaRepository<ProductoJpaEntity, 
             ORDER BY p.nombre ASC
             """)
     List<ProductoJpaEntity> encontrarConStockBajo();
+    
+    @Modifying
+    @Transactional
+    @Query("UPDATE ProductoJpaEntity p SET p.activo = :activo, p.updatedAt = CURRENT_TIMESTAMP WHERE p.id = :id")
+    int cambiarEstadoProducto(@Param("id") Integer id, @Param("activo") Boolean activo);
 }

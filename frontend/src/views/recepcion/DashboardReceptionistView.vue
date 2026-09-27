@@ -164,12 +164,12 @@ function etiquetaEstado(estadoNombre) {
 function estiloEstado(estadoNombre, estadoColor) {
   const mapaColores = {
     Pendiente_Pago: '#F59E0B',
-    Pagada: '#0EA5E9',
     Confirmada: '#10B981',
     En_Atencion: '#F97316',
     Completada: '#64748B',
-    Cancelada: '#EF4444',
+    Cancelada: '#EF4444'
   }
+  
   const color = estadoColor || mapaColores[estadoNombre] || '#64748B'
   return { color, borderColor: color, backgroundColor: `${color}1A` }
 }

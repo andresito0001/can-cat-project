@@ -1,22 +1,22 @@
 package com.udo.can_cat.usuarios.infrastructure.controller;
 
 import java.util.List;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import com.udo.can_cat.usuarios.application.dto.ActualizarPersonalRequestDTO;
+import com.udo.can_cat.usuarios.application.dto.CambiarActivoRequestDTO;
 import com.udo.can_cat.usuarios.application.dto.PersonalDTO;
+import com.udo.can_cat.usuarios.application.dto.RegistrarPersonalRequestDTO;
 import com.udo.can_cat.usuarios.application.service.PersonalApplicationService;
 import com.udo.can_cat.usuarios.domain.entity.Personal.Cargo;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/personal")
+@PreAuthorize("hasRole('Administrador')")
 public class PersonalController {
 
     private final PersonalApplicationService service;
@@ -27,17 +27,34 @@ public class PersonalController {
 
     @PostMapping
     public ResponseEntity<PersonalDTO> crear(@RequestBody PersonalDTO dto) {
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(service.crearPersonal(dto));
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.crearPersonal(dto));
+    }
+
+    @PostMapping("/con-usuario")
+    public ResponseEntity<PersonalDTO> registrarPersonalConUsuario(
+            @Valid @RequestBody RegistrarPersonalRequestDTO request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(service.registrarPersonalConUsuario(request));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<PersonalDTO> actualizar(
+            @PathVariable Integer id,
+            @Valid @RequestBody ActualizarPersonalRequestDTO request) {
+        return ResponseEntity.ok(service.actualizarPersonal(id, request));
+    }
+
+    @PatchMapping("/{id}/activo")
+    public ResponseEntity<PersonalDTO> cambiarActivo(
+            @PathVariable Integer id,
+            @Valid @RequestBody CambiarActivoRequestDTO request) {
+        return ResponseEntity.ok(service.cambiarActivo(id, request.activo()));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminarPorId(@PathVariable Integer id) {
         service.eliminarPorId(id);
-        return ResponseEntity
-                .status(HttpStatus.NO_CONTENT)
-                .build();
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}")
@@ -68,5 +85,10 @@ public class PersonalController {
     @GetMapping("/activos")
     public ResponseEntity<List<PersonalDTO>> listarActivos(@RequestParam boolean activo) {
         return ResponseEntity.ok(service.filtrarActivos(activo));
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<Map<String, Object>> obtenerStatsAdmin() {
+        return ResponseEntity.ok(service.obtenerStatsAdmin());
     }
 }

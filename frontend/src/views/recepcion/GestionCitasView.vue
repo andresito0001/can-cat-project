@@ -178,12 +178,13 @@
               <button
                 v-if="tieneTransiciones(c)"
                 class="btn-estado"
+                :class="{ 'btn-estado--danger': soloCancelable(c) }"
                 type="button"
-                :title="`Cambiar estado (${opcionesDe(c).length} disponibles)`"
+                :title="textoBoton(c)"
                 @click="abrirCambioEstado(c)"
               >
-                <ArrowRightCircle :size="15" />
-                <span class="btn-estado-text">Cambiar</span>
+                <component :is="iconoBoton(c)" :size="15" />
+                <span class="btn-estado-text">{{ textoBoton(c) }}</span>
               </button>
             </div>
           </article>
@@ -198,13 +199,15 @@
           <Transition name="slide-up">
             <div v-if="citaSeleccionada" class="modal-card">
               <header class="modal-header">
-                <div class="modal-header-left">
-                  <div class="modal-icon"><ArrowRightCircle :size="18" /></div>
-                  <div>
-                    <h3>Cambiar estado de la cita</h3>
-                    <p class="modal-header-sub">Selecciona el nuevo estado al que quieres mover esta cita</p>
-                  </div>
+              <div class="modal-header-left">
+                <div class="modal-icon" :class="{ 'modal-icon--danger': tituloModal === 'Cancelar cita' }">
+                  <component :is="tituloModal === 'Cancelar cita' ? XCircle : ArrowRightCircle" :size="18" />
                 </div>
+                <div>
+                  <h3>{{ tituloModal }}</h3>
+                  <p class="modal-header-sub">{{ subtituloModal }}</p>
+                </div>
+              </div>
                 <button class="btn-close" type="button" @click="cerrarModal">
                   <X :size="18" />
                 </button>
@@ -305,18 +308,27 @@
 </template>
 
 <script setup>
+
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getAgenda, cambiarEstadoCita } from '@/api/citas.api'
-import { TRANSICIONES_ESTADOS, ESTADO_LABEL, ESTADO_COLOR } from '@/utils/constants/estadosCita'
+import {
+  ESTADO_LABEL,
+  ESTADO_COLOR,
+  transicionesDisponibles,
+} from '@/utils/constants/estadosCita'
+import { useAuthStore } from '@/stores/auth.store'
 import ToastContainer from '@/components/ui/ToastContainer.vue'
 import {
   CalendarDays, Plus, RefreshCw, ChevronLeft, ChevronRight, AlertCircle,
   Stethoscope, PawPrint, ArrowRightCircle, Loader2, CheckCircle2, X,
+  XCircle,
   User, ClipboardList, DollarSign, Clock
 } from 'lucide-vue-next'
 
 const router = useRouter()
+
+const authStore = useAuthStore()
 
 // ─── Rango de fechas ───
 const modo = ref('dia')
@@ -520,16 +532,47 @@ const estadoDestino = ref(null)
 const cambiandoEstado = ref(false)
 const cambioError = ref('')
 
+
 const opcionesEstado = computed(() =>
-  citaSeleccionada.value ? (TRANSICIONES_ESTADOS[citaSeleccionada.value.estado] || []) : []
+  citaSeleccionada.value
+    ? transicionesDisponibles(authStore.userRole, citaSeleccionada.value.estado)
+    : []
 )
 
 function opcionesDe(cita) {
-  return TRANSICIONES_ESTADOS[cita.estado] || []
+  return transicionesDisponibles(authStore.userRole, cita.estado)
 }
+
 function tieneTransiciones(cita) {
   return opcionesDe(cita).length > 0
 }
+
+function soloCancelable(cita) {
+  const ops = opcionesDe(cita)
+  return ops.length === 1 && ops[0] === 'Cancelada'
+}
+
+function textoBoton(cita) {
+  return soloCancelable(cita) ? 'Cancelar' : 'Cambiar'
+}
+
+function iconoBoton(cita) {
+  return soloCancelable(cita) ? XCircle : ArrowRightCircle
+}
+
+const tituloModal = computed(() => {
+  const ops = opcionesEstado.value
+  if (ops.length === 1 && ops[0] === 'Cancelada') return 'Cancelar cita'
+  return 'Cambiar estado de la cita'
+})
+
+const subtituloModal = computed(() => {
+  const ops = opcionesEstado.value
+  if (ops.length === 1 && ops[0] === 'Cancelada') {
+    return 'La cita quedará cancelada y el horario quedará libre'
+  }
+  return 'Selecciona el nuevo estado al que quieres mover esta cita'
+})
 
 function abrirCambioEstado(cita) {
   citaSeleccionada.value = cita
@@ -565,7 +608,6 @@ async function aplicarCambioEstado() {
 function descripcionEstado(estado) {
   const descripciones = {
     Pendiente_Pago: 'La cita aún no ha sido pagada',
-    Pagada: 'El pago fue confirmado',
     Confirmada: 'La cita está agendada y confirmada',
     En_Atencion: 'El veterinario está atendiendo al paciente',
     Completada: 'La cita se realizó y quedó cerrada',
@@ -1497,4 +1539,22 @@ button { font-family: inherit; }
   .estado-chip { padding: 5px 10px 5px 12px; font-size: 12px; }
   .chip-count { min-width: 18px; height: 16px; font-size: 10px; }
 }
+
+.btn-estado--danger {
+  color: #DC2626;
+  border-color: #FECACA;
+}
+.btn-estado--danger:hover {
+  border-color: #DC2626;
+  color: #DC2626;
+  background: #FEF2F2;
+  box-shadow: 0 4px 10px -4px rgba(220, 38, 38, .25);
+}
+
+/* ── Ícono del modal en rojo al cancelar ── */
+.modal-icon--danger {
+  background: #FEF2F2;
+  color: #DC2626;
+}
+
 </style>

@@ -90,3 +90,9 @@ export async function enviarFacturaEmail(idFactura) {
   const { data } = await api.post(`/pagos/facturas/${idFactura}/enviar`);
   return data;
 }
+
+export const getPagosPendientesVerificacion = () =>
+  api.get('/pagos/pendientes-verificacion')
+
+export const verificarPago = (idPago, payload) =>
+  api.post(`/pagos/${idPago}/verificar`, payload)

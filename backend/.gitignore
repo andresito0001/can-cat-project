@@ -17,6 +17,7 @@ target/
 # Logs
 *.log
 logs/
+scripts/
 
 # OS
 .DS_Store

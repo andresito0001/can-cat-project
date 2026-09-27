@@ -199,6 +199,28 @@ public class PagoController {
         return ResponseEntity.ok(pagoService.cobrarFactura(id, request));
     }
 
+    /**
+     * GET /api/pagos/pendientes-verificacion
+     * Lista los pagos online que esperan verificación del recepcionista.
+     */
+    @GetMapping("/pendientes-verificacion")
+    @PreAuthorize("hasRole('Recepcionista')")
+    public ResponseEntity<List<PagoPendienteVerificacionDTO>> listarPendientesVerificacion() {
+        return ResponseEntity.ok(pagoService.listarPagosPendientesVerificacion());
+    }
+
+    /**
+     * POST /api/pagos/{idPago}/verificar
+     * Aprueba o rechaza un pago Pendiente_Verificacion.
+     */
+    @PostMapping("/{idPago}/verificar")
+    @PreAuthorize("hasRole('Recepcionista')")
+    public ResponseEntity<PagoPendienteVerificacionDTO> verificarPago(
+            @PathVariable Integer idPago,
+            @Valid @RequestBody VerificarPagoRequestDTO request) {
+        return ResponseEntity.ok(pagoService.verificarPago(idPago, request));
+    }
+
     private Integer obtenerIdUsuarioActual() {
         var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {

@@ -30,6 +30,8 @@ import com.udo.can_cat.atenciones.domain.repository.AtencionInsumoRepository;
 import com.udo.can_cat.atenciones.domain.repository.EntradaHistorialRepository;
 import com.udo.can_cat.atenciones.domain.repository.RecetaItemRepository;
 import com.udo.can_cat.atenciones.domain.repository.RecetaRepository;
+import com.udo.can_cat.citas.application.service.CitaTransitionService;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -84,6 +86,8 @@ public class AtencionClinicaApplicationService {
     private final PersonalPort personalPort;
     private final FacturacionPort facturacionPort;
     private final ClienteRepository clienteRepo;
+    private final CitaTransitionService citaTransitionService;
+
 
     public AtencionClinicaApplicationService(AtencionClinicaRepository atencionRepo,
                                              AtencionInsumoRepository atencionInsumoRepo,
@@ -96,7 +100,8 @@ public class AtencionClinicaApplicationService {
                                              MascotaPort mascotaPort,
                                              PersonalPort personalPort,
                                              FacturacionPort facturacionPort,
-                                             ClienteRepository clienteRepo) {
+                                             ClienteRepository clienteRepo,
+                                             CitaTransitionService citaTransitionService) {
         this.atencionRepo = atencionRepo;
         this.atencionInsumoRepo = atencionInsumoRepo;
         this.recetaRepo = recetaRepo;
@@ -109,6 +114,8 @@ public class AtencionClinicaApplicationService {
         this.personalPort = personalPort;
         this.facturacionPort = facturacionPort;
         this.clienteRepo = clienteRepo;
+        this.citaTransitionService = citaTransitionService;
+
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -182,29 +189,23 @@ public class AtencionClinicaApplicationService {
     // ═══════════════════════════════════════════════════════════════════
     // D2 — INICIAR ATENCIÓN (Confirmada → En_Atencion, idempotente)
     // ═══════════════════════════════════════════════════════════════════
-
     @Transactional
     public void iniciarAtencion(Integer idCita) {
         PersonalPort.PersonalInfo personal = personalActual();
+
+        // Idempotencia: si ya está En_Atencion, no se ejecuta transición
         CitaPort.CitaInfo cita = citaPort.buscarPorId(idCita)
                 .orElseThrow(() -> new CitaNoEncontradaException(idCita));
-        validarPropiedad(cita, personal);
-
-        if (atencionRepo.existePorCitaId(idCita)) {
-            throw new AtencionYaRegistradaException();
-        }
         if (ESTADO_EN_ATENCION.equals(cita.estadoNombre())) {
-            log.info("Cita {} ya está En_Atención (iniciar es idempotente) — veterinario {}",
-                    idCita, personal.personalId());
+            log.info("Cita {} ya está En_Atención (iniciar es idempotente)", idCita);
             return;
         }
-        if (ESTADO_CONFIRMADA.equals(cita.estadoNombre())) {
-            citaPort.actualizarEstado(idCita, ESTADO_EN_ATENCION);
-            log.info("Atención iniciada: cita {} → En_Atención — veterinario {}", idCita, personal.personalId());
-            return;
-        }
-        throw new OperacionAtencionInvalidaException(
-                "La cita no puede iniciar atención en su estado actual (" + cita.estadoNombre() + ")");
+
+        citaTransitionService.transicionar(
+            idCita,
+            CitaTransitionService.EN_ATENCION,
+            CitaTransitionService.Actor.veterinario(personal.personalId())
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -371,7 +372,11 @@ public class AtencionClinicaApplicationService {
         entradaHistorialRepo.guardar(entrada);
 
         // (h) cita → Completada + peso de la mascota (D10)
-        citaPort.actualizarEstado(cita.idCita(), ESTADO_COMPLETADA);
+        citaTransitionService.transicionar(
+            cita.idCita(),
+            CitaTransitionService.COMPLETADA,
+            CitaTransitionService.Actor.veterinario(personal.personalId())
+        );
         mascotaPort.actualizarPeso(cita.idMascota(), request.pesoKg());
 
         // regla 6.5.5 — log de resumen

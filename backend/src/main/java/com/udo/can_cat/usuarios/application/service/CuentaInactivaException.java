@@ -5,7 +5,7 @@ public class CuentaInactivaException extends RuntimeException {
     private final String estado;
 
     public CuentaInactivaException(String estado) {
-        super("La cuenta se encuentra " + estado);
+        super("El estado de su cuenta es: " + estado);
         this.estado = estado;
     }
 

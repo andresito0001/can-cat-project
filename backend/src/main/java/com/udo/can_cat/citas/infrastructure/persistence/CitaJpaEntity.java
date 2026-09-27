@@ -66,6 +66,9 @@ public class CitaJpaEntity {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "expira_en")
+    private LocalDateTime expiraEn;
+
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
@@ -134,4 +137,7 @@ public class CitaJpaEntity {
 
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public LocalDateTime getExpiraEn() { return expiraEn; }
+    public void setExpiraEn(LocalDateTime expiraEn) { this.expiraEn = expiraEn; }
 }
