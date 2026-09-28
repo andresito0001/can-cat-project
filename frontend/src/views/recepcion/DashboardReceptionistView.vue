@@ -2,8 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  ArrowRight, Banknote, CalendarDays, CheckCircle2, ChevronRight, Clock,
-  CreditCard, Dog, FileText, Inbox, Receipt, Search, User, UserPlus, Users
+  ArrowRight, Banknote, CalendarDays, CheckCircle2, Clock,
+  CreditCard, FileText, Inbox, Receipt, User
 } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth.store'
 import { useToast } from '@/composables/useToast'
@@ -11,7 +11,7 @@ import ToastContainer from '@/components/ui/ToastContainer.vue'
 import { getAgenda, getPendientesPago } from '@/api/citas.api'
 import { getFacturasPendientes } from '@/api/pagos.api'
 import { getApiErrorMessage } from '@/utils/apiError'
-import { fechaCompleta, hoyISO, horaCorta, partesBadgeFecha } from '@/utils/fecha'
+import { fechaCompleta, hoyISO, horaCorta } from '@/utils/fecha'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -25,43 +25,6 @@ const facturasPendientes = ref([])
 
 const nombreRecep = computed(() => authStore.userName || 'Recepción')
 
-// ─── Accesos rápidos ───
-const accesos = [
-  {
-    titulo: 'Gestión de Clientes',
-    descripcion: 'Registrar y buscar clientes',
-    icono: Users,
-    color: '#0F766E',
-    bg: '#F0FDFA',
-    ruta: '/recepcion/clientes',
-  },
-  {
-    titulo: 'Registrar Mascota',
-    descripcion: 'Asociar pacientes a clientes',
-    icono: Dog,
-    color: '#3B82F6',
-    bg: '#EFF6FF',
-    ruta: '/recepcion/registrar-mascota',
-  },
-  {
-    titulo: 'Gestionar Citas',
-    descripcion: 'Agenda y disponibilidad',
-    icono: CalendarDays,
-    color: '#F59E0B',
-    bg: '#FFFBEB',
-    ruta: '/recepcion/citas',
-  },
-  {
-    titulo: 'Cobrar en Mostrador',
-    descripcion: 'Pagos presenciales',
-    icono: Banknote,
-    color: '#8B5CF6',
-    bg: '#F5F3FF',
-    ruta: '/recepcion/cobrar',
-  },
-]
-
-// ─── KPIs ───
 const stats = computed(() => {
   const totalHoy = agendaHoy.value.length
   const completadasHoy = agendaHoy.value.filter(c => {
@@ -102,7 +65,6 @@ const stats = computed(() => {
   ]
 })
 
-// ─── Próximo paciente a atender (primera cita no completada) ───
 const proximaCita = computed(() => {
   return agendaHoy.value.find(c => {
     const estado = String(c.estadoNombre || '').trim()
@@ -110,7 +72,6 @@ const proximaCita = computed(() => {
   }) || null
 })
 
-// ─── Resto de citas de hoy (excluye la destacada) ───
 const citasAgenda = computed(() => {
   if (!proximaCita.value) return agendaHoy.value
   return agendaHoy.value.filter(c => c.idCita !== proximaCita.value.idCita)
@@ -118,7 +79,6 @@ const citasAgenda = computed(() => {
 const citasVisibles = computed(() => citasAgenda.value.slice(0, 6))
 const citasOcultas = computed(() => Math.max(0, citasAgenda.value.length - 6))
 
-// ─── Lista unificada de cobros pendientes ───
 const cobrosPendientes = computed(() => {
   const citas = citasPendientesPago.value.map(c => ({
     id: `cita-${c.idCita}`,
@@ -144,14 +104,12 @@ const cobrosPendientes = computed(() => {
     hora: '',
     fechaISO: f.fechaEmision,
   }))
-  // Citas primero (más urgentes), luego facturas
   return [...citas, ...facturas]
 })
 
 const cobrosVisibles = computed(() => cobrosPendientes.value.slice(0, 5))
 const cobrosOcultos = computed(() => Math.max(0, cobrosPendientes.value.length - 5))
 
-// ─── Helpers ───
 function fmtUsd(v) {
   if (v == null) return '—'
   return `$${Number(v).toFixed(2)}`
@@ -169,16 +127,11 @@ function estiloEstado(estadoNombre, estadoColor) {
     Completada: '#64748B',
     Cancelada: '#EF4444'
   }
-  
+
   const color = estadoColor || mapaColores[estadoNombre] || '#64748B'
   return { color, borderColor: color, backgroundColor: `${color}1A` }
 }
 
-function inicialCliente(nombre) {
-  return String(nombre || '?').trim().charAt(0).toUpperCase() || '?'
-}
-
-// ─── Navegación ───
 function irACobros() {
   router.push('/recepcion/cobrar')
 }
@@ -190,7 +143,6 @@ function verDetalleCita(idCita) {
   router.push(`/recepcion/citas?cita=${idCita}`)
 }
 
-// ─── Carga de datos ───
 async function cargarDatos() {
   cargando.value = true
   const [agendaRes, pendientesRes, facturasRes] = await Promise.allSettled([
@@ -203,7 +155,6 @@ async function cargarDatos() {
   citasPendientesPago.value = pendientesRes.status === 'fulfilled' ? pendientesRes.value.data || [] : []
   facturasPendientes.value = facturasRes.status === 'fulfilled' ? facturasRes.value.data || [] : []
 
-  // Si las 3 fallaron, avisamos
   const todosFallaron = [agendaRes, pendientesRes, facturasRes].every(r => r.status === 'rejected')
   if (todosFallaron) {
     toastError(getApiErrorMessage(agendaRes.reason) || 'No se pudieron cargar los datos del panel')
@@ -218,7 +169,6 @@ onMounted(cargarDatos)
   <div class="dashboard">
     <ToastContainer />
 
-    <!-- ═══ HERO ═══ -->
     <header class="hero">
       <div class="hero-left">
         <p class="hero-date">{{ fechaCompleta(hoy) }}</p>
@@ -233,14 +183,12 @@ onMounted(cargarDatos)
       </div>
     </header>
 
-    <!-- ═══ LOADING ═══ -->
     <div v-if="cargando" class="loading-state">
       <div class="spin"></div>
       <p>Cargando el panel…</p>
     </div>
 
     <template v-else>
-      <!-- ═══ KPIs ═══ -->
       <section class="stats-grid">
         <article v-for="s in stats" :key="s.etiqueta" class="stat-card">
           <div class="stat-icon" :style="{ backgroundColor: s.bg, color: s.color }">
@@ -253,7 +201,6 @@ onMounted(cargarDatos)
         </article>
       </section>
 
-      <!-- ═══ PRÓXIMO PACIENTE ═══ -->
       <section v-if="proximaCita" class="proximo">
         <div class="proximo-info">
           <span class="proximo-tag">
@@ -294,9 +241,7 @@ onMounted(cargarDatos)
         </div>
       </section>
 
-      <!-- ═══ GRID PRINCIPAL ═══ -->
       <section class="content-grid">
-        <!-- Agenda del día -->
         <div class="card">
           <div class="card-header">
             <div>
@@ -381,7 +326,6 @@ onMounted(cargarDatos)
           </div>
         </div>
 
-        <!-- Cobros pendientes -->
         <div class="card">
           <div class="card-header">
             <div>
@@ -445,36 +389,6 @@ onMounted(cargarDatos)
           </div>
         </div>
       </section>
-
-      <!-- ═══ ACCESOS RÁPIDOS ═══ -->
-      <section class="card wide">
-        <div class="card-header">
-          <div>
-            <h3>Accesos rápidos</h3>
-            <p class="card-sub">Módulos principales de recepción</p>
-          </div>
-        </div>
-        <div class="card-body card-body-slim">
-          <div class="quick-grid">
-            <button
-              v-for="a in accesos"
-              :key="a.ruta"
-              class="quick-card"
-              type="button"
-              @click="router.push(a.ruta)"
-            >
-              <div class="quick-icon" :style="{ backgroundColor: a.bg, color: a.color }">
-                <component :is="a.icono" :size="20" />
-              </div>
-              <div class="quick-texto">
-                <p class="quick-titulo">{{ a.titulo }}</p>
-                <p class="quick-desc">{{ a.descripcion }}</p>
-              </div>
-              <ChevronRight :size="16" class="quick-arrow" />
-            </button>
-          </div>
-        </div>
-      </section>
     </template>
   </div>
 </template>
@@ -489,7 +403,6 @@ onMounted(cargarDatos)
 }
 button { font-family: inherit; }
 
-/* ═══ HERO ═══ */
 .hero {
   display: flex;
   align-items: center;
@@ -538,7 +451,6 @@ button { font-family: inherit; }
   white-space: nowrap;
 }
 
-/* ═══ KPIs ═══ */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -585,7 +497,6 @@ button { font-family: inherit; }
   font-weight: 500;
 }
 
-/* ═══ PRÓXIMO PACIENTE ═══ */
 .proximo {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -686,7 +597,6 @@ button { font-family: inherit; }
   box-shadow: 0 12px 24px -8px rgba(0, 0, 0, .25);
 }
 
-/* ═══ GRID CONTENIDO ═══ */
 .content-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
@@ -695,7 +605,6 @@ button { font-family: inherit; }
   margin-bottom: 20px;
 }
 
-/* ═══ CARDS ═══ */
 .card {
   background: #fff;
   border: 1px solid #E2E8F0;
@@ -703,7 +612,6 @@ button { font-family: inherit; }
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .03), 0 10px 15px -3px rgba(0, 0, 0, .04);
   overflow: hidden;
 }
-.card.wide { grid-column: 1 / -1; }
 .card-header {
   display: flex;
   align-items: flex-start;
@@ -715,9 +623,7 @@ button { font-family: inherit; }
 .card-header h3 { margin: 0; font-size: 16px; font-weight: 700; color: #0F172A; }
 .card-sub { margin: 3px 0 0; font-size: 12.5px; color: #64748B; }
 .card-body { padding: 20px 24px 24px; }
-.card-body-slim { padding: 16px 20px 20px; }
 
-/* ═══ LISTA CITAS ═══ */
 .citas-lista { display: flex; flex-direction: column; gap: 10px; }
 .cita-item {
   display: grid;
@@ -837,7 +743,6 @@ button { font-family: inherit; }
   color: #059669;
 }
 
-/* ═══ LISTA COBROS ═══ */
 .cobros-lista { display: flex; flex-direction: column; gap: 8px; }
 .cobro-item {
   display: grid;
@@ -927,69 +832,6 @@ button { font-family: inherit; }
   box-shadow: 0 4px 12px rgba(15, 118, 110, .25);
 }
 
-/* ═══ ACCESOS RÁPIDOS ═══ */
-.quick-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-}
-.quick-card {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  background: #F8FAFC;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  cursor: pointer;
-  font-family: inherit;
-  text-align: left;
-  transition: all .2s ease;
-}
-.quick-card:hover {
-  background: #fff;
-  border-color: #0F766E;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px -10px rgba(15, 118, 110, .25);
-}
-.quick-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.quick-texto { flex: 1; min-width: 0; }
-.quick-titulo {
-  margin: 0;
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #0F172A;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.quick-desc {
-  margin: 2px 0 0;
-  font-size: 11.5px;
-  color: #64748B;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.quick-arrow {
-  color: #CBD5E1;
-  flex-shrink: 0;
-  transition: color .2s ease, transform .2s ease;
-}
-.quick-card:hover .quick-arrow {
-  color: #0F766E;
-  transform: translateX(2px);
-}
-
-/* ═══ LINKS / ESTADOS ═══ */
 .btn-link {
   background: none;
   border: none;
@@ -1010,7 +852,6 @@ button { font-family: inherit; }
   text-align: center;
 }
 
-/* ═══ LOADING / EMPTY ═══ */
 .loading-state {
   display: flex;
   flex-direction: column;
@@ -1043,7 +884,6 @@ button { font-family: inherit; }
 .empty-state.slim { padding: 24px; }
 .empty-state p { margin: 0; }
 
-/* ═══ RESPONSIVE ═══ */
 @media (max-width: 1100px) {
   .content-grid { grid-template-columns: 1fr; }
 }
@@ -1052,7 +892,6 @@ button { font-family: inherit; }
   .proximo { grid-template-columns: 1fr; gap: 18px; }
   .proximo-accion { width: 100%; }
   .btn-accion-grande { width: 100%; justify-content: center; }
-  .quick-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 768px) {
   .dashboard { padding: 16px 16px 40px; }
@@ -1075,7 +914,5 @@ button { font-family: inherit; }
     gap: 10px;
   }
   .btn-cobrar { grid-column: 2 / -1; justify-self: end; }
-
-  .quick-grid { grid-template-columns: 1fr; }
 }
 </style>

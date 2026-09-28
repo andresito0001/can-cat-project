@@ -45,7 +45,7 @@ const routes = [
       { path: 'clientes', name: 'ManageClients', component: () => import('@/views/recepcion/ClientesView.vue') },
       { path: 'clientes/nuevo', name: 'RegisterClient', component: () => import('@/views/recepcion/RegistrarClienteView.vue') },
       { path: 'registrar-mascota', name: 'RegisterPetReception', component: () => import('@/views/recepcion/RegisterPetView.vue') },
-      { path: 'cobrar', name: 'CounterPayment', component: () => import('@/views/recepcion/CounterPaymentView.vue') },
+      { path: 'caja', name: 'Caja', component: () => import('@/views/recepcion/CajaView.vue') },
     ]
   },
   
@@ -70,11 +70,11 @@ const routes = [
     component: () => import('@/layouts/WarehouseLayout.vue'),
     meta: { requiresAuth: true, role: 'Encargado_Almacen' },
     children: [
+      { path: '', redirect: '/almacen/dashboard' },
       { path: 'dashboard', name: 'WarehouseDashboard', component: () => import('@/views/almacen/DashboardWarehouseView.vue') },
       { path: 'inventario', name: 'Inventory', component: () => import('@/views/almacen/InventoryView.vue') },
       { path: 'entrada', name: 'StockEntry', component: () => import('@/views/almacen/StockEntryView.vue') },
-      { path: 'alertas', name: 'StockAlerts', component: () => import('@/views/almacen/StockAlertsView.vue') },
-      { path: 'catalogo', name: 'Catalog', component: () => import('@/views/almacen/CatalogView.vue') },
+      { path: 'proveedores', name: 'Proveedores', component: () => import('@/views/almacen/ProveedoresView.vue') },
     ]
   },
 

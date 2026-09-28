@@ -193,6 +193,10 @@
         </tbody>
       </table>
     </div>
+    <ClienteDetalleModal
+      v-model="detalleModalVisible"
+      :cliente="clienteSeleccionado"
+    />
   </div>
 </template>
 
@@ -204,6 +208,8 @@ import {
   UserPlus, Users, Search, X, AlertCircle, ChevronRight,
   Phone, MapPin, MapPinOff, CalendarPlus
 } from 'lucide-vue-next'
+import ClienteDetalleModal from '@/components/recepcion/ClienteDetalleModal.vue'
+
 
 const router = useRouter()
 
@@ -211,6 +217,9 @@ const clientes = ref([])
 const filtro = ref('')
 const isLoading = ref(false)
 const errorMessage = ref(null)
+const detalleModalVisible = ref(false)
+const clienteSeleccionado = ref(null)
+
 
 const PALETA_AVATARES = ['#0F766E', '#3B82F6', '#F59E0B', '#F43F5E', '#8B5CF6', '#0EA5E9']
 
@@ -253,9 +262,18 @@ function formatearFecha(fecha) {
 function limpiarFiltro() {
   filtro.value = ''
 }
+
 function verCliente(cliente) {
-  // Ajusta la ruta cuando exista el detalle
-  router.push(`/recepcion/clientes/${cliente.id}`)
+  // Acepta tanto el objeto cliente como un id (defensivo)
+  if (typeof cliente === 'object' && cliente !== null) {
+    clienteSeleccionado.value = cliente
+  } else {
+    // Fallback: buscar en la lista por id
+    const encontrado = clientes.value.find(c => c.id === cliente || c.idCliente === cliente)
+    if (!encontrado) return
+    clienteSeleccionado.value = encontrado
+  }
+  detalleModalVisible.value = true
 }
 
 // ─── Carga ───

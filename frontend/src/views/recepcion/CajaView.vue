@@ -9,21 +9,21 @@
           <Sparkles :size="12" />
           Recepción · Caja
         </p>
-        <h1>Cobrar en Mostrador</h1>
+        <h1>Caja</h1>
         <p class="hero-sub">
-          Registra el pago presencial de citas y facturas de productos, verifica pagos online y emite el comprobante al instante.
+          Cobra las facturas de productos generadas por las atenciones clínicas y verifica los pagos online.
         </p>
       </div>
       <div class="hero-right">
         <button
           class="btn-secondary"
           type="button"
-          :disabled="cargando || cargandoFacturas || cargandoVerificacion"
+          :disabled="cargandoFacturas || cargandoVerificacion"
           @click="actualizar"
         >
           <RefreshCw
             :size="15"
-            :class="{ spin: cargando || cargandoFacturas || cargandoVerificacion }"
+            :class="{ spin: cargandoFacturas || cargandoVerificacion }"
           />
           Actualizar
         </button>
@@ -33,30 +33,12 @@
     <!-- ═══ KPIs ═══ -->
     <section class="kpis">
       <article class="kpi">
-        <div class="kpi-icon" style="--kpi-color: #0F766E; --kpi-bg: #F0FDFA;">
-          <CalendarDays :size="18" />
-        </div>
-        <div class="kpi-texto">
-          <p class="kpi-value">{{ pendientes.length }}</p>
-          <p class="kpi-label">Citas por cobrar</p>
-        </div>
-      </article>
-      <article class="kpi">
         <div class="kpi-icon" style="--kpi-color: #8B5CF6; --kpi-bg: #F5F3FF;">
           <Receipt :size="18" />
         </div>
         <div class="kpi-texto">
           <p class="kpi-value">{{ facturas.length }}</p>
           <p class="kpi-label">Facturas por cobrar</p>
-        </div>
-      </article>
-      <article class="kpi">
-        <div class="kpi-icon" style="--kpi-color: #3B82F6; --kpi-bg: #EFF6FF;">
-          <DollarSign :size="18" />
-        </div>
-        <div class="kpi-texto">
-          <p class="kpi-value">{{ fmtUsd(totalPorCobrar) }}</p>
-          <p class="kpi-label">Total por cobrar</p>
         </div>
       </article>
       <article class="kpi">
@@ -90,20 +72,6 @@
         type="button"
         role="tab"
         class="tab"
-        :class="{ active: tab === 'citas' }"
-        :aria-selected="tab === 'citas'"
-        @click="tab = 'citas'"
-      >
-        <CalendarDays :size="15" />
-        Citas pendientes
-        <span v-if="pendientes.length" class="tab-count" :class="{ 'is-warn': citasVencidas > 0 }">
-          {{ pendientes.length }}
-        </span>
-      </button>
-      <button
-        type="button"
-        role="tab"
-        class="tab"
         :class="{ active: tab === 'facturas' }"
         :aria-selected="tab === 'facturas'"
         @click="tab = 'facturas'"
@@ -128,84 +96,8 @@
       </button>
     </nav>
 
-    <!-- ══════════════ TAB 1: CITAS ══════════════ -->
-    <template v-if="tab === 'citas'">
-      <div v-if="errorCarga" class="alert alert-error">
-        <AlertCircle :size="16" />
-        <span>{{ errorCarga }}</span>
-        <button type="button" class="alert-action" @click="cargarPendientes">Reintentar</button>
-      </div>
-
-      <div v-if="cargando" class="skeleton-list">
-        <div v-for="i in 3" :key="i" class="skeleton-card">
-          <div class="skeleton-block skeleton-fecha" />
-          <div class="skeleton-info">
-            <div class="skeleton-block w-60" />
-            <div class="skeleton-block w-40" />
-            <div class="skeleton-block w-30" />
-          </div>
-          <div class="skeleton-block skeleton-monto" />
-        </div>
-      </div>
-
-      <div v-else-if="pendientes.length === 0" class="empty-state">
-        <div class="empty-icon"><CheckCircle2 :size="32" /></div>
-        <h3>No hay citas pendientes de pago</h3>
-        <p>
-          Todas las citas solicitadas están al día.
-          Las nuevas solicitudes online sin pagar aparecerán aquí.
-        </p>
-        <button class="btn-secondary" type="button" @click="actualizar">
-          <RefreshCw :size="15" /> Actualizar
-        </button>
-      </div>
-
-      <div v-else class="citas-lista">
-        <article
-          v-for="c in pendientes"
-          :key="c.idCita"
-          class="cita-card"
-          :class="{ 'is-vencida': c.fecha < hoy }"
-        >
-          <div class="cita-fecha" :class="{ 'is-vencida': c.fecha < hoy }">
-            <span class="fecha-dia">{{ partesFecha(c.fecha).dia }}</span>
-            <span class="fecha-mes">{{ partesFecha(c.fecha).mes }}</span>
-            <span class="fecha-hora">{{ fmtHora(c.horaInicio) }}</span>
-          </div>
-
-          <div class="cita-info">
-            <div class="cita-title-row">
-              <h3 class="cita-mascota">
-                <PawPrint :size="14" />
-                {{ c.nombreMascota }}
-              </h3>
-              <span v-if="c.fecha < hoy" class="vencida-tag">
-                <AlertTriangle :size="11" /> Vencida
-              </span>
-            </div>
-            <p class="cita-cliente">
-              <User :size="12" /> {{ c.nombreCliente }}
-            </p>
-            <div class="cita-meta">
-              <span class="meta-item"><FileText :size="12" /> {{ c.nombreServicio }}</span>
-              <span class="meta-item"><Stethoscope :size="12" /> {{ c.nombreVeterinario }}</span>
-            </div>
-          </div>
-
-          <div class="cita-lateral">
-            <span class="cita-monto-label">A cobrar</span>
-            <strong class="cita-monto">{{ fmtUsd(c.costoUsd) }}</strong>
-            <button class="btn-cobrar" type="button" @click="abrirCobro(c)">
-              <Banknote :size="15" />
-              Cobrar
-            </button>
-          </div>
-        </article>
-      </div>
-    </template>
-
-    <!-- ══════════════ TAB 2: FACTURAS ══════════════ -->
-    <template v-else-if="tab === 'facturas'">
+    <!-- ══════════════ TAB 1: FACTURAS ══════════════ -->
+    <template v-if="tab === 'facturas'">
       <div v-if="errorFacturas" class="alert alert-error">
         <AlertCircle :size="16" />
         <span>{{ errorFacturas }}</span>
@@ -319,7 +211,7 @@
       </div>
     </template>
 
-    <!-- ══════════════ TAB 3: PAGOS POR VERIFICAR ══════════════ -->
+    <!-- ══════════════ TAB 2: PAGOS POR VERIFICAR ══════════════ -->
     <template v-else>
       <div v-if="errorVerificacion" class="alert alert-error">
         <AlertCircle :size="16" />
@@ -434,7 +326,7 @@
                 <div class="cobro-modal-titles">
                   <span class="cobro-modal-eyebrow">
                     <Banknote :size="12" />
-                    {{ tipoCobro === 'factura' ? 'Cobro de factura' : 'Cobro de cita' }}
+                    Cobro de factura
                   </span>
                   <h3>{{ citaACobrar.nombreCliente }}</h3>
                 </div>
@@ -456,23 +348,7 @@
                 </div>
 
                 <div class="cobro-modal-info">
-                  <div v-if="tipoCobro === 'cita'">
-                    <div class="info-row">
-                      <span class="info-label"><PawPrint :size="13" /> Mascota</span>
-                      <span class="info-value">{{ citaACobrar.nombreMascota }}</span>
-                    </div>
-                    <div class="info-row">
-                      <span class="info-label"><FileText :size="13" /> Servicio</span>
-                      <span class="info-value">{{ citaACobrar.nombreServicio }}</span>
-                    </div>
-                    <div class="info-row">
-                      <span class="info-label"><CalendarDays :size="13" /> Turno</span>
-                      <span class="info-value">
-                        {{ fmtFecha(citaACobrar.fecha) }} · {{ fmtHora(citaACobrar.horaInicio) }}
-                      </span>
-                    </div>
-                  </div>
-                  <div v-else>
+                  <div>
                     <div class="info-row">
                       <span class="info-label"><CreditCard :size="13" /> Documento</span>
                       <span class="info-value mono">{{ citaACobrar.documentoCliente }}</span>
@@ -602,9 +478,7 @@
                 >
                   <Loader2 v-if="cobrando" :size="15" class="spin" />
                   <Banknote v-else :size="15" />
-                  {{ cobrando
-                    ? 'Procesando…'
-                    : (tipoCobro === 'factura' ? 'Cobrar factura' : 'Cobrar y facturar') }}
+                  {{ cobrando ? 'Procesando…' : 'Cobrar factura' }}
                 </button>
               </footer>
             </div>
@@ -713,13 +587,9 @@
                   <CheckCircle2 :size="40" />
                 </div>
 
-                <h2 class="success-title">
-                  {{ resultado.tipo === 'factura'
-                    ? 'Factura cobrada correctamente'
-                    : 'Cita cobrada y facturada' }}
-                </h2>
+                <h2 class="success-title">Factura cobrada correctamente</h2>
 
-                <p v-if="resultado.tipo === 'factura' && resultado.mensaje" class="success-message">
+                <p v-if="resultado.mensaje" class="success-message">
                   {{ resultado.mensaje }}
                 </p>
 
@@ -732,40 +602,18 @@
                     <span class="resumen-label"><User :size="13" /> Cliente</span>
                     <span class="resumen-value">{{ resultado.resumen.cliente }}</span>
                   </div>
-
-                  <template v-if="resultado.tipo !== 'factura'">
-                    <div class="resumen-fila">
-                      <span class="resumen-label"><PawPrint :size="13" /> Mascota</span>
-                      <span class="resumen-value">{{ resultado.resumen.mascota }}</span>
-                    </div>
-                    <div class="resumen-fila">
-                      <span class="resumen-label"><FileText :size="13" /> Servicio</span>
-                      <span class="resumen-value">{{ resultado.resumen.servicio }}</span>
-                    </div>
-                    <div class="resumen-fila">
-                      <span class="resumen-label"><CalendarDays :size="13" /> Turno</span>
-                      <span class="resumen-value">
-                        {{ fmtFecha(resultado.resumen.fecha) }} · {{ fmtHora(resultado.resumen.horaInicio) }}
-                      </span>
-                    </div>
-                  </template>
-
-                  <template v-else>
-                    <div class="resumen-fila">
-                      <span class="resumen-label"><CheckCircle2 :size="13" /> Estado</span>
-                      <span class="resumen-value">
-                        <span class="pill-success">{{ resultado.estadoPago || 'Confirmado' }}</span>
-                      </span>
-                    </div>
-                  </template>
-
+                  <div class="resumen-fila">
+                    <span class="resumen-label"><CheckCircle2 :size="13" /> Estado</span>
+                    <span class="resumen-value">
+                      <span class="pill-success">{{ resultado.estadoPago || 'Confirmado' }}</span>
+                    </span>
+                  </div>
                   <div class="resumen-fila">
                     <span class="resumen-label"><CreditCard :size="13" /> Método</span>
                     <span class="resumen-value">
                       {{ METODO_LABEL[resultado.resumen.metodoPago] || resultado.resumen.metodoPago }}
                     </span>
                   </div>
-
                   <div class="resumen-fila total">
                     <span class="resumen-label"><DollarSign :size="13" /> Total facturado</span>
                     <span class="resumen-value total-value">
@@ -823,19 +671,17 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { getPendientesPago, cobrarCitaMostrador } from '@/api/citas.api'
 import {
   getMetodosPresenciales, enviarFactura, descargarFactura,
   getFacturasPendientes, cobrarFactura,
   getPagosPendientesVerificacion, verificarPago,
 } from '@/api/pagos.api'
-import { ESTADO_COLOR } from '@/utils/constants/estadosCita'
 import ToastContainer from '@/components/ui/ToastContainer.vue'
 import {
   Banknote, Loader2, AlertCircle, AlertTriangle, CheckCircle2,
   Printer, Mail, X, RefreshCw, PawPrint, CalendarDays, CreditCard,
   Receipt, ChevronDown, ChevronUp, Sparkles, DollarSign, User,
-  FileText, Stethoscope, Package, Check,
+  FileText, Package, Check,
   ShieldCheck, Landmark, Smartphone,
 } from 'lucide-vue-next'
 
@@ -861,26 +707,7 @@ const METODO_LABEL = {
 const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
 
 // ─── Pestañas ───
-const tab = ref('citas')
-
-// ─── Lista citas ───
-const pendientes = ref([])
-const cargando = ref(false)
-const errorCarga = ref('')
-const hoy = new Date().toISOString().split('T')[0]
-
-async function cargarPendientes() {
-  cargando.value = true
-  errorCarga.value = ''
-  try {
-    const { data } = await getPendientesPago()
-    pendientes.value = data
-  } catch (err) {
-    errorCarga.value = err.response?.data?.message || 'No se pudo cargar las citas pendientes.'
-  } finally {
-    cargando.value = false
-  }
-}
+const tab = ref('facturas')
 
 // ─── Lista facturas ───
 const facturas = ref([])
@@ -953,7 +780,6 @@ async function confirmarVerificacion() {
     verificacionModal.value = false
     pagoAVerificar.value = null
     await cargarPagosPorVerificar()
-    await cargarPendientes()
     await cargarFacturas()
   } catch (err) {
     errorVerifModal.value = err.response?.data?.message
@@ -1007,22 +833,17 @@ function fmtFechaHora(iso) {
 
 function actualizar() {
   if (tab.value === 'verificacion') cargarPagosPorVerificar()
-  else if (tab.value === 'facturas') cargarFacturas()
-  else cargarPendientes()
+  else cargarFacturas()
 }
 
 // ─── KPIs ───
-const citasVencidas = computed(() => pendientes.value.filter(c => c.fecha < hoy).length)
-
 const totalPorCobrar = computed(() => {
-  const totalCitas = pendientes.value.reduce((s, c) => s + Number(c.costoUsd || 0), 0)
-  const totalFacturas = facturas.value.reduce((s, f) => s + Number(f.totalNeto || 0), 0)
-  return totalCitas + totalFacturas
+  return facturas.value.reduce((s, f) => s + Number(f.totalNeto || 0), 0)
 })
 
 // ─── Modal de cobro ───
 const citaACobrar = ref(null)
-const tipoCobro = ref('cita')
+const tipoCobro = ref('factura')
 const metodos = ref([])
 const selectedMetodo = ref(null)
 const datosPago = ref({})
@@ -1053,17 +874,6 @@ const camposDinamicos = computed(() =>
     .filter(([key]) => key !== 'referencia')
     .map(([key]) => ({ key }))
 )
-
-function abrirCobro(cita) {
-  tipoCobro.value = 'cita'
-  citaACobrar.value = cita
-  selectedMetodo.value = null
-  datosPago.value = {}
-  referencia.value = ''
-  fondosConfirmados.value = false
-  cobroError.value = ''
-  stepErrors.value = {}
-}
 
 function abrirCobroFactura(factura) {
   tipoCobro.value = 'factura'
@@ -1111,24 +921,19 @@ async function confirmarCobro() {
       datosPago: datosPagoCompletos,
     }
 
-    if (tipoCobro.value === 'factura') {
-      const data = await cobrarFactura(citaACobrar.value.idFactura, payload)
-      resultado.value = {
-        tipo: 'factura',
-        idFactura: data.idFactura,
-        numeroControl: data.numeroControl,
-        estadoPago: data.estadoPago,
-        mensaje: data.mensaje,
-        resumen: {
-          cliente: citaACobrar.value.nombreCliente,
-          metodoPago: data.metodoPago || metodoSeleccionado.value?.nombre,
-          costoUsd: data.monto,
-          costoBs: null,
-        },
-      }
-    } else {
-      const { data } = await cobrarCitaMostrador(citaACobrar.value.idCita, payload)
-      resultado.value = { tipo: 'cita', ...data }
+    const data = await cobrarFactura(citaACobrar.value.idFactura, payload)
+    resultado.value = {
+      tipo: 'factura',
+      idFactura: data.idFactura,
+      numeroControl: data.numeroControl,
+      estadoPago: data.estadoPago,
+      mensaje: data.mensaje,
+      resumen: {
+        cliente: citaACobrar.value.nombreCliente,
+        metodoPago: data.metodoPago || metodoSeleccionado.value?.nombre,
+        costoUsd: data.monto,
+        costoBs: null,
+      },
     }
     citaACobrar.value = null
     envio.value = null
@@ -1138,17 +943,10 @@ async function confirmarCobro() {
       ? msgRaw
       : (msgRaw ? Object.values(msgRaw).join(' · ') : '')
 
-    if (tipoCobro.value === 'factura' && err.response?.status === 409) {
+    if (err.response?.status === 409) {
       citaACobrar.value = null
       cobroError.value = msg || 'Esta factura ya tiene un pago registrado. La lista fue actualizada.'
       await cargarFacturas()
-    } else if (
-      tipoCobro.value === 'cita'
-      && (msg.includes('Pendiente_Pago') || msg.includes('Solo se pueden cobrar'))
-    ) {
-      citaACobrar.value = null
-      cobroError.value = 'Esta cita ya no está pendiente de pago. La lista fue actualizada.'
-      await cargarPendientes()
     } else {
       cobroError.value = msg || 'No se pudo confirmar el pago. Verifique la transacción e intente nuevamente.'
     }
@@ -1184,30 +982,15 @@ async function enviarPorCorreo() {
 }
 
 function cerrarComprobante() {
-  const eraFactura = resultado.value?.tipo === 'factura'
   resultado.value = null
-  if (eraFactura) cargarFacturas()
-  else cargarPendientes()
+  cargarFacturas()
 }
 
 // ─── Helpers de formato ───
-function partesFecha(iso) {
-  if (!iso) return { dia: '--', mes: '—' }
-  const [, m, d] = String(iso).slice(0, 10).split('-')
-  return { dia: d, mes: MESES[Number(m) - 1]?.toUpperCase() || '' }
-}
-
 function fmtFecha(iso) {
   if (!iso) return ''
   const [y, m, d] = String(iso).slice(0, 10).split('-')
   return `${d} ${MESES[Number(m) - 1]} ${y}`
-}
-
-function fmtHora(t) {
-  if (!t) return ''
-  const [h, m] = t.split(':')
-  const hh = Number(h) % 12 || 12
-  return `${hh}:${m} ${Number(h) >= 12 ? 'PM' : 'AM'}`
 }
 
 function fmtUsd(v) {
@@ -1226,7 +1009,6 @@ function fmtFieldLabel(key) {
 }
 
 onMounted(async () => {
-  cargarPendientes()
   cargarFacturas()
   cargarPagosPorVerificar()
   try {
@@ -1299,7 +1081,7 @@ button { font-family: inherit; }
 /* ═══ KPIs ═══ */
 .kpis {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 14px;
 }
 .kpi {
@@ -1427,9 +1209,6 @@ button { font-family: inherit; }
   color: #fff;
   border-color: rgba(255, 255, 255, .4);
 }
-
-/* ═══ SKELETON ═══ */
-.skeleton-list { display: flex; flex-direction: column; gap: 12px; }
 .skeleton-card {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -1460,7 +1239,7 @@ button { font-family: inherit; }
   100% { background-position: -200% 0; }
 }
 
-/* ═══ EMPTY ═══ */
+/* ═══ EMPTY STATE ═══ */
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -1498,179 +1277,7 @@ button { font-family: inherit; }
   line-height: 1.5;
 }
 
-/* ═══ LISTA CITAS ═══ */
-.citas-lista { display: flex; flex-direction: column; gap: 12px; }
-.cita-card {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 18px;
-  align-items: center;
-  padding: 18px 20px;
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 14px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .03);
-  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
-}
-.cita-card:hover {
-  border-color: #CBD5E1;
-  transform: translateY(-1px);
-  box-shadow: 0 10px 24px -12px rgba(15, 23, 42, .1);
-}
-.cita-card.is-vencida {
-  border-left: 4px solid #DC2626;
-  background: linear-gradient(90deg, #FEF2F2 0%, #FFFFFF 25%);
-}
-
-.cita-fecha {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-width: 68px;
-  padding: 10px 8px;
-  background: #F0FDFA;
-  border: 1px solid #99F6E4;
-  border-radius: 12px;
-  flex-shrink: 0;
-}
-.cita-fecha.is-vencida {
-  background: #FEF2F2;
-  border-color: #FECACA;
-}
-.fecha-dia {
-  font-size: 20px;
-  font-weight: 700;
-  color: #0F766E;
-  line-height: 1;
-  letter-spacing: -0.02em;
-}
-.cita-fecha.is-vencida .fecha-dia { color: #DC2626; }
-.fecha-mes {
-  margin-top: 2px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .6px;
-  color: #0F766E;
-  line-height: 1;
-}
-.cita-fecha.is-vencida .fecha-mes { color: #DC2626; }
-.fecha-hora {
-  margin-top: 6px;
-  font-size: 10.5px;
-  font-weight: 600;
-  color: #64748B;
-  line-height: 1;
-}
-
-.cita-info { min-width: 0; }
-.cita-title-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 4px;
-}
-.cita-mascota {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-  color: #0F172A;
-  letter-spacing: -0.01em;
-  line-height: 1.2;
-}
-.vencida-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 9px;
-  border-radius: 20px;
-  background: #FEF2F2;
-  color: #DC2626;
-  border: 1px solid #FECACA;
-  font-size: 10.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .4px;
-}
-.cita-cliente {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin: 0;
-  font-size: 12.5px;
-  color: #64748B;
-  font-weight: 500;
-}
-.cita-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
-}
-.meta-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  background: #F8FAFC;
-  border: 1px solid #E2E8F0;
-  border-radius: 20px;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #475569;
-}
-.meta-item svg { color: #94A3B8; }
-
-.cita-lateral {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  flex-shrink: 0;
-}
-.cita-monto-label {
-  font-size: 10.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .5px;
-  color: #94A3B8;
-}
-.cita-monto {
-  font-size: 18px;
-  font-weight: 700;
-  color: #0F766E;
-  letter-spacing: -0.02em;
-  line-height: 1;
-  margin-bottom: 6px;
-}
-.btn-cobrar {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 9px 18px;
-  background: #0F766E;
-  color: #fff;
-  border: none;
-  border-radius: 9px;
-  font-size: 12.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all .2s ease;
-  font-family: inherit;
-  white-space: nowrap;
-}
-.btn-cobrar:hover {
-  background: #115E59;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px -4px rgba(15, 118, 110, .4);
-}
-
-/* ═══ TABLA FACTURAS ═══ */
+/* ═══ TABLA DE FACTURAS ═══ */
 .table-card {
   background: #fff;
   border-radius: 14px;
@@ -1763,6 +1370,7 @@ button { font-family: inherit; }
   background: #F0FDFA;
 }
 
+/* Detalles expandidos */
 .detalles-row td {
   background: #F0FDFA;
   padding: 0;
@@ -1800,8 +1408,12 @@ button { font-family: inherit; }
 }
 .data-table.inner tbody tr:last-child td { border-bottom: none; }
 
-/* ══════════════ TAB 3: VERIFICACIÓN ══════════════ */
-.verificacion-list { display: flex; flex-direction: column; gap: 14px; }
+/* ═══ VERIFICACIÓN DE PAGOS ═══ */
+.verificacion-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
 
 .verif-card {
   background: #fff;
@@ -1993,15 +1605,7 @@ button { font-family: inherit; }
   border-color: #FCA5A5;
 }
 
-.verif-modal-texto {
-  margin: 0 0 16px;
-  font-size: 13.5px;
-  color: #334155;
-  line-height: 1.55;
-}
-.verif-modal-texto strong { color: #0F172A; }
-
-/* ══════════════ MODAL DE COBRO ══════════════ */
+/* ═══ MODAL COBRO ═══ */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -2011,7 +1615,7 @@ button { font-family: inherit; }
   align-items: center;
   justify-content: center;
   padding: 24px;
-  z-index: 100;
+  z-index: 1000;
   font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
@@ -2025,7 +1629,6 @@ button { font-family: inherit; }
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .3);
-  font-family: inherit;
 }
 
 .cobro-modal-header {
@@ -2199,6 +1802,7 @@ button { font-family: inherit; }
 }
 .cobro-modal-section .required { color: #EF4444; }
 
+/* Métodos de pago */
 .methods-list { display: flex; flex-direction: column; gap: 8px; }
 .method-option {
   display: flex;
@@ -2247,6 +1851,7 @@ button { font-family: inherit; }
 .method-name { font-size: 13.5px; font-weight: 700; color: #0F172A; }
 .method-desc { font-size: 12px; color: #64748B; }
 
+/* Campos dinámicos */
 .dynamic-fields {
   display: flex;
   flex-direction: column;
@@ -2303,6 +1908,7 @@ button { font-family: inherit; }
 .form-error { font-size: 12px; color: #EF4444; font-weight: 600; }
 .form-error.mt-8 { display: block; margin-top: 10px; }
 
+/* Checkbox */
 .check-row {
   display: flex;
   align-items: center;
@@ -2352,7 +1958,16 @@ button { font-family: inherit; }
   flex-shrink: 0;
 }
 
-/* ─── Botones generales ─── */
+/* ─── Verif modal texto ─── */
+.verif-modal-texto {
+  margin: 0 0 16px;
+  font-size: 13.5px;
+  color: #334155;
+  line-height: 1.55;
+}
+.verif-modal-texto strong { color: #0F172A; }
+
+/* ═══ BOTONES GENERALES ═══ */
 .btn-primary,
 .btn-secondary {
   display: inline-flex;
@@ -2401,6 +2016,7 @@ button { font-family: inherit; }
   overflow: hidden;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .3);
 }
+.modal-success { max-width: 520px; }
 .success-body {
   padding: 32px 28px 26px;
   display: flex;
@@ -2559,24 +2175,6 @@ button { font-family: inherit; }
   .kpis { grid-template-columns: 1fr; gap: 10px; }
   .kpi { padding: 14px 16px; }
 
-  .cita-card {
-    grid-template-columns: auto 1fr;
-    gap: 14px;
-    padding: 16px;
-  }
-  .cita-lateral {
-    grid-column: 2;
-    align-items: flex-start;
-    flex-direction: row;
-    justify-content: space-between;
-    width: 100%;
-    padding-top: 10px;
-    border-top: 1px dashed #E2E8F0;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .cita-monto { margin-bottom: 0; }
-
   .verif-body { grid-template-columns: 1fr; gap: 12px; }
   .verif-actions { flex-direction: column-reverse; }
   .verif-actions button { width: 100%; justify-content: center; }
@@ -2584,14 +2182,6 @@ button { font-family: inherit; }
   .verif-monto { align-items: flex-start; }
 
   .modal-card { max-width: 100%; }
-  .modal-footer { flex-direction: column-reverse; }
-  .modal-footer .btn-primary,
-  .modal-footer .btn-secondary { width: 100%; }
-
-  .success-actions { flex-direction: column; }
-  .success-actions .btn-primary,
-  .success-actions .btn-secondary { width: 100%; }
-
   .cobro-modal-footer { flex-direction: column-reverse; }
   .cobro-modal-footer .btn-primary,
   .cobro-modal-footer .btn-secondary { width: 100%; }
@@ -2602,11 +2192,12 @@ button { font-family: inherit; }
     gap: 3px;
   }
   .info-value { text-align: left; }
+
+  .success-actions { flex-direction: column; }
+  .success-actions .btn-primary,
+  .success-actions .btn-secondary { width: 100%; }
 }
 @media (max-width: 480px) {
-  .cita-card { padding: 14px; gap: 12px; }
-  .cita-fecha { min-width: 58px; padding: 8px 6px; }
-  .fecha-dia { font-size: 18px; }
   .success-body { padding: 24px 20px 20px; }
   .success-icon { width: 64px; height: 64px; }
   .success-title { font-size: 18px; }
@@ -2618,4 +2209,5 @@ button { font-family: inherit; }
   .resumen-value { text-align: left; }
   .total-value { align-items: flex-start; }
 }
+
 </style>
