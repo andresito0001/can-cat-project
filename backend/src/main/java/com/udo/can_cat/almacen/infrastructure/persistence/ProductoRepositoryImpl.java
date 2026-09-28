@@ -108,4 +108,21 @@ public class ProductoRepositoryImpl implements ProductoRepository {
     public void cambiarEstado(Producto.ProductoId id, boolean activo) {
         jpa.cambiarEstadoProducto(id.value(), activo);
     }
+
+    @Override
+    public long contarPorPrefijo(String prefijo) {
+        if (prefijo == null || prefijo.isBlank()) return 0L;
+        return jpa.countByCodigoSkuStartingWith(prefijo);
+    }
+
+    @Override
+    public List<Producto> buscarTodos(String filtro) {
+        List<ProductoJpaEntity> entidades;
+        if (filtro == null || filtro.isBlank()) {
+            entidades = jpa.findAllByOrderByNombreAsc();
+        } else {
+            entidades = jpa.buscarTodosPorFiltro(filtro.trim());
+        }
+        return entidades.stream().map(ProductoRepositoryImpl::aDominio).toList();
+    }
 }

@@ -14,6 +14,14 @@ public class Proveedor {
     private String tipoSuministro;
     private Boolean activo;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private String direccion;
+
+    /** Valida que el RIF tenga formato venezolano: [JGVEP]-12345678-9 */
+    public static boolean esRifValido(String rif) {
+        if (rif == null) return false;
+        return rif.trim().toUpperCase().matches("^[JGVEP]-\\d{8}-\\d$");
+    }
 
     // Getters y Setters
     public ProveedorId getId() {
@@ -86,5 +94,22 @@ public class Proveedor {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() { 
+        return updatedAt;
+    }
+    
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+
+    public String getDireccion() { 
+        return direccion;
+    }
+    
+    public void setDireccion(String direccion) {
+        this.direccion = direccion;
     }
 }

@@ -5,10 +5,10 @@ import java.math.BigDecimal;
 
 public record CrearProductoRequestDTO(
         @NotBlank @Size(max = 150) String nombre,
-        @NotBlank @Size(max = 50) String codigoSku,
+        @Size(max = 50) String codigoSku,        
         @Size(max = 255) String descripcion,
-        @NotBlank String categoria,          // nombre: "Medicamento", "Alimento", ...
-        @NotBlank String presentacion,       // "Unidad" | "Kg" | "ml" | "caja" | "lt"
+        @NotBlank String categoria,
+        @NotBlank String presentacion,
         @NotNull @DecimalMin("0") BigDecimal precioVenta,
         @DecimalMin("0") BigDecimal costoAdquisicion,
         @NotNull @Min(0) Integer stockActual,

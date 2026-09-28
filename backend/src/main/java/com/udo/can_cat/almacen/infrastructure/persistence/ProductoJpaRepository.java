@@ -48,4 +48,16 @@ public interface ProductoJpaRepository extends JpaRepository<ProductoJpaEntity, 
     @Transactional
     @Query("UPDATE ProductoJpaEntity p SET p.activo = :activo, p.updatedAt = CURRENT_TIMESTAMP WHERE p.id = :id")
     int cambiarEstadoProducto(@Param("id") Integer id, @Param("activo") Boolean activo);
+
+    long countByCodigoSkuStartingWith(String prefijo);
+
+    /** Todos los productos ordenados por nombre (activos + inactivos). */
+    List<ProductoJpaEntity> findAllByOrderByNombreAsc();
+
+    /** Todos los productos que coincidan con el filtro (activos + inactivos). */
+    @Query("SELECT p FROM ProductoJpaEntity p WHERE " +
+        "LOWER(p.nombre) LIKE LOWER(CONCAT('%', :filtro, '%')) OR " +
+        "LOWER(p.codigoSku) LIKE LOWER(CONCAT('%', :filtro, '%')) " +
+        "ORDER BY p.nombre ASC")
+    List<ProductoJpaEntity> buscarTodosPorFiltro(@Param("filtro") String filtro);
 }

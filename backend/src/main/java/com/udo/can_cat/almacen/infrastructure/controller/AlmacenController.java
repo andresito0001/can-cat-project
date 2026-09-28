@@ -18,10 +18,12 @@ public class AlmacenController {
     private final AlmacenApplicationService service;
 
     @GetMapping("/productos")
-    @PreAuthorize("hasAnyRole('Veterinario','Encargado_Almacen', 'Administrador')")
+    @PreAuthorize("hasAnyRole('Veterinario','Encargado_Almacen','Administrador')")
     public ResponseEntity<List<ProductoDTO>> productos(
-            @RequestParam(name = "filtro", required = false) String filtro) {
-        return ResponseEntity.ok(service.listarProductos(filtro));
+            @RequestParam(name = "filtro", required = false) String filtro,
+            @RequestParam(name = "incluirInactivos", required = false, defaultValue = "false")
+            boolean incluirInactivos) {
+        return ResponseEntity.ok(service.listarProductos(filtro, incluirInactivos));
     }
 
     @GetMapping("/alertas")
@@ -31,49 +33,90 @@ public class AlmacenController {
     }
 
     @PostMapping("/productos")
-    @PreAuthorize("hasRole('Encargado_Almacen')")
+    @PreAuthorize("hasAnyRole('Encargado_Almacen', 'Administrador')")
     public ResponseEntity<ProductoDTO> crearProducto(@Valid @RequestBody CrearProductoRequestDTO request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.crearProducto(request));
     }
 
     @PostMapping("/entradas")
-    @PreAuthorize("hasRole('Encargado_Almacen')")
-    public ResponseEntity<String> registrarEntrada(@Valid @RequestBody RegistrarEntradaRequestDTO request) {
-        service.registrarEntrada(request);
-        return ResponseEntity.ok("Inventario actualizado correctamente.");
+    @PreAuthorize("hasAnyRole('Encargado_Almacen', 'Administrador')")
+    public ResponseEntity<EntradaResponseDTO> registrarEntrada(
+            @Valid @RequestBody RegistrarEntradaRequestDTO request) {
+        return ResponseEntity.ok(service.registrarEntrada(request));
     }
 
     @GetMapping("/proveedores")
-    @PreAuthorize("hasAnyRole('Encargado_Almacen', 'Administrador')")
+    @PreAuthorize("hasAnyRole('Encargado_Almacen','Administrador')")
     public ResponseEntity<List<ProveedorDTO>> listarProveedores() {
         return ResponseEntity.ok(service.listarProveedores());
     }
 
     @GetMapping("/movimientos")
-    @PreAuthorize("hasAnyRole('Encargado_Almacen', 'Administrador')")
+    @PreAuthorize("hasAnyRole('Encargado_Almacen','Administrador')")
     public ResponseEntity<List<MovimientoInventarioDTO>> listarMovimientos(
             @RequestParam(name = "tipo", required = false) String tipo,
             @RequestParam(name = "desde", required = false) String desde,
             @RequestParam(name = "hasta", required = false) String hasta) {
-        // Por ahora devuelve los recientes. La lógica de filtros (tipo, fechas) 
-        // se puede agregar fácilmente al servicio si el frontend la exige estrictamente.
         return ResponseEntity.ok(service.listarMovimientosRecientes());
     }
 
     @PutMapping("/productos/{id}")
-    @PreAuthorize("hasRole('Encargado_Almacen')")
+    @PreAuthorize("hasAnyRole('Encargado_Almacen', 'Administrador')")
     public ResponseEntity<ProductoDTO> actualizarProducto(
-            @PathVariable Integer id, 
+            @PathVariable Integer id,
             @Valid @RequestBody ActualizarProductoRequestDTO request) {
         return ResponseEntity.ok(service.actualizarProducto(id, request));
     }
 
     @PatchMapping("/productos/{id}/activo")
-    @PreAuthorize("hasRole('Encargado_Almacen')")
+    @PreAuthorize("hasAnyRole('Encargado_Almacen', 'Administrador')")
     public ResponseEntity<Void> cambiarEstadoProducto(
-            @PathVariable Integer id, 
+            @PathVariable Integer id,
             @Valid @RequestBody CambiarActivoRequestDTO request) {
         service.cambiarEstadoProducto(id, request.activo());
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/productos/{id}")
+    @PreAuthorize("hasAnyRole('Veterinario','Encargado_Almacen','Administrador')")
+    public ResponseEntity<ProductoDTO> obtenerProducto(@PathVariable Integer id) {
+        return ResponseEntity.ok(service.obtenerProducto(id));
+    }
+
+    // ─── PROVEEDORES ───
+
+    @GetMapping("/proveedores/todos")
+    @PreAuthorize("hasAnyRole('Encargado_Almacen', 'Administrador')")
+    public ResponseEntity<List<ProveedorDTO>> listarTodosProveedores() {
+        return ResponseEntity.ok(service.listarTodosProveedores());
+    }
+
+    @GetMapping("/proveedores/{id}")
+    @PreAuthorize("hasAnyRole('Encargado_Almacen', 'Administrador')")
+    public ResponseEntity<ProveedorDTO> obtenerProveedor(@PathVariable Integer id) {
+        return ResponseEntity.ok(service.obtenerProveedor(id));
+    }
+
+    @PostMapping("/proveedores")
+    @PreAuthorize("hasAnyRole('Encargado_Almacen', 'Administrador')")
+    public ResponseEntity<ProveedorDTO> crearProveedor(
+            @Valid @RequestBody CrearProveedorRequestDTO request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.crearProveedor(request));
+    }
+
+    @PutMapping("/proveedores/{id}")
+    @PreAuthorize("hasAnyRole('Encargado_Almacen', 'Administrador')")
+    public ResponseEntity<ProveedorDTO> actualizarProveedor(
+            @PathVariable Integer id,
+            @Valid @RequestBody ActualizarProveedorRequestDTO request) {
+        return ResponseEntity.ok(service.actualizarProveedor(id, request));
+    }
+
+    @PatchMapping("/proveedores/{id}/activo")
+    @PreAuthorize("hasAnyRole('Encargado_Almacen', 'Administrador')")
+    public ResponseEntity<ProveedorDTO> cambiarEstadoProveedor(
+            @PathVariable Integer id,
+            @Valid @RequestBody CambiarActivoRequestDTO request) {
+        return ResponseEntity.ok(service.cambiarEstadoProveedor(id, request.activo()));
     }
 }
