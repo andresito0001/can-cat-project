@@ -24,10 +24,6 @@ import com.udo.can_cat.usuarios.domain.repository.UsuarioRepository;
 import com.udo.can_cat.usuarios.infrastructure.persistence.TokenRecuperacionContrasenaJpaEntity;
 import com.udo.can_cat.usuarios.infrastructure.security.JwtTokenProvider;
 
-/**
- * Caso de uso 4.6.1.10 - Registrar Cliente (asistido por Recepcionista)
- * Incluye listado y búsqueda para el módulo "Gestión de Clientes".
- */
 @Service
 @Transactional
 public class GestionClientesApplicationService {
@@ -160,11 +156,17 @@ public class GestionClientesApplicationService {
     }
 
     private ClienteDTO toDTO(Cliente cliente) {
+        // Resolver correo electrónico desde el usuario
+        String correo = usuarioRepository.findById(cliente.getUsuarioId())
+                .map(Usuario::getCorreoElectronico)
+                .orElse(null);
+
         return new ClienteDTO(
                 cliente.getId() != null ? cliente.getId().value() : null,
                 cliente.getUsuarioId().value(),
                 cliente.getNombreCompleto(),
                 cliente.getDocumentoIdentidad(),
+                correo,
                 cliente.getTelefonoPrincipal(),
                 cliente.getTelefonoSecundario(),
                 cliente.getDireccion(),

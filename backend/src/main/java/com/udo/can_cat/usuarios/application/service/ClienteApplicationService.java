@@ -3,6 +3,7 @@ package com.udo.can_cat.usuarios.application.service;
 import com.udo.can_cat.usuarios.application.dto.ActualizarClienteRequestDTO;
 import com.udo.can_cat.usuarios.application.dto.ClienteDTO;
 import com.udo.can_cat.usuarios.domain.entity.Cliente;
+import com.udo.can_cat.usuarios.domain.entity.Usuario;
 import com.udo.can_cat.usuarios.domain.entity.Usuario.UsuarioId;
 import com.udo.can_cat.usuarios.domain.repository.ClienteRepository;
 import com.udo.can_cat.usuarios.domain.repository.UsuarioRepository;
@@ -103,11 +104,16 @@ public class ClienteApplicationService {
     }
     
     private ClienteDTO toDTO(Cliente cliente) {
+        String correo = usuarioRepository.findById(cliente.getUsuarioId())
+                .map(Usuario::getCorreoElectronico)
+                .orElse(null);
+
         return new ClienteDTO(
                 cliente.getId() != null ? cliente.getId().value() : null,
                 cliente.getUsuarioId().value(),
                 cliente.getNombreCompleto(),
                 cliente.getDocumentoIdentidad(),
+                correo,
                 cliente.getTelefonoPrincipal(),
                 cliente.getTelefonoSecundario(),
                 cliente.getDireccion(),

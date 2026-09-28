@@ -55,9 +55,10 @@ import {
   LayoutDashboard, PawPrint, CalendarPlus, CreditCard, Stethoscope,
   CalendarDays, UserPlus, Dog, CalendarCheck, Search,
   Package, ArrowDownToLine, AlertTriangle, LogOut, X,
-  // ─── Agregados: iconos faltantes del menú ───
-  Users, Banknote, ClipboardList, List, UserCog, Shield, BarChart3, Settings
+  Users, Banknote, ClipboardList, List, UserCog, Shield, BarChart3, Settings,
+  Truck,
 } from 'lucide-vue-next'
+
 
 const props = defineProps({
   items: { type: Array, required: true },
@@ -74,7 +75,7 @@ const iconMap = {
   LayoutDashboard, PawPrint, CalendarPlus, CreditCard, Stethoscope,
   CalendarDays, UserPlus, Dog, CalendarCheck, Search,
   Package, ArrowDownToLine, AlertTriangle,
-  Users, Banknote, ClipboardList, List, UserCog, Shield, BarChart3, Settings,
+  Users, Banknote, ClipboardList, List, UserCog, Shield, BarChart3, Settings, Truck,
 }
 
 function getIcon(name) {

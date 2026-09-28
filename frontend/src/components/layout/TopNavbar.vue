@@ -18,7 +18,7 @@
       </div>
     </div>
 
-    <!-- ═══ Zona derecha: búsqueda + notif + user ═══ -->
+    <!-- ═══ Zona derecha: búsqueda + user ═══ -->
     <div class="navbar-right">
       <button
         class="search-trigger"
@@ -31,11 +31,6 @@
         <span class="search-label">Buscar…</span>
         <kbd class="search-kbd">⌘K</kbd>
       </button>
-
-      <div class="notification-btn">
-        <Bell :size="18" />
-        <span v-if="notificationCount > 0" class="badge">{{ notificationCount }}</span>
-      </div>
 
       <div class="user-profile">
         <div class="avatar">{{ initials }}</div>
@@ -50,7 +45,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { Bell, Menu, Search } from 'lucide-vue-next'
+import { Menu, Search } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth.store'
 
 const props = defineProps({
@@ -80,8 +75,6 @@ const initials = computed(() => {
     .substring(0, 2)
     .toUpperCase()
 })
-
-const notificationCount = computed(() => 2) // Mock
 
 function formatRole(rol) {
   const map = {
@@ -175,7 +168,6 @@ function formatRole(rol) {
   flex-shrink: 0;
 }
 
-/* Botón de búsqueda global */
 .search-trigger {
   display: flex;
   align-items: center;
@@ -212,46 +204,6 @@ function formatRole(rol) {
   color: #94A3B8;
   font-weight: 600;
   line-height: 1;
-}
-
-/* Notificaciones */
-.notification-btn {
-  position: relative;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  border: 1px solid #E2E8F0;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #64748B;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  background: #ffffff;
-}
-.notification-btn:hover {
-  background: #F1F5F9;
-  color: #0F766E;
-  border-color: transparent;
-}
-
-.badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  min-width: 18px;
-  height: 18px;
-  background: #F59E0B;
-  color: white;
-  font-size: 10px;
-  font-weight: 700;
-  border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid white;
-  padding: 0 4px;
 }
 
 /* Perfil */

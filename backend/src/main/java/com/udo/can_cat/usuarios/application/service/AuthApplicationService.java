@@ -208,6 +208,12 @@ public class AuthApplicationService {
      * Obtiene el nombre completo del usuario dependiendo de si es Cliente o Personal
      */
     private String obtenerNombreCompleto(UsuarioId usuarioId) {
+        // Personal primero (recepcionista, veterinario, almacén, admin)
+        var personal = personalRepository.findByUsuarioId(usuarioId);
+        if (personal.isPresent()) {
+            return personal.get().getNombreCompleto();
+        }
+        // Luego Cliente
         return clienteRepository.findByUsuarioId(usuarioId)
                 .map(Cliente::getNombreCompleto)
                 .orElse("Desconocido");

@@ -1,5 +1,7 @@
 <template>
   <div class="appointment-view">
+    <ToastContainer />
+
     <!-- ═══ HERO ═══ -->
     <header class="wizard-hero">
       <p class="hero-eyebrow">
@@ -14,7 +16,7 @@
     <nav class="stepper" aria-label="Progreso de la reserva">
       <div
         v-for="(step, idx) in steps"
-        :key="idx"
+        :key="step.num"
         class="stepper-step"
         :class="{ active: currentStep === step.num, completed: currentStep > step.num }"
       >
@@ -107,7 +109,8 @@
                         <button
                           type="button"
                           class="pick-card selected"
-                          @click="selectedMascota = mascotasFiltradas.seleccionada.idMascota"
+                          title="Quitar filtros para verla en la lista"
+                          @click="busquedaMascota = ''"
                         >
                           <div class="pick-avatar" :style="{ backgroundColor: colorAvatar(mascotasFiltradas.seleccionada.nombre) }">
                             {{ inicialNombre(mascotasFiltradas.seleccionada.nombre) }}
@@ -202,7 +205,7 @@
                         </button>
                       </div>
 
-                      <!-- Chips de tipo de atención (siempre visibles con el catálogo completo) -->
+                      <!-- Chips de tipo de atención -->
                       <div v-if="mostrarChipsVets && chipsEspecialidades.length" class="chips-row">
                         <button
                           type="button"
@@ -246,7 +249,8 @@
                         <button
                           type="button"
                           class="pick-card selected"
-                          @click="selectVeterinario(veterinariosFiltrados.seleccionado)"
+                          title="Quitar filtros para verlo en la lista"
+                          @click="busquedaVeterinario = ''; filtroEspecialidad = ''"
                         >
                           <div class="pick-avatar pick-avatar-vet" :style="{ backgroundColor: colorAvatar(veterinariosFiltrados.seleccionado.nombre) }">
                             {{ inicialesNombre(veterinariosFiltrados.seleccionado.nombre) }}
@@ -414,14 +418,14 @@
               <div class="card-body">
                 <div class="calendar">
                   <div class="calendar-nav">
-                    <button type="button" class="cal-nav-btn" :disabled="!canGoPrevMonth" @click="prevMonth">
+                    <button type="button" class="cal-nav-btn" :disabled="!canGoPrevMonth" aria-label="Mes anterior" @click="prevMonth">
                       <ChevronLeft :size="18" />
                     </button>
                     <div class="cal-month-wrap">
                       <span class="cal-month-year">{{ calendarMonthLabel }}</span>
                       <span class="cal-month-hint">{{ MAX_MONTHS_AHEAD }} meses disponibles</span>
                     </div>
-                    <button type="button" class="cal-nav-btn" :disabled="!canGoNextMonth" @click="nextMonth">
+                    <button type="button" class="cal-nav-btn" :disabled="!canGoNextMonth" aria-label="Mes siguiente" @click="nextMonth">
                       <ChevronRight :size="18" />
                     </button>
                   </div>
@@ -430,8 +434,8 @@
                   </div>
                   <div class="calendar-grid">
                     <button
-                      v-for="(day, idx) in calendarDays"
-                      :key="idx"
+                      v-for="day in calendarDays"
+                      :key="formatDateISO(day.date)"
                       type="button"
                       class="cal-day"
                       :class="{
@@ -528,6 +532,15 @@
                   <div class="spinner" />
                   <p>Cargando métodos de pago…</p>
                 </div>
+                <div v-else-if="metodosError" class="alert alert-error" style="margin-top: 0;">
+                  <AlertTriangle :size="18" />
+                  <span>{{ metodosError }}</span>
+                  <button type="button" class="alert-action" @click="loadMetodosPago">Reintentar</button>
+                </div>
+                <div v-else-if="!metodosPago.length" class="empty-inline">
+                  <CreditCard :size="28" />
+                  <p>No hay métodos de pago online disponibles en este momento.</p>
+                </div>
                 <template v-else>
                   <div class="methods-list">
                     <button
@@ -606,7 +619,7 @@
                   >
                     <div v-if="isProcessingPayment" class="spinner spinner-white spinner-sm" />
                     <CreditCard v-else :size="18" />
-                    {{ isProcessingPayment ? 'Procesando pago…' : 'Procesar Pago' }}
+                    {{ isProcessingPayment ? 'Procesando pago…' : `Pagar ${resumenActual.total || ''}`.trim() }}
                   </button>
                   <p class="payment-disclaimer">
                     <Lock :size="11" />
@@ -633,8 +646,8 @@
                 <span>{{ facturaAdvertencia }}</span>
               </div>
 
-              <div v-if="facturaNumeroControl" class="success-factura-info">
-                <div class="factura-info-row">
+              <div class="success-factura-info">
+                <div v-if="facturaNumeroControl" class="factura-info-row">
                   <span class="factura-label">Número de factura</span>
                   <span class="factura-value">{{ facturaNumeroControl }}</span>
                 </div>
@@ -642,22 +655,38 @@
                   <span class="factura-label">Estado del pago</span>
                   <span class="factura-status">Pendiente de verificación</span>
                 </div>
-                <div v-if="citaResumen?.fecha" class="factura-info-row">
-                  <span class="factura-label">Fecha de la cita</span>
-                  <span class="factura-value">{{ formatDateDisplay(citaResumen.fecha) }}</span>
+                <div v-if="resumenActual.mascota" class="factura-info-row">
+                  <span class="factura-label">Mascota</span>
+                  <span class="factura-value is-text">{{ resumenActual.mascota }}</span>
                 </div>
-                <div v-if="citaResumen?.horaInicio" class="factura-info-row">
+                <div v-if="resumenActual.servicio" class="factura-info-row">
+                  <span class="factura-label">Servicio</span>
+                  <span class="factura-value is-text">{{ resumenActual.servicio }}</span>
+                </div>
+                <div v-if="resumenActual.fecha" class="factura-info-row">
+                  <span class="factura-label">Fecha de la cita</span>
+                  <span class="factura-value is-text">{{ resumenActual.fecha }}</span>
+                </div>
+                <div v-if="resumenActual.hora" class="factura-info-row">
                   <span class="factura-label">Horario</span>
-                  <span class="factura-value">
-                    {{ formatTime12h(citaResumen.horaInicio) }} — {{ formatTime12h(citaResumen.horaFin) }}
-                  </span>
+                  <span class="factura-value is-text">{{ resumenActual.hora }}</span>
+                </div>
+                <div v-if="resumenActual.total" class="factura-info-row fila-total">
+                  <span class="factura-label">Total pagado</span>
+                  <span class="factura-value factura-total">{{ resumenActual.total }}</span>
                 </div>
               </div>
 
               <div class="success-actions">
-                <button type="button" class="btn-download" @click="descargarComprobante">
-                  <Download :size="16" />
-                  Descargar comprobante
+                <button
+                  type="button"
+                  class="btn-download"
+                  :disabled="!facturaId || descargandoComprobante"
+                  @click="descargarComprobante"
+                >
+                  <div v-if="descargandoComprobante" class="spinner spinner-white spinner-sm" />
+                  <Download v-else :size="16" />
+                  {{ descargandoComprobante ? 'Descargando…' : 'Descargar comprobante' }}
                 </button>
                 <router-link to="/cliente/historial-pagos" class="btn-history">
                   <Receipt :size="16" />
@@ -726,17 +755,30 @@
 
     <!-- ═══ STEP ACTIONS ═══ -->
     <div v-if="currentStep < 4" class="step-actions">
-      <button type="button" class="btn-cancel" @click="cancelProcess">
-        <X :size="15" /> Cancelar
+      <button
+        type="button"
+        class="btn-cancel"
+        :class="{ 'is-armed': cancelArmed }"
+        @click="cancelProcess"
+      >
+        <X :size="15" />
+        {{ cancelArmed ? '¿Confirmar cancelación?' : 'Cancelar' }}
       </button>
       <div class="step-actions-right">
-        <button v-if="currentStep > 1" type="button" class="btn-back" @click="goBack">
+        <button
+          v-if="currentStep > 1"
+          type="button"
+          class="btn-back"
+          :disabled="isProcessingPayment"
+          @click="goBack"
+        >
           <ArrowLeft :size="15" /> Atrás
         </button>
         <button
           v-if="currentStep === 1"
           type="button"
           class="btn-next"
+          :class="{ 'is-shake': shakeBtn }"
           :disabled="!canGoNextFromStep1"
           @click="goToStep2"
         >
@@ -758,7 +800,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Check, ChevronLeft, ChevronRight, Clock, PawPrint, Stethoscope,
@@ -769,8 +811,12 @@ import {
 import { getMisMascotas } from '@/api/mascotas.api'
 import { getServicios, getVeterinarios, getDisponibilidad, solicitarCita } from '@/api/citas.api'
 import { getMetodosOnline, procesarPagoCita, descargarFactura } from '@/api/pagos.api'
+import { useToast } from '@/composables/useToast'
+import ToastContainer from '@/components/ui/ToastContainer.vue'
 
 const router = useRouter()
+const { toastSuccess, toastError } = useToast()
+
 const DIAS_SEMANA = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 const MAX_MONTHS_AHEAD = 3
@@ -852,6 +898,7 @@ const citaResumen = ref(null)
 const isProcessingPayment = ref(false)
 const pagoError = ref(null)
 const metodosPago = ref([])
+const metodosError = ref(null)
 const selectedMetodoPago = ref(null)
 const datosPago = ref({})
 const isLoadingMetodos = ref(false)
@@ -861,6 +908,16 @@ const facturaId = ref(null)
 const facturaNumeroControl = ref(null)
 const facturaEmailEnviado = ref(false)
 const facturaAdvertencia = ref(null)
+const descargandoComprobante = ref(false)
+
+// Último horario confirmado (guard contra doble reserva)
+const horarioConfirmado = ref(null)
+
+// Cancelación en dos clics + shake de validación
+const cancelArmed = ref(false)
+const shakeBtn = ref(false)
+let cancelTimer = null
+let shakeTimer = null
 
 const servicioSeleccionado = computed(() => servicios.value.find(s => s.id === selectedServicio.value) || null)
 const vetSeleccionado = computed(() => veterinarios.value.find(v => v.id === selectedVeterinario.value) || null)
@@ -874,8 +931,6 @@ const scrollMascotas = computed(() => mascotas.value.length > UMBRAL_SCROLL_MASC
 const scrollVets = computed(() => veterinarios.value.length > UMBRAL_SCROLL_VETS)
 
 // ─── Chips de tipo de atención ───
-// Se muestran SIEMPRE los 4 valores del catálogo del backend, con conteo.
-// Las que tienen 0 vets quedan deshabilitadas visualmente (dashed + dimmed).
 const chipsEspecialidades = computed(() => {
   const conteos = {}
   for (const v of veterinarios.value) {
@@ -1003,12 +1058,28 @@ const camposDinamicos = computed(() => {
     .map(([key, tipo]) => ({ key, tipo }))
 })
 
-onMounted(() => { loadInitialData() })
+// ─── Watchers ───
 watch([selectedServicio, selectedVeterinario], () => {
   selectedDate.value = null
   selectedBloque.value = null
   disponibilidadCache.value = {}
   disponibilidadError.value = null
+})
+
+// Limpia el error de cada campo en cuanto el usuario lo corrige
+watch([selectedMascota, selectedVeterinario, selectedServicio, motivoConsulta], () => {
+  if (!Object.keys(stepErrors.value).length) return
+  const e = { ...stepErrors.value }
+  if (selectedMascota.value) delete e.mascota
+  if (selectedVeterinario.value) delete e.veterinario
+  if (selectedServicio.value) delete e.servicio
+  if (motivoConsulta.value.trim()) delete e.motivo
+  stepErrors.value = e
+})
+
+// Al cambiar de paso, volver al inicio de la página
+watch(currentStep, () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 })
 
 // ─── Helpers de avatar ───
@@ -1028,7 +1099,16 @@ function inicialesNombre(nombre) {
   return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase()
 }
 
+// Mensaje de error unificado (el backend usa "mensaje" o "message" según el handler)
+function mensajeError(err, fallback) {
+  const d = err?.response?.data
+  return d?.mensaje || (typeof d?.message === 'string' ? d.message : '') || fallback
+}
+
 function selectVeterinario(v) {
+  // Guard: clickear el veterinario ya seleccionado no debe resetear
+  // el servicio elegido ni disparar un fetch innecesario
+  if (selectedVeterinario.value === v.id) return
   selectedVeterinario.value = v.id
   onVeterinarioChange()
 }
@@ -1037,10 +1117,11 @@ async function loadInitialData() {
   isLoadingInitial.value = true; loadError.value = null
   try {
     const [mascotasRes, vetsRes] = await Promise.all([getMisMascotas(), getVeterinarios()])
-    mascotas.value = mascotasRes.data; veterinarios.value = vetsRes.data
+    mascotas.value = mascotasRes.data || []
+    veterinarios.value = vetsRes.data || []
   } catch (err) {
     console.error('Error cargando datos iniciales:', err)
-    loadError.value = err.response?.data?.mensaje || 'No se pudieron cargar los datos necesarios.'
+    loadError.value = mensajeError(err, 'No se pudieron cargar los datos necesarios.')
   } finally {
     isLoadingInitial.value = false
   }
@@ -1053,9 +1134,10 @@ async function onVeterinarioChange() {
   isLoadingServicios.value = true
   try {
     const { data } = await getServicios({ especialidad: vet.especialidad })
-    servicios.value = data
+    servicios.value = data || []
   } catch (err) {
     console.error('Error cargando servicios:', err)
+    toastError(mensajeError(err, 'No se pudieron cargar los servicios de este veterinario.'))
   } finally {
     isLoadingServicios.value = false
   }
@@ -1070,9 +1152,39 @@ function validateStep1() {
   stepErrors.value = errors
   return Object.keys(errors).length === 0
 }
-function goToStep2() { if (!validateStep1()) return; stepErrors.value = {}; currentStep.value = 2 }
-function goBack() { pagoError.value = null; pagoFormErrors.value = {}; currentStep.value-- }
-async function cancelProcess() { goToDashboard() }
+function goToStep2() {
+  if (!validateStep1()) {
+    shakeBtn.value = true
+    clearTimeout(shakeTimer)
+    shakeTimer = setTimeout(() => { shakeBtn.value = false }, 500)
+    return
+  }
+  stepErrors.value = {}
+  currentStep.value = 2
+}
+function goBack() {
+  if (isProcessingPayment.value) return
+  pagoError.value = null
+  pagoFormErrors.value = {}
+  currentStep.value--
+}
+function cancelProcess() {
+  // En paso 1 sin reserva no hay nada en juego: salida directa
+  if (currentStep.value === 1 && !citaPendienteId.value) { goToDashboard(); return }
+  // Con progreso o reserva activa: confirmación en dos clics
+  if (!cancelArmed.value) {
+    cancelArmed.value = true
+    clearTimeout(cancelTimer)
+    cancelTimer = setTimeout(() => { cancelArmed.value = false }, 3000)
+    return
+  }
+  clearTimeout(cancelTimer)
+  cancelArmed.value = false
+  // ⚠️ Si existe un endpoint para liberar la cita pendiente
+  // (p. ej. cancelarCita(citaPendienteId.value)), llamarlo aquí
+  // para no dejar el horario bloqueado hasta su expiración.
+  goToDashboard()
+}
 function goToDashboard() { router.push('/cliente/dashboard') }
 
 function prevMonth() {
@@ -1091,11 +1203,13 @@ function isDateSelected(date) {
 }
 function hasSlots(date) {
   const key = formatDateISO(date)
-  return disponibilidadCache.value[key]?.length > 0
+  const bloques = disponibilidadCache.value[key]
+  return Array.isArray(bloques) && bloques.length > 0
 }
 function hasNoSlots(date) {
   const key = formatDateISO(date)
-  return key in disponibilidadCache.value && disponibilidadCache.value[key].length === 0
+  const bloques = disponibilidadCache.value[key]
+  return Array.isArray(bloques) && bloques.length === 0
 }
 
 async function selectDate(day) {
@@ -1122,8 +1236,8 @@ async function fetchDisponibilidad(dateStr) {
     disponibilidadCache.value[dateStr] = data.bloquesDisponibles || []
   } catch (err) {
     console.error('Error consultando disponibilidad:', err)
-    disponibilidadError.value = err.response?.data?.mensaje || 'Error al consultar disponibilidad. Intenta de nuevo.'
-    disponibilidadCache.value[dateStr] = []
+    disponibilidadError.value = mensajeError(err, 'Error al consultar disponibilidad. Intenta de nuevo.')
+    // No se cachea el fallo: volver a tocar el día reintentará la consulta
   } finally {
     isLoadingSlots.value = false
   }
@@ -1138,7 +1252,20 @@ function isBloqueSelected(bloque) { return selectedBloque.value?.horaInicio === 
 function selectBloque(bloque) { selectedBloque.value = bloque; confirmSelectionError.value = null }
 
 async function confirmarSeleccion() {
-  if (!selectedBloque.value || !selectedDate.value) return
+  if (!selectedBloque.value || !selectedDate.value || isConfirmingSelection.value) return
+
+  // Guard: si este horario ya fue reservado (p.ej. el usuario fue "Atrás"
+  // desde el pago y confirma lo mismo), no duplicar la solicitud
+  if (
+    citaPendienteId.value
+    && horarioConfirmado.value
+    && horarioConfirmado.value.fecha === formatDateISO(selectedDate.value)
+    && horarioConfirmado.value.horaInicio === selectedBloque.value.horaInicio
+  ) {
+    currentStep.value = 3
+    return
+  }
+
   isConfirmingSelection.value = true; confirmSelectionError.value = null
   try {
     const { data } = await solicitarCita({
@@ -1151,13 +1278,17 @@ async function confirmarSeleccion() {
     })
     citaPendienteId.value = data.idCita
     citaResumen.value = data.resumen
+    horarioConfirmado.value = {
+      fecha: formatDateISO(selectedDate.value),
+      horaInicio: selectedBloque.value.horaInicio,
+    }
     pagoError.value = null
     currentStep.value = 3
     await loadMetodosPago()
   } catch (err) {
     console.error('Error al solicitar cita:', err)
-    const msg = err.response?.data?.mensaje
-    if (msg && msg.includes('ya no está disponible')) {
+    const msg = mensajeError(err, '')
+    if (msg.includes('ya no está disponible')) {
       confirmSelectionError.value = msg
       const key = formatDateISO(selectedDate.value)
       delete disponibilidadCache.value[key]
@@ -1171,18 +1302,40 @@ async function confirmarSeleccion() {
   }
 }
 
+async function loadMetodosPago() {
+  isLoadingMetodos.value = true; metodosError.value = null
+  try {
+    const { data } = await getMetodosOnline()
+    metodosPago.value = data || []
+  } catch (err) {
+    console.error('Error cargando métodos:', err)
+    metodosError.value = mensajeError(err, 'No se pudieron cargar los métodos de pago.')
+  } finally {
+    isLoadingMetodos.value = false
+  }
+}
+function onMetodoPagoChange() {
+  datosPago.value = {}
+  referenciaTransaccion.value = ''
+  pagoFormErrors.value = {}
+  pagoError.value = null
+}
+
 async function procesarPago() {
-  if (!citaPendienteId.value || !selectedMetodoPago.value) return
+  if (!citaPendienteId.value || !selectedMetodoPago.value || isProcessingPayment.value) return
   const camposRequeridos = metodoSeleccionado.value?.camposRequeridos || {}
   const errors = {}
-  if ('referencia' in camposRequeridos) {
-    if (!referenciaTransaccion.value.trim()) errors.referencia = 'La referencia es obligatoria'
+  if ('referencia' in camposRequeridos && !referenciaTransaccion.value.trim()) {
+    errors.referencia = 'La referencia es obligatoria'
   }
   for (const { key } of camposDinamicos.value) {
     if (!datosPago.value[key]?.trim()) errors[key] = 'Este campo es obligatorio'
   }
   pagoFormErrors.value = errors
-  if (Object.keys(errors).length > 0) return
+  if (Object.keys(errors).length > 0) {
+    pagoError.value = 'Revisa los campos marcados antes de continuar.'
+    return
+  }
   isProcessingPayment.value = true; pagoError.value = null
   try {
     const datosPagoCompletos = { ...datosPago.value }
@@ -1197,14 +1350,12 @@ async function procesarPago() {
     facturaNumeroControl.value = data.numeroControl
     facturaEmailEnviado.value = data.emailEnviado
     facturaAdvertencia.value = data.advertenciaEmail
-    const savedResumen = { ...citaResumen.value }
     citaPendienteId.value = null
-    citaResumen.value = savedResumen
+    horarioConfirmado.value = null
     currentStep.value = 4
   } catch (err) {
     console.error('Error procesando pago:', err)
-    const msg = err.response?.data?.mensaje || err.response?.data?.message
-    pagoError.value = msg || 'Transacción rechazada o datos inválidos. Verifique e intente nuevamente.'
+    pagoError.value = mensajeError(err, 'Transacción rechazada o datos inválidos. Verifique e intente nuevamente.')
   } finally {
     isProcessingPayment.value = false
   }
@@ -1240,23 +1391,6 @@ function formatCurrencyBs(amount) {
   if (amount == null) return 'Bs. 0.00'
   return `Bs. ${Number(amount).toFixed(2)}`
 }
-async function loadMetodosPago() {
-  isLoadingMetodos.value = true
-  try {
-    const { data } = await getMetodosOnline()
-    metodosPago.value = data
-  } catch (err) {
-    console.error('Error cargando métodos:', err)
-  } finally {
-    isLoadingMetodos.value = false
-  }
-}
-function onMetodoPagoChange() {
-  datosPago.value = {}
-  referenciaTransaccion.value = ''
-  pagoFormErrors.value = {}
-  pagoError.value = null
-}
 function formatFieldLabel(key) {
   const labels = {
     banco: 'Banco emisor',
@@ -1276,23 +1410,46 @@ function formatFieldPlaceholder(key) {
   return ph[key] || ''
 }
 async function descargarComprobante() {
-  if (!facturaId.value) return
+  if (!facturaId.value || descargandoComprobante.value) return
+  descargandoComprobante.value = true
   try {
     const response = await descargarFactura(facturaId.value)
-    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
     const link = document.createElement('a')
     link.href = url
-    link.setAttribute('download', `Factura-${facturaNumeroControl.value}.pdf`)
+    link.download = `Factura-${facturaNumeroControl.value || facturaId.value}.pdf`
     document.body.appendChild(link)
     link.click()
     link.remove()
     window.URL.revokeObjectURL(url)
+    toastSuccess('Comprobante descargado exitosamente')
   } catch (err) {
     console.error('Error descargando factura:', err)
+    toastError('No se pudo descargar el comprobante. Intenta más tarde.')
+  } finally {
+    descargandoComprobante.value = false
   }
 }
-</script>
 
+// ─── Protección contra cierre accidental con reserva pendiente ───
+function onBeforeUnload(e) {
+  if (citaPendienteId.value && currentStep.value < 4) {
+    e.preventDefault()
+    e.returnValue = ''
+  }
+}
+
+onMounted(() => {
+  loadInitialData()
+  window.addEventListener('beforeunload', onBeforeUnload)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('beforeunload', onBeforeUnload)
+  if (cancelTimer) clearTimeout(cancelTimer)
+  if (shakeTimer) clearTimeout(shakeTimer)
+})
+</script>
 <style scoped>
 /* ═══ CONTENEDOR ═══ */
 .appointment-view {
@@ -1306,11 +1463,23 @@ button { font-family: inherit; }
 
 /* ═══ HERO ═══ */
 .wizard-hero {
+  position: relative;              /* NUEVO */
+  overflow: hidden;                /* NUEVO */
   padding: 26px 28px;
   margin-bottom: 16px;
   background: linear-gradient(135deg, #F0FDFA 0%, #FFFFFF 55%);
   border: 1px solid #CCFBF1;
   border-radius: 16px;
+}
+.wizard-hero::after {              /* NUEVO: decoración radial */
+  content: '';
+  position: absolute;
+  right: -60px;
+  top: -60px;
+  width: 240px;
+  height: 240px;
+  background: radial-gradient(circle, rgba(15, 118, 110, .08) 0%, transparent 70%);
+  pointer-events: none;
 }
 .hero-eyebrow {
   display: inline-flex;
@@ -2354,6 +2523,9 @@ button { font-family: inherit; }
   color: #0F172A;
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 }
+.factura-value.is-text { font-family: inherit; font-weight: 600; }        /* NUEVO */
+.factura-info-row.fila-total { border-top: 1px solid #E2E8F0; padding-top: 12px; } /* NUEVO */
+.factura-total { color: #0F766E; font-size: 15px; }                        /* NUEVO */
 .factura-status {
   font-size: 11.5px;
   font-weight: 700;
@@ -2385,11 +2557,12 @@ button { font-family: inherit; }
   transition: all .2s ease;
   font-family: inherit;
 }
-.btn-download:hover {
+.btn-download:hover:not(:disabled) {
   background: #115E59;
   transform: translateY(-1px);
   box-shadow: 0 6px 20px -6px rgba(15, 118, 110, .4);
 }
+.btn-download:disabled { opacity: .6; cursor: not-allowed; transform: none; } /* NUEVO */
 .btn-history {
   display: inline-flex;
   align-items: center;
@@ -2425,17 +2598,22 @@ button { font-family: inherit; }
 }
 .btn-back-dashboard:hover { background: #F1F5F9; color: #0F766E; }
 
-/* ═══ STEP ACTIONS ═══ */
+/* ═══ STEP ACTIONS (ahora flotante con blur) ═══ */
 .step-actions {
+  position: sticky;                              /* NUEVO */
+  bottom: 16px;                                  /* NUEVO */
+  z-index: 10;                                   /* NUEVO */
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-top: 20px;
-  padding: 18px 24px;
+  padding: 14px 20px;
   border-radius: 14px;
-  background: #fff;
+  background: rgba(255, 255, 255, .92);          /* MODIFICADO */
+  backdrop-filter: blur(10px);                   /* NUEVO */
+  -webkit-backdrop-filter: blur(10px);           /* NUEVO */
   border: 1px solid #E2E8F0;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .03);
+  box-shadow: 0 12px 32px -12px rgba(15, 23, 42, .18); /* MODIFICADO */
   gap: 12px;
   flex-wrap: wrap;
 }
@@ -2466,12 +2644,18 @@ button { font-family: inherit; }
   border-color: #FECACA;
   color: #EF4444;
 }
+.btn-cancel.is-armed {                          /* NUEVO */
+  background: #FEF2F2;
+  border-color: #DC2626;
+  color: #DC2626;
+}
 .btn-back {
   background: #fff;
   border: 1px solid #E2E8F0;
   color: #475569;
 }
-.btn-back:hover { background: #F8FAFC; border-color: #CBD5E1; }
+.btn-back:hover:not(:disabled) { background: #F8FAFC; border-color: #CBD5E1; }
+.btn-back:disabled { opacity: .6; cursor: not-allowed; } /* NUEVO */
 .btn-next {
   background: #0F766E;
   border: none;
@@ -2483,6 +2667,32 @@ button { font-family: inherit; }
   box-shadow: 0 6px 16px -4px rgba(15, 118, 110, .4);
 }
 .btn-next:disabled { opacity: .5; cursor: not-allowed; }
+.btn-next.is-shake { animation: shake .45s ease; } /* NUEVO */
+@keyframes shake {                               /* NUEVO */
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+/* ═══ FOCUS VISIBLE (accesibilidad teclado) ═══ NUEVO */
+.pick-card:focus-visible,
+.service-item:focus-visible,
+.slot-btn:focus-visible,
+.method-option:focus-visible,
+.chip:focus-visible,
+.btn-link:focus-visible,
+.alert-action:focus-visible {
+  outline: none;
+  border-color: #0F766E;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, .18);
+}
+.cal-day:focus-visible {
+  outline: none;
+  border-color: #0F766E;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, .18);
+}
 
 /* ═══ TRANSICIONES ═══ */
 .step-fade-enter-active,
@@ -2526,7 +2736,7 @@ button { font-family: inherit; }
     min-width: 0;
   }
   .stepper-step:last-child .stepper-line { display: none; }
-  .step-actions { flex-direction: column-reverse; padding: 16px; }
+  .step-actions { flex-direction: column-reverse; padding: 14px; bottom: 12px; }
   .step-actions-right { width: 100%; flex-direction: column-reverse; }
   .btn-cancel,
   .btn-back,
@@ -2550,4 +2760,14 @@ button { font-family: inherit; }
   .chip { padding: 5px 10px 5px 12px; font-size: 11.5px; }
   .chip-count { min-width: 18px; height: 16px; font-size: 10px; }
 }
+
+/* ═══ MOVIMIENTO REDUCIDO ═══ NUEVO */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
 </style>

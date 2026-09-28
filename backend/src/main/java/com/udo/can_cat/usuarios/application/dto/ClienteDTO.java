@@ -8,6 +8,7 @@ public record ClienteDTO (
     Integer usuarioId,
     String nombreCompleto,
     String documentoIdentidad,
+    String correoElectronico,
     String telefonoPrincipal,
     String telefonoSecundario,
     String direccion,
