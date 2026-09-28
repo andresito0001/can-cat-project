@@ -11,10 +11,10 @@ export const MENU_ITEMS = {
   ],
   [ROLES.RECEPTIONIST]: [
     { label: 'Dashboard', icon: 'LayoutDashboard', route: '/recepcion/dashboard' },
-    { label: 'Gestionar Citas', icon: 'CalendarDays', route: '/recepcion/citas' },
+    { label: 'Agenda', icon: 'CalendarDays', route: '/recepcion/citas' },
     { label: 'Gestión de Clientes', icon: 'Users', route: '/recepcion/clientes' },
     { label: 'Registrar Mascota', icon: 'Dog', route: '/recepcion/registrar-mascota' },
-    { label: 'Cobrar en Mostrador', icon: 'Banknote', route: '/recepcion/cobrar' },
+    { label: 'Caja', icon: 'Banknote', route: '/recepcion/caja' },
   ],
   [ROLES.VET]: [
     { label: 'Dashboard', icon: 'LayoutDashboard', route: '/veterinario/dashboard' },
@@ -25,9 +25,8 @@ export const MENU_ITEMS = {
   [ROLES.WAREHOUSE]: [
     { label: 'Dashboard', icon: 'LayoutDashboard', route: '/almacen/dashboard' },
     { label: 'Inventario', icon: 'Package', route: '/almacen/inventario' },
-    { label: 'Entrada Mercancía', icon: 'ArrowDownToLine', route: '/almacen/entrada' },
-    { label: 'Alertas Stock', icon: 'AlertTriangle', route: '/almacen/alertas' },
-    { label: 'Catálogo', icon: 'List', route: '/almacen/catalogo' },
+    { label: 'Registrar Entrada', icon: 'ArrowDownToLine', route: '/almacen/entrada' },
+    { label: 'Proveedores', icon: 'Truck', route: '/almacen/proveedores' },   // ← NUEVO
   ],
   [ROLES.ADMIN]: [
     { label: 'Dashboard', icon: 'LayoutDashboard', route: '/admin/dashboard' },

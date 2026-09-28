@@ -245,38 +245,6 @@
           </div>
         </div>
       </section>
-
-      <!-- ═══ ACCESOS RÁPIDOS ═══ -->
-      <section class="card wide">
-        <div class="card-header">
-          <div>
-            <h3>Accesos rápidos</h3>
-            <p class="card-sub">Módulos principales de gestión de almacén</p>
-          </div>
-        </div>
-        <div class="card-body card-body-slim">
-          <div class="quick-grid">
-            <router-link
-              v-for="a in accesos"
-              :key="a.ruta"
-              :to="a.ruta"
-              class="quick-card"
-            >
-              <div
-                class="quick-icon"
-                :style="{ backgroundColor: a.bg, color: a.color }"
-              >
-                <component :is="a.icono" :size="20" />
-              </div>
-              <div class="quick-texto">
-                <p class="quick-titulo">{{ a.titulo }}</p>
-                <p class="quick-desc">{{ a.descripcion }}</p>
-              </div>
-              <ChevronRight :size="16" class="quick-arrow" />
-            </router-link>
-          </div>
-        </div>
-      </section>
     </template>
   </div>
 </template>
@@ -286,7 +254,7 @@ import { ref, computed, onMounted } from 'vue'
 import {
   Sparkles, Package, AlertTriangle, DollarSign, TrendingUp,
   ArrowDownToLine, ArrowRight, AlertCircle, Target, CheckCircle2,
-  Activity, List, ChevronRight, ArrowUpFromLine, Settings2
+  Activity, ArrowUpFromLine, Settings2,
 } from 'lucide-vue-next'
 import ToastContainer from '@/components/ui/ToastContainer.vue'
 import { useAuthStore } from '@/stores/auth.store'
@@ -319,7 +287,6 @@ const alertas = computed(() =>
   productos.value
     .filter((p) => p.stockActual <= p.stockMinimo && p.activo !== false)
     .sort((a, b) => {
-      // Priorizar los que tienen menos stock (más críticos)
       const da = a.stockMinimo - a.stockActual
       const db = b.stockMinimo - b.stockActual
       return db - da
@@ -366,42 +333,6 @@ const stats = computed(() => {
     movimientosSemana,
   }
 })
-
-// ─── Accesos rápidos ───
-const accesos = [
-  {
-    titulo: 'Inventario',
-    descripcion: 'Catálogo y control de stock',
-    icono: Package,
-    color: '#0F766E',
-    bg: '#F0FDFA',
-    ruta: '/almacen/inventario',
-  },
-  {
-    titulo: 'Registrar entrada',
-    descripcion: 'Recepción de mercancía',
-    icono: ArrowDownToLine,
-    color: '#3B82F6',
-    bg: '#EFF6FF',
-    ruta: '/almacen/entrada',
-  },
-  {
-    titulo: 'Alertas de stock',
-    descripcion: 'Productos críticos',
-    icono: AlertTriangle,
-    color: '#F59E0B',
-    bg: '#FFFBEB',
-    ruta: '/almacen/alertas',
-  },
-  {
-    titulo: 'Catálogo',
-    descripcion: 'Gestión de productos',
-    icono: List,
-    color: '#8B5CF6',
-    bg: '#F5F3FF',
-    ruta: '/almacen/catalogo',
-  },
-]
 
 // ─── Helpers de formato ───
 function fmtUsd(v) {
@@ -481,7 +412,6 @@ async function cargar() {
     if (movRes.status === 'fulfilled') {
       movimientos.value = movRes.value.data || []
     }
-    // Si movimientos falla, no alertamos — puede que no haya ninguno aún
   } finally {
     cargando.value = false
   }
@@ -742,7 +672,6 @@ button { font-family: inherit; }
   box-shadow: 0 1px 2px rgba(15, 23, 42, .03), 0 4px 12px -2px rgba(15, 23, 42, .04);
   overflow: hidden;
 }
-.card.wide { grid-column: 1 / -1; }
 .card-header {
   display: flex;
   align-items: flex-start;
@@ -763,7 +692,6 @@ button { font-family: inherit; }
   color: #64748B;
 }
 .card-body { padding: 18px 20px 20px; }
-.card-body-slim { padding: 14px 18px 18px; }
 .btn-link {
   background: none;
   border: none;
@@ -1061,71 +989,6 @@ button { font-family: inherit; }
   color: #64748B;
 }
 
-/* ═══ ACCESOS RÁPIDOS ═══ */
-.quick-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-}
-.quick-card {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 14px;
-  align-items: center;
-  padding: 16px;
-  background: #F8FAFC;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  cursor: pointer;
-  font-family: inherit;
-  text-align: left;
-  text-decoration: none;
-  color: inherit;
-  transition: all .2s ease;
-}
-.quick-card:hover {
-  background: #fff;
-  border-color: #0F766E;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px -10px rgba(15, 118, 110, .25);
-}
-.quick-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.quick-texto { min-width: 0; }
-.quick-titulo {
-  margin: 0;
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #0F172A;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.quick-desc {
-  margin: 2px 0 0;
-  font-size: 11.5px;
-  color: #64748B;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.quick-arrow {
-  color: #CBD5E1;
-  flex-shrink: 0;
-  transition: color .2s ease, transform .2s ease;
-}
-.quick-card:hover .quick-arrow {
-  color: #0F766E;
-  transform: translateX(2px);
-}
-
 /* ═══ LOADING ═══ */
 .loading-state {
   display: flex;
@@ -1150,10 +1013,6 @@ button { font-family: inherit; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ═══ RESPONSIVE ═══ */
-@media (max-width: 1200px) {
-  .quick-grid { grid-template-columns: repeat(2, 1fr); }
-}
-
 @media (max-width: 1024px) {
   .kpis { grid-template-columns: repeat(2, 1fr); }
   .content-grid { grid-template-columns: 1fr; }
@@ -1183,7 +1042,5 @@ button { font-family: inherit; }
     gap: 10px;
   }
   .alerta-badge { grid-column: 2 / -1; justify-self: flex-start; margin-top: 2px; }
-
-  .quick-grid { grid-template-columns: 1fr; }
 }
 </style>

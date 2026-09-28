@@ -110,7 +110,7 @@
 
             <div class="form-group">
               <label class="form-label" for="factura">
-                Número de factura <span class="required">*</span>
+                N.º factura del proveedor <span class="required">*</span>
               </label>
               <input
                 id="factura"
@@ -121,6 +121,9 @@
                 placeholder="Ej: FAC-2024-00123"
                 :disabled="procesando"
               />
+              <span class="field-hint">
+                El número de orden interno se generará automáticamente al procesar.
+              </span>
               <span v-if="errors.numeroFactura" class="form-error">
                 El número de factura es obligatorio.
               </span>
@@ -1510,5 +1513,11 @@ button { font-family: inherit; }
   .success-actions { flex-direction: column; }
   .success-actions .btn-primary,
   .success-actions .btn-secondary { width: 100%; }
+}
+
+.field-hint {
+  font-size: 11.5px;
+  color: #94A3B8;
+  margin-top: 2px;
 }
 </style>

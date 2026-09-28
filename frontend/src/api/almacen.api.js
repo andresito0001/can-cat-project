@@ -118,11 +118,16 @@ const PROVEEDORES_MOCK = [
 /**
  * GET /api/almacen/productos?filtro=&categoria=&soloAlertas=
  */
-export async function getProductos({ filtro = '', categoria = '', soloAlertas = false } = {}) {
+export async function getProductos({
+  filtro = '',
+  incluirInactivos = false,
+  categoria = '',
+  soloAlertas = false,
+} = {}) {
   if (USE_MOCKS) {
     await simularLatencia()
     let items = leerProductosMock()
-
+    if (!incluirInactivos) items = items.filter((p) => p.activo !== false)
     if (filtro.trim()) {
       const q = filtro.trim().toLowerCase()
       items = items.filter((p) =>
@@ -131,24 +136,18 @@ export async function getProductos({ filtro = '', categoria = '', soloAlertas = 
         (p.descripcion || '').toLowerCase().includes(q)
       )
     }
-
-    if (categoria) {
-      items = items.filter((p) => p.categoria === categoria)
-    }
-
-    if (soloAlertas) {
-      items = items.filter((p) => p.stockActual <= p.stockMinimo)
-    }
-
+    if (categoria) items = items.filter((p) => p.categoria === categoria)
+    if (soloAlertas) items = items.filter((p) => p.stockActual <= p.stockMinimo)
     return { data: items.map(normalizarProducto) }
   }
 
-  // Real: el backend actual solo soporta ?filtro=; el resto se filtra acá
-  const { data } = await api.get('/almacen/productos', {
-    params: filtro ? { filtro } : {},
-  })
+  const params = {}
+  if (filtro) params.filtro = filtro
+  if (incluirInactivos) params.incluirInactivos = true
+
+  const { data } = await api.get('/almacen/productos', { params })
   let items = data.map(normalizarProducto)
-  if (categoria) items = items.filter((p) => p.categoria === categoria)
+  if (categoria) items = items.filter((p) => p.tipoCategoria === categoria)
   if (soloAlertas) items = items.filter((p) => p.stockActual <= p.stockMinimo)
   return { data: items }
 }
@@ -225,6 +224,30 @@ export async function actualizarProducto(id, payload) {
   }
   const { data } = await api.put(`/almacen/productos/${id}`, payload)
   return { data: normalizarProducto(data) }
+}
+
+/**
+ * PATCH /api/almacen/productos/{id}/activo
+ * Body: { activo: boolean }
+ */
+export async function cambiarEstadoProducto(id, activo) {
+  if (USE_MOCKS) {
+    await simularLatencia(200)
+    const items = leerProductosMock()
+    const idx = items.findIndex((p) => p.id === Number(id))
+    if (idx === -1) {
+      throw { response: { status: 404, data: { message: 'Producto no encontrado' } } }
+    }
+    items[idx] = {
+      ...items[idx],
+      activo: Boolean(activo),
+      updatedAt: new Date().toISOString(),
+    }
+    guardarProductosMock(items)
+    return { data: normalizarProducto(items[idx]) }
+  }
+  const { data } = await api.patch(`/almacen/productos/${id}/activo`, { activo })
+  return { data: data ? normalizarProducto(data) : null }
 }
 
 /**
@@ -318,6 +341,72 @@ export async function getMovimientos({ tipo = '', desde = '', hasta = '' } = {})
     return { data: items.sort((a, b) => b.fechaMovimiento.localeCompare(a.fechaMovimiento)) }
   }
   const { data } = await api.get('/almacen/movimientos', { params: { tipo, desde, hasta } })
+  return { data }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PROVEEDORES — CRUD
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * GET /api/almacen/proveedores/todos
+ * Devuelve activos + inactivos.
+ */
+export async function getProveedoresTodos() {
+  if (USE_MOCKS) {
+    await simularLatencia(200)
+    return { data: PROVEEDORES_MOCK }
+  }
+  const { data } = await api.get('/almacen/proveedores/todos')
+  return { data }
+}
+
+/**
+ * POST /api/almacen/proveedores
+ */
+export async function crearProveedor(payload) {
+  if (USE_MOCKS) {
+    await simularLatencia(400)
+    const nuevo = { id: Date.now(), ...payload, activo: true }
+    PROVEEDORES_MOCK.push(nuevo)
+    return { data: nuevo }
+  }
+  const { data } = await api.post('/almacen/proveedores', payload)
+  return { data }
+}
+
+/**
+ * PUT /api/almacen/proveedores/{id}
+ */
+export async function actualizarProveedor(id, payload) {
+  if (USE_MOCKS) {
+    await simularLatencia(400)
+    const idx = PROVEEDORES_MOCK.findIndex((p) => p.id === Number(id))
+    if (idx === -1) {
+      throw { response: { status: 404, data: { message: 'Proveedor no encontrado' } } }
+    }
+    PROVEEDORES_MOCK[idx] = { ...PROVEEDORES_MOCK[idx], ...payload }
+    return { data: PROVEEDORES_MOCK[idx] }
+  }
+  const { data } = await api.put(`/almacen/proveedores/${id}`, payload)
+  return { data }
+}
+
+/**
+ * PATCH /api/almacen/proveedores/{id}/activo
+ * Body: { activo: boolean }
+ */
+export async function cambiarEstadoProveedor(id, activo) {
+  if (USE_MOCKS) {
+    await simularLatencia(200)
+    const idx = PROVEEDORES_MOCK.findIndex((p) => p.id === Number(id))
+    if (idx === -1) {
+      throw { response: { status: 404, data: { message: 'Proveedor no encontrado' } } }
+    }
+    PROVEEDORES_MOCK[idx] = { ...PROVEEDORES_MOCK[idx], activo }
+    return { data: PROVEEDORES_MOCK[idx] }
+  }
+  const { data } = await api.patch(`/almacen/proveedores/${id}/activo`, { activo })
   return { data }
 }
 
