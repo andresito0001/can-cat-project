@@ -10,4 +10,5 @@ public interface MascotaRepository {
     Mascota save(Mascota mascota);
     Optional<Mascota> findById(MascotaId id);
     List<Mascota> findByClienteId(ClienteId clienteId);
+    List<Mascota> findAllByClienteId(ClienteId clienteId);
 }

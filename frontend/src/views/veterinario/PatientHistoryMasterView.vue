@@ -86,12 +86,7 @@
                 :aria-pressed="String(m.idMascota) === String(idMascota)"
                 @click="seleccionarPaciente(m)"
               >
-                <div
-                  class="patient-avatar"
-                  :style="{ backgroundColor: colorAvatar(m.nombre) }"
-                >
-                  {{ inicialNombre(m.nombre) }}
-                </div>
+                <PetAvatar :nombre-especie="m.especie" size="md" :muted="!m.activo || m.fallecido" />
                 <div class="patient-info">
                   <p class="patient-name">
                     <span class="patient-name-text">{{ m.nombre }}</span>
@@ -140,12 +135,11 @@
         <template v-else>
           <!-- Cabecera del paciente -->
           <section class="paciente-hero">
-            <div
-              class="paciente-avatar"
-              :style="{ backgroundColor: colorAvatar(nombrePaciente) }"
-            >
-              {{ inicialNombre(nombrePaciente) }}
-            </div>
+            <PetAvatar
+              :nombre-especie="pacienteActivo?.especie"
+              size="lg"
+              :muted="!pacienteActivo?.activo || pacienteActivo?.fallecido"
+            />
 
             <div class="paciente-datos">
               <h1 class="paciente-nombre">{{ nombrePaciente }}</h1>
@@ -451,6 +445,7 @@ import {
 } from 'lucide-vue-next';
 import { useToast } from '@/composables/useToast';
 import ToastContainer from '@/components/ui/ToastContainer.vue';
+import PetAvatar from '@/components/ui/PetAvatar.vue';
 import { getHistorialMascota, descargarRecetaPdf } from '@/api/atenciones.api';
 import { buscarMascotas } from '@/api/mascotas.api';
 import { getApiErrorMessage } from '@/utils/apiError';
@@ -590,16 +585,6 @@ function vital(valor, unidad) {
   return valor !== null && valor !== undefined && valor !== ''
     ? `${valor} ${unidad}`
     : '—';
-}
-
-const PALETA_AVATARES = ['#0F766E', '#3B82F6', '#F59E0B', '#F43F5E', '#8B5CF6', '#0EA5E9'];
-function colorAvatar(nombre) {
-  let hash = 0;
-  for (const caracter of String(nombre || '')) hash = (hash * 31 + caracter.charCodeAt(0)) % 997;
-  return PALETA_AVATARES[hash % PALETA_AVATARES.length];
-}
-function inicialNombre(nombre) {
-  return String(nombre || '?').trim().charAt(0).toUpperCase() || '?';
 }
 
 function subtotalInsumo(insumo) {
@@ -916,23 +901,6 @@ button { font-family: inherit; }
   box-shadow: 0 0 0 4px rgba(15, 118, 110, .15);
 }
 
-.patient-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 17px;
-  font-weight: 700;
-  flex-shrink: 0;
-  box-shadow:
-    0 4px 10px -3px rgba(15, 23, 42, 0.18),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.08);
-  letter-spacing: -0.01em;
-}
-
 .patient-info { min-width: 0; }
 .patient-name {
   margin: 0;
@@ -1104,24 +1072,6 @@ button { font-family: inherit; }
   pointer-events: none;
 }
 
-.paciente-avatar {
-  width: 76px;
-  height: 76px;
-  border-radius: 18px;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 30px;
-  font-weight: 700;
-  flex-shrink: 0;
-  box-shadow:
-    0 12px 28px -8px rgba(15, 23, 42, 0.3),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.08);
-  letter-spacing: -0.02em;
-  position: relative;
-  z-index: 1;
-}
 .paciente-datos { min-width: 0; position: relative; z-index: 1; }
 .paciente-nombre {
   margin: 0 0 10px;
@@ -1797,12 +1747,6 @@ button { font-family: inherit; }
     padding: 20px;
     border-radius: 14px;
   }
-  .paciente-avatar {
-    width: 64px;
-    height: 64px;
-    font-size: 26px;
-    border-radius: 16px;
-  }
   .paciente-nombre { font-size: 20px; }
   .paciente-actions {
     grid-column: 1 / -1;
@@ -1844,6 +1788,5 @@ button { font-family: inherit; }
   .btn-pdf { width: 100%; }
 
   .patient-btn { padding: 12px 14px; gap: 12px; }
-  .patient-avatar { width: 40px; height: 40px; font-size: 15px; }
 }
 </style>

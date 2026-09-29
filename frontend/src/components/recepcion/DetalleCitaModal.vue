@@ -49,7 +49,12 @@
                 </div>
                 <div class="info-row">
                   <span class="info-label"><DollarSign :size="13" /> Costo</span>
-                  <span class="info-value amount">{{ fmtUsd(cita?.costoUsd) }}</span>
+                  <span class="info-value amount">
+                    {{ fmtUsd(cita?.costoUsd) }} USD
+                    <span v-if="cita?.costoBs != null" class="monto-bs">
+                      · Bs. {{ fmtBs(cita.costoBs) }}
+                    </span>
+                  </span>
                 </div>
                 <div v-if="cita?.motivoConsulta" class="info-row info-row-col">
                   <span class="info-label"><FileText :size="13" /> Motivo</span>
@@ -73,13 +78,12 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import {
   Info, X, PawPrint, User, CreditCard, Stethoscope, ClipboardList,
   CalendarDays, Clock, DollarSign, FileText,
 } from 'lucide-vue-next'
 import { ESTADO_LABEL, ESTADO_COLOR } from '@/utils/constants/estadosCita'
-
-import { computed } from 'vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -95,21 +99,29 @@ function fmtUsd(v) {
   if (v == null) return '$0.00'
   return `$${Number(v).toFixed(2)}`
 }
+
+function fmtBs(v) {
+  const n = Number(v)
+  if (v == null || Number.isNaN(n)) return '—'
+  return n.toLocaleString('es-VE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
 function fmtHora(t) {
   if (!t) return ''
   const [h, m] = t.split(':')
   const hh = Number(h) % 12 || 12
   return `${hh}:${m} ${Number(h) >= 12 ? 'PM' : 'AM'}`
 }
+
 function fmtFecha(iso) {
   if (!iso) return ''
   const [y, m, d] = String(iso).slice(0, 10).split('-')
   const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
   return `${d} de ${MESES[Number(m)-1]} de ${y}`
 }
-
-
-// añade `computed` al import de vue si no lo tienes
 
 const estadoLabel = computed(() =>
   ESTADO_LABEL[props.cita?.estado] || props.cita?.estado
@@ -193,6 +205,11 @@ const estadoStyle = computed(() => {
   padding: 2px 8px; border-radius: 5px;
 }
 .info-value.amount { color: #0F766E; font-size: 14px; }
+.info-value .monto-bs {
+  color: #334155;
+  font-weight: 700;
+  font-size: 13px;
+}
 .estado-pill {
   display: inline-flex; align-items: center;
   padding: 4px 12px; border-radius: 20px;

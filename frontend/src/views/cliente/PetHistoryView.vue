@@ -1,168 +1,3 @@
-<script setup>
-import { computed, onMounted, ref, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import {
-  ChevronRight, ChevronDown, Inbox, Package, PawPrint, Pill, Stethoscope,
-  User, Calendar, FileText, Activity, Weight, Thermometer, Heart, Wind,
-  ArrowLeft, Plus
-} from 'lucide-vue-next';
-import { useToast } from '@/composables/useToast';
-import ToastContainer from '@/components/ui/ToastContainer.vue';
-import { getHistorialMascota } from '@/api/atenciones.api';
-import { getMisMascotas, getEspecies } from '@/api/mascotas.api';
-import { getApiErrorMessage } from '@/utils/apiError';
-import { useAuthStore } from '@/stores/auth.store';
-import { fechaHoraCorta } from '@/utils/fecha';
-
-const route = useRoute();
-const router = useRouter();
-const authStore = useAuthStore();
-const { toastError } = useToast();
-
-const formatoUSD = (valor) => `$${Number(valor || 0).toFixed(2)}`;
-
-// Devuelve "valor unidad" o "—" si no hay dato (evita "null kg" / "undefined °C")
-function vital(valor, unidad) {
-  return valor !== null && valor !== undefined && valor !== ''
-    ? `${valor} ${unidad}`
-    : '—';
-}
-
-const idMascota = computed(() => route.query.mascota);
-const misMascotas = ref([]);
-const especies = ref([]);
-const cargando = ref(false);
-const historial = ref([]);
-const infoMascota = ref(null);
-
-// Estado de atenciones expandidas: { [idAtencion]: true }
-const expandidas = ref({});
-function estaExpandida(id) { return !!expandidas.value[id]; }
-function toggleExpandida(id) {
-  expandidas.value = { ...expandidas.value, [id]: !expandidas.value[id] };
-}
-
-// ─── HELPERS ───
-function especieNombre(idEspecie) {
-  const e = especies.value.find((esp) => esp.id === idEspecie);
-  return e ? e.nombre : null;
-}
-function sexoLabel(sexo) {
-  return sexo === 'M' ? 'Macho' : sexo === 'H' ? 'Hembra' : null;
-}
-
-const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-function formatFechaNac(iso) {
-  if (!iso) return null;
-  const [y, m, d] = String(iso).slice(0, 10).split('-');
-  return `${d} ${MESES[Number(m) - 1]} ${y}`;
-}
-
-// Edad legible: "3 años", "8 meses", "Recién nacido"
-function edadMascota(iso) {
-  if (!iso) return null;
-  const nac = new Date(iso);
-  if (Number.isNaN(nac.getTime())) return null;
-  const hoy = new Date();
-  let anios = hoy.getFullYear() - nac.getFullYear();
-  const m = hoy.getMonth() - nac.getMonth();
-  if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) anios--;
-  if (anios < 1) {
-    const meses = Math.max(
-      0,
-      (hoy.getFullYear() - nac.getFullYear()) * 12 + (hoy.getMonth() - nac.getMonth())
-    );
-    if (meses === 0) return 'Recién nacido';
-    return `${meses} ${meses === 1 ? 'mes' : 'meses'}`;
-  }
-  return `${anios} ${anios === 1 ? 'año' : 'años'}`;
-}
-
-const metadatosMascota = computed(() => {
-  const m = infoMascota.value;
-  if (!m) return [];
-  return [
-    especieNombre(m.idEspecie),
-    sexoLabel(m.sexo),
-    edadMascota(m.fechaNacimiento),
-  ].filter(Boolean);
-});
-
-const subtotalInsumo = (insumo) =>
-  insumo.subtotal ?? insumo.subtotalUsd ?? insumo.cantidad * insumo.precioUnitarioUsd;
-
-const totalInsumosAtencion = (atencion) =>
-  (atencion.insumos || []).reduce((suma, i) => suma + subtotalInsumo(i), 0);
-
-// ─── STATS KPI ───
-const stats = computed(() => {
-  const total = historial.value.length;
-  const ultima = historial.value[0]?.fechaHoraInicio;
-  const m = infoMascota.value;
-  return {
-    total,
-    ultimaVisita: ultima ? fechaHoraCorta(ultima).split('·')[0]?.trim() : '—',
-    edad: edadMascota(m?.fechaNacimiento) || '—',
-    peso: m?.pesoActual ? `${m.pesoActual} kg` : '—',
-  };
-});
-
-// ─── AVATAR ───
-const PALETA_AVATARES = ['#0F766E', '#3B82F6', '#F59E0B', '#F43F5E', '#8B5CF6', '#0EA5E9'];
-function colorAvatar(nombre) {
-  let hash = 0;
-  for (const caracter of String(nombre || '')) hash = (hash * 31 + caracter.charCodeAt(0)) % 997;
-  return PALETA_AVATARES[hash % PALETA_AVATARES.length];
-}
-function inicialNombre(nombre) {
-  return String(nombre || '?').trim().charAt(0).toUpperCase() || '?';
-}
-
-// ─── CARGA ───
-async function cargar() {
-  const [mascotasRes, especiesRes] = await Promise.allSettled([getMisMascotas(), getEspecies()]);
-  if (mascotasRes.status === 'fulfilled') misMascotas.value = mascotasRes.value.data;
-  if (especiesRes.status === 'fulfilled') especies.value = especiesRes.value.data;
-
-  infoMascota.value =
-    misMascotas.value.find((m) => String(m.idMascota) === String(idMascota.value)) || null;
-
-  if (!idMascota.value) {
-    historial.value = [];
-    cargando.value = false;
-    return;
-  }
-
-  cargando.value = true;
-  historial.value = [];
-  expandidas.value = {};
-  try {
-    historial.value = await getHistorialMascota(idMascota.value);
-    // La más reciente se expande por defecto
-    const primera = historial.value[0]?.idAtencion;
-    if (primera) expandidas.value = { [primera]: true };
-  } catch (error) {
-    toastError(getApiErrorMessage(error));
-    historial.value = [];
-  } finally {
-    cargando.value = false;
-  }
-}
-
-onMounted(cargar);
-watch(() => route.query.mascota, cargar);
-
-// ─── NAVEGACIÓN ───
-function volverAlSelector() {
-  router.push({ path: '/cliente/historial-clinico' });
-}
-function irAlHistorial(m) {
-  const id = m?.idMascota;
-  if (!id) return;
-  router.push({ path: '/cliente/historial-clinico', query: { mascota: id } });
-}
-</script>
-
 <template>
   <div class="historiales">
     <ToastContainer />
@@ -173,7 +8,7 @@ function irAlHistorial(m) {
         <span class="bc-item bc-current">Historial Clínico</span>
       </template>
       <template v-else>
-        <button class="bc-back" type="button" @click="volverAlSelector">
+        <button class="bc-back" type="button" aria-label="Volver al selector" @click="volverAlSelector">
           <ArrowLeft :size="15" />
         </button>
         <button class="bc-item bc-link" type="button" @click="volverAlSelector">
@@ -201,31 +36,32 @@ function irAlHistorial(m) {
           </div>
         </div>
         <div class="card-body">
-          <div v-if="!misMascotas.length" class="empty-state">
+          <!-- Estado de carga propio del selector (antes mostraba "sin mascotas" mientras cargaba) -->
+          <div v-if="cargandoCatalogo" class="loading-state">
+            <div class="spin"></div>
+            <p>Cargando tus mascotas…</p>
+          </div>
+
+          <div v-else-if="!misMascotas.length" class="empty-state">
             <PawPrint :size="40" />
             <p>No tienes mascotas registradas todavía.</p>
             <button class="btn-primary" type="button" @click="router.push('/cliente/mascotas')">
               <Plus :size="16" /> Registrar mascota
             </button>
           </div>
+
           <div v-else class="selector-mascotas">
             <button
               v-for="m in misMascotas"
               :key="m.idMascota"
               type="button"
               class="selector-card"
-              :style="{ '--pet-color': colorAvatar(m.nombre) }"
               @click="irAlHistorial(m)"
             >
-              <div class="pet-avatar" :style="{ backgroundColor: colorAvatar(m.nombre) }">
-                {{ inicialNombre(m.nombre) }}
-              </div>
+              <PetAvatar :nombre-especie="especieNombre(m.idEspecie)" size="lg" />
               <div class="selector-info">
                 <p class="selector-nombre">{{ m.nombre }}</p>
-                <p class="selector-sub">
-                  {{ [especieNombre(m.idEspecie), sexoLabel(m.sexo), edadMascota(m.fechaNacimiento)]
-                    .filter(Boolean).join(' · ') || 'Sin datos' }}
-                </p>
+                <p class="selector-sub">{{ resumenMascota(m) }}</p>
               </div>
               <span class="selector-cta" aria-hidden="true">
                 <ChevronRight :size="16" />
@@ -240,12 +76,7 @@ function irAlHistorial(m) {
     <template v-else>
       <!-- Hero del paciente -->
       <section class="paciente-hero">
-        <div
-          class="paciente-avatar"
-          :style="{ backgroundColor: colorAvatar(infoMascota?.nombre) }"
-        >
-          {{ inicialNombre(infoMascota?.nombre) }}
-        </div>
+        <PetAvatar :nombre-especie="especieNombre(infoMascota?.idEspecie)" size="lg" />
 
         <div class="paciente-datos">
           <h1 class="paciente-nombre">
@@ -253,7 +84,7 @@ function irAlHistorial(m) {
           </h1>
 
           <div v-if="metadatosMascota.length" class="paciente-badges">
-            <span v-for="(meta, i) in metadatosMascota" :key="i" class="paciente-badge">
+            <span v-for="meta in metadatosMascota" :key="meta" class="paciente-badge">
               {{ meta }}
             </span>
           </div>
@@ -277,48 +108,21 @@ function irAlHistorial(m) {
         </div>
       </section>
 
-      <!-- KPIs -->
+      <!-- KPIs (config-driven) -->
       <section class="kpis">
-        <article class="kpi">
-          <div class="kpi-icon" style="--kpi-color: #0F766E; --kpi-bg: #F0FDFA;">
-            <FileText :size="18" />
+        <article v-for="kpi in kpis" :key="kpi.etiqueta" class="kpi">
+          <div class="kpi-icon" :style="{ '--kpi-color': kpi.color, '--kpi-bg': kpi.fondo }">
+            <component :is="kpi.icono" :size="18" />
           </div>
           <div>
-            <p class="kpi-value">{{ stats.total }}</p>
-            <p class="kpi-label">Atenciones</p>
-          </div>
-        </article>
-        <article class="kpi">
-          <div class="kpi-icon" style="--kpi-color: #3B82F6; --kpi-bg: #EFF6FF;">
-            <Calendar :size="18" />
-          </div>
-          <div>
-            <p class="kpi-value">{{ stats.ultimaVisita }}</p>
-            <p class="kpi-label">Última visita</p>
-          </div>
-        </article>
-        <article class="kpi">
-          <div class="kpi-icon" style="--kpi-color: #F59E0B; --kpi-bg: #FFFBEB;">
-            <Activity :size="18" />
-          </div>
-          <div>
-            <p class="kpi-value">{{ stats.edad }}</p>
-            <p class="kpi-label">Edad</p>
-          </div>
-        </article>
-        <article class="kpi">
-          <div class="kpi-icon" style="--kpi-color: #8B5CF6; --kpi-bg: #F5F3FF;">
-            <Weight :size="18" />
-          </div>
-          <div>
-            <p class="kpi-value">{{ stats.peso }}</p>
-            <p class="kpi-label">Peso actual</p>
+            <p class="kpi-value">{{ kpi.valor }}</p>
+            <p class="kpi-label">{{ kpi.etiqueta }}</p>
           </div>
         </article>
       </section>
 
       <!-- Estado: cargando -->
-      <div v-if="cargando" class="loading-state">
+      <div v-if="cargandoHistorial" class="loading-state">
         <div class="spin"></div>
         <p>Cargando el historial clínico…</p>
       </div>
@@ -370,7 +174,7 @@ function irAlHistorial(m) {
                 </div>
                 <div class="atencion-head-side">
                   <span class="pill-estado">
-                    {{ String(atencion.estadoAtencion || '').replaceAll('_', ' ') }}
+                    {{ estadoLabel(atencion.estadoAtencion) }}
                   </span>
                   <span class="atencion-toggle" aria-hidden="true">
                     <ChevronDown :size="16" />
@@ -381,59 +185,27 @@ function irAlHistorial(m) {
               <!-- Cuerpo expandible -->
               <Transition name="expand">
                 <div v-show="estaExpandida(atencion.idAtencion)" class="atencion-body">
-                  <!-- Signos vitales -->
+                  <!-- Signos vitales (config-driven) -->
                   <div class="vitales-grid">
-                    <div class="vital">
-                      <Weight :size="14" class="vital-icon" />
-                      <span class="vital-label">Peso</span>
-                      <strong class="vital-value">{{ vital(atencion.pesoKg, 'kg') }}</strong>
-                    </div>
-                    <div class="vital">
-                      <Thermometer :size="14" class="vital-icon" />
-                      <span class="vital-label">Temp.</span>
-                      <strong class="vital-value">{{ vital(atencion.temperaturaC, '°C') }}</strong>
-                    </div>
-                    <div class="vital">
-                      <Heart :size="14" class="vital-icon" />
-                      <span class="vital-label">FC</span>
-                      <strong class="vital-value">{{ vital(atencion.frecCardiaca, 'lpm') }}</strong>
-                    </div>
-                    <div class="vital">
-                      <Wind :size="14" class="vital-icon" />
-                      <span class="vital-label">FR</span>
-                      <strong class="vital-value">{{ vital(atencion.frecRespiratoria, 'rpm') }}</strong>
+                    <div v-for="vitalCfg in SIGNOS_VITALES" :key="vitalCfg.campo" class="vital">
+                      <component :is="vitalCfg.icono" :size="14" class="vital-icon" />
+                      <span class="vital-label">{{ vitalCfg.etiqueta }}</span>
+                      <strong class="vital-value">
+                        {{ vital(atencion[vitalCfg.campo], vitalCfg.unidad) }}
+                      </strong>
                     </div>
                   </div>
 
-                  <!-- Bloques clínicos -->
+                  <!-- Bloques clínicos (config-driven, solo los que tienen contenido) -->
                   <div class="detalle-textos">
-                    <div class="detalle-bloque">
-                      <h5>Anamnesis</h5>
-                      <p>{{ atencion.anamnesis || '—' }}</p>
-                    </div>
-                    <div v-if="atencion.sintomasObservados" class="detalle-bloque">
-                      <h5>Hallazgos</h5>
-                      <p>{{ atencion.sintomasObservados }}</p>
-                    </div>
-                    <div class="detalle-bloque dx">
-                      <h5>Diagnóstico</h5>
-                      <p>{{ atencion.diagnosticoPrincipal || '—' }}</p>
-                    </div>
-                    <div v-if="atencion.diagnosticosDiferenciales" class="detalle-bloque">
-                      <h5>Dx. diferenciales</h5>
-                      <p>{{ atencion.diagnosticosDiferenciales }}</p>
-                    </div>
-                    <div v-if="atencion.observacionesGenerales" class="detalle-bloque">
-                      <h5>Pronóstico</h5>
-                      <p>{{ atencion.observacionesGenerales }}</p>
-                    </div>
-                    <div v-if="atencion.indicacionesDueno" class="detalle-bloque">
-                      <h5>Indicaciones al dueño</h5>
-                      <p>{{ atencion.indicacionesDueno }}</p>
-                    </div>
-                    <div v-if="atencion.proximaCitaRecomendada" class="detalle-bloque">
-                      <h5>Próxima cita</h5>
-                      <p>{{ atencion.proximaCitaRecomendada }}</p>
+                    <div
+                      v-for="bloque in bloquesDe(atencion)"
+                      :key="bloque.campo"
+                      class="detalle-bloque"
+                      :class="bloque.clase"
+                    >
+                      <h5>{{ bloque.titulo }}</h5>
+                      <p>{{ atencion[bloque.campo] || '—' }}</p>
                     </div>
                   </div>
 
@@ -451,14 +223,14 @@ function irAlHistorial(m) {
                           </tr>
                         </thead>
                         <tbody>
-                          <tr v-for="i in atencion.insumos" :key="i.idProducto">
+                          <tr v-for="insumo in atencion.insumos" :key="insumo.idProducto">
                             <td>
-                              {{ i.nombre }}
-                              <span class="sku">({{ i.codigoSku }})</span>
+                              {{ insumo.nombre }}
+                              <span class="sku">({{ insumo.codigoSku }})</span>
                             </td>
-                            <td class="der">{{ i.cantidad }} {{ i.unidadMedida }}</td>
-                            <td class="der">{{ formatoUSD(i.precioUnitarioUsd) }}</td>
-                            <td class="der amount">{{ formatoUSD(subtotalInsumo(i)) }}</td>
+                            <td class="der">{{ insumo.cantidad }} {{ insumo.unidadMedida }}</td>
+                            <td class="der">{{ formatoUSD(insumo.precioUnitarioUsd) }}</td>
+                            <td class="der amount">{{ formatoUSD(subtotalInsumo(insumo)) }}</td>
                           </tr>
                         </tbody>
                       </table>
@@ -481,22 +253,14 @@ function irAlHistorial(m) {
                       <table class="data-table">
                         <thead>
                           <tr>
-                            <th>Medicamento</th>
-                            <th>Concentración</th>
-                            <th>Dosis</th>
-                            <th>Vía</th>
-                            <th>Frecuencia</th>
-                            <th>Duración</th>
+                            <th v-for="col in COLUMNAS_RECETA" :key="col.campo">{{ col.titulo }}</th>
                           </tr>
                         </thead>
                         <tbody>
                           <tr v-for="(item, i) in atencion.receta.items" :key="i">
-                            <td>{{ item.medicamento }}</td>
-                            <td>{{ item.concentracion || '—' }}</td>
-                            <td>{{ item.dosis }}</td>
-                            <td>{{ item.viaAdministracion }}</td>
-                            <td>{{ item.frecuencia }}</td>
-                            <td>{{ item.duracion }}</td>
+                            <td v-for="col in COLUMNAS_RECETA" :key="col.campo">
+                              {{ item[col.campo] || col.fallback || '—' }}
+                            </td>
                           </tr>
                         </tbody>
                       </table>
@@ -511,6 +275,288 @@ function irAlHistorial(m) {
     </template>
   </div>
 </template>
+
+<script setup>
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import {
+  ChevronRight, ChevronDown, Inbox, Package, PawPrint, Pill, Stethoscope,
+  User, Calendar, FileText, Activity, Weight, Thermometer, Heart, Wind,
+  ArrowLeft, Plus
+} from 'lucide-vue-next'
+import { useToast } from '@/composables/useToast'
+import ToastContainer from '@/components/ui/ToastContainer.vue'
+import PetAvatar from '@/components/ui/PetAvatar.vue'
+import { getHistorialMascota } from '@/api/atenciones.api'
+import { getMisMascotas, getEspecies } from '@/api/mascotas.api'
+import { getApiErrorMessage } from '@/utils/apiError'
+import { useAuthStore } from '@/stores/auth.store'
+import { fechaHoraCorta } from '@/utils/fecha'
+
+const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
+const { toastError } = useToast()
+
+/* ═══════════════════════════════════════════════════════════
+   CONFIGURACIÓN DECLARATIVA — render data-driven
+   Añadir/quitar un signo vital, bloque clínico o columna
+   de récipe es editar una línea de estas listas, no el HTML.
+   ═══════════════════════════════════════════════════════════ */
+const SIGNOS_VITALES = [
+  { campo: 'pesoKg', etiqueta: 'Peso', unidad: 'kg', icono: Weight },
+  { campo: 'temperaturaC', etiqueta: 'Temp.', unidad: '°C', icono: Thermometer },
+  { campo: 'frecCardiaca', etiqueta: 'FC', unidad: 'lpm', icono: Heart },
+  { campo: 'frecRespiratoria', etiqueta: 'FR', unidad: 'rpm', icono: Wind },
+]
+
+const BLOQUES_CLINICOS = [
+  { campo: 'anamnesis', titulo: 'Anamnesis', siempreVisible: true },
+  { campo: 'sintomasObservados', titulo: 'Hallazgos' },
+  { campo: 'diagnosticoPrincipal', titulo: 'Diagnóstico', clase: 'dx', siempreVisible: true },
+  { campo: 'diagnosticosDiferenciales', titulo: 'Dx. diferenciales' },
+  { campo: 'observacionesGenerales', titulo: 'Pronóstico' },
+  { campo: 'indicacionesDueno', titulo: 'Indicaciones al dueño' },
+  { campo: 'proximaCitaRecomendada', titulo: 'Próxima cita' },
+]
+
+const COLUMNAS_RECETA = [
+  { campo: 'medicamento', titulo: 'Medicamento' },
+  { campo: 'concentracion', titulo: 'Concentración', fallback: '—' },
+  { campo: 'dosis', titulo: 'Dosis' },
+  { campo: 'viaAdministracion', titulo: 'Vía' },
+  { campo: 'frecuencia', titulo: 'Frecuencia' },
+  { campo: 'duracion', titulo: 'Duración' },
+]
+
+/* ═══════════════════════════════════════════════════════════
+   ESTADO
+   ═══════════════════════════════════════════════════════════ */
+const idMascota = computed(() => route.query.mascota)
+
+const misMascotas = ref([])
+const especies = ref([])
+const historial = ref([])
+
+const cargandoCatalogo = ref(true)   // mascotas + especies (solo al montar)
+const cargandoHistorial = ref(false) // atenciones de la mascota activa
+
+// Atenciones expandidas: { [idAtencion]: true }
+const expandidas = ref({})
+
+/* ═══════════════════════════════════════════════════════════
+   DERIVADOS
+   ═══════════════════════════════════════════════════════════ */
+// Map O(1) en vez de find() lineal por cada item del v-for
+const mapaEspecies = computed(() =>
+  new Map(especies.value.map((e) => [e.id, e.nombre]))
+)
+
+const infoMascota = computed(() =>
+  misMascotas.value.find((m) => String(m.idMascota) === String(idMascota.value)) ?? null
+)
+
+const metadatosMascota = computed(() => metadatosDe(infoMascota.value))
+
+const stats = computed(() => ({
+  total: historial.value.length,
+  ultimaVisita: ultimaVisita(),
+  edad: edadMascota(infoMascota.value?.fechaNacimiento) || '—',
+  peso: infoMascota.value?.pesoActual ? `${infoMascota.value.pesoActual} kg` : '—',
+}))
+
+const kpis = computed(() => [
+  { icono: FileText, valor: stats.value.total, etiqueta: 'Atenciones', color: '#0F766E', fondo: '#F0FDFA' },
+  { icono: Calendar, valor: stats.value.ultimaVisita, etiqueta: 'Última visita', color: '#3B82F6', fondo: '#EFF6FF' },
+  { icono: Activity, valor: stats.value.edad, etiqueta: 'Edad', color: '#F59E0B', fondo: '#FFFBEB' },
+  { icono: Weight, valor: stats.value.peso, etiqueta: 'Peso actual', color: '#8B5CF6', fondo: '#F5F3FF' },
+])
+
+/* ═══════════════════════════════════════════════════════════
+   HELPERS PUROS (candidatos a @/utils/mascota.js — ver notas)
+   ═══════════════════════════════════════════════════════════ */
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+
+/** "valor unidad" o "—" si no hay dato (evita "null kg" / "undefined °C") */
+function vital(valor, unidad) {
+  return valor !== null && valor !== undefined && valor !== ''
+    ? `${valor} ${unidad}`
+    : '—'
+}
+
+function formatoUSD(valor) {
+  return `$${Number(valor || 0).toFixed(2)}`
+}
+
+function estadoLabel(estado) {
+  return String(estado || '').replaceAll('_', ' ')
+}
+
+const especieNombre = (idEspecie) => mapaEspecies.value.get(idEspecie) ?? null
+
+const sexoLabel = (sexo) =>
+  sexo === 'M' ? 'Macho' : sexo === 'H' ? 'Hembra' : null
+
+function formatFechaNac(iso) {
+  if (!iso) return null
+  const [y, m, d] = String(iso).slice(0, 10).split('-')
+  return `${d} ${MESES[Number(m) - 1]} ${y}`
+}
+
+/** Edad legible: "3 años", "8 meses", "Recién nacido" */
+function edadMascota(iso) {
+  if (!iso) return null
+  const nac = new Date(iso)
+  if (Number.isNaN(nac.getTime())) return null
+  const hoy = new Date()
+  let anios = hoy.getFullYear() - nac.getFullYear()
+  const m = hoy.getMonth() - nac.getMonth()
+  if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) anios--
+  if (anios < 1) {
+    const meses = Math.max(
+      0,
+      (hoy.getFullYear() - nac.getFullYear()) * 12 + (hoy.getMonth() - nac.getMonth())
+    )
+    if (meses === 0) return 'Recién nacido'
+    return `${meses} ${meses === 1 ? 'mes' : 'meses'}`
+  }
+  return `${anios} ${anios === 1 ? 'año' : 'años'}`
+}
+
+/** Metadatos compartidos por el selector y el hero del paciente */
+function metadatosDe(m) {
+  return [
+    especieNombre(m?.idEspecie),
+    sexoLabel(m?.sexo),
+    edadMascota(m?.fechaNacimiento),
+  ].filter(Boolean)
+}
+
+function resumenMascota(m) {
+  return metadatosDe(m).join(' · ') || 'Sin datos'
+}
+
+function ultimaVisita() {
+  const fecha = historial.value[0]?.fechaHoraInicio
+  return fecha ? fechaHoraCorta(fecha).split('·')[0]?.trim() : '—'
+}
+
+/* ─── Cálculo de insumos ─── */
+const subtotalInsumo = (insumo) =>
+  insumo.subtotal ?? insumo.subtotalUsd ?? insumo.cantidad * insumo.precioUnitarioUsd
+
+const totalInsumosAtencion = (atencion) =>
+  (atencion.insumos || []).reduce((suma, i) => suma + subtotalInsumo(i), 0)
+
+/** Bloques clínicos con contenido para una atención dada */
+function bloquesDe(atencion) {
+  return BLOQUES_CLINICOS.filter((b) => b.siempreVisible || atencion[b.campo])
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INTERACCIÓN
+   ═══════════════════════════════════════════════════════════ */
+function estaExpandida(id) {
+  return !!expandidas.value[id]
+}
+
+function toggleExpandida(id) {
+  expandidas.value = { ...expandidas.value, [id]: !expandidas.value[id] }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CARGA DE DATOS — separada por responsabilidad
+   ═══════════════════════════════════════════════════════════ */
+
+/** Catálogo estático: se carga UNA sola vez al montar. */
+async function cargarCatalogo() {
+  const [mascotasRes, especiesRes] = await Promise.allSettled([
+    getMisMascotas(),
+    getEspecies(),
+  ])
+
+  if (mascotasRes.status === 'fulfilled') {
+    misMascotas.value = mascotasRes.value.data ?? []
+  } else {
+    toastError(getApiErrorMessage(mascotasRes.reason))
+  }
+
+  // Fallo de especies es silencioso a propósito: solo degrada el
+  // icono del avatar a la pata genérica, no bloquea la vista.
+  if (especiesRes.status === 'fulfilled') {
+    especies.value = especiesRes.value.data ?? []
+  }
+
+  cargandoCatalogo.value = false
+}
+
+/** Historial de la mascota activa, con guard anti race conditions. */
+let idSolicitud = 0
+
+async function cargarHistorial(id) {
+  if (!id) {
+    historial.value = []
+    return
+  }
+
+  // Cada invocación incrementa el token; si el usuario cambia de
+  // mascota mientras la petición está en vuelo, la respuesta vieja
+  // se descarta al llegar (nunca pisa la más reciente).
+  const solicitud = ++idSolicitud
+
+  cargandoHistorial.value = true
+  try {
+    const data = await getHistorialMascota(id)
+    if (solicitud !== idSolicitud) return
+
+    historial.value = data
+    expandirPrimera(data)
+  } catch (error) {
+    if (solicitud !== idSolicitud) return
+    toastError(getApiErrorMessage(error))
+    historial.value = []
+  } finally {
+    if (solicitud === idSolicitud) cargandoHistorial.value = false
+  }
+}
+
+function expandirPrimera(atenciones) {
+  const primera = atenciones[0]?.idAtencion
+  expandidas.value = primera ? { [primera]: true } : {}
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ORQUESTACIÓN
+   ═══════════════════════════════════════════════════════════ */
+onMounted(async () => {
+  // Orden garantizado: el catálogo alimenta infoMascota/especieNombre
+  // antes del primer render del hero del paciente.
+  await cargarCatalogo()
+  await cargarHistorial(idMascota.value)
+})
+
+// Cambios posteriores de ?mascota= (navegación interna) NO
+// re-fetchan el catálogo: solo el historial de la nueva mascota.
+watch(idMascota, async (id) => {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+  await cargarHistorial(id)
+})
+
+/* ═══════════════════════════════════════════════════════════
+   NAVEGACIÓN
+   ═══════════════════════════════════════════════════════════ */
+// replace: "volver" no debe acumular entradas duplicadas en el
+// historial del navegador (el botón atrás del browser salta directo).
+function volverAlSelector() {
+  router.replace({ path: '/cliente/historial-clinico' })
+}
+
+function irAlHistorial(mascota) {
+  const id = mascota?.idMascota
+  if (!id) return
+  router.push({ path: '/cliente/historial-clinico', query: { mascota: id } })
+}
+</script>
 
 <style scoped>
 .historiales {
@@ -656,21 +702,6 @@ button { font-family: inherit; }
   transform: translateX(2px);
 }
 
-/* ═══ AVATAR ═══ */
-.pet-avatar {
-  width: 52px;
-  height: 52px;
-  border-radius: 12px;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 21px;
-  font-weight: 700;
-  flex-shrink: 0;
-  box-shadow: 0 4px 10px -3px rgba(15, 23, 42, .12);
-}
-
 /* ═══ HERO DEL PACIENTE ═══ */
 .paciente-hero {
   display: grid;
@@ -683,19 +714,6 @@ button { font-family: inherit; }
   padding: 22px 24px;
   margin-bottom: 18px;
   box-shadow: 0 4px 6px -1px rgba(15, 118, 110, .04);
-}
-.paciente-avatar {
-  width: 76px;
-  height: 76px;
-  border-radius: 16px;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32px;
-  font-weight: 700;
-  flex-shrink: 0;
-  box-shadow: 0 8px 20px -6px rgba(15, 23, 42, .2);
 }
 .paciente-datos { min-width: 0; }
 .paciente-nombre {
@@ -1203,12 +1221,6 @@ button { font-family: inherit; }
   .historiales { padding: 16px 16px 48px; }
   .paciente-hero {
     padding: 18px;
-    border-radius: 14px;
-  }
-  .paciente-avatar {
-    width: 60px;
-    height: 60px;
-    font-size: 26px;
     border-radius: 14px;
   }
   .paciente-nombre { font-size: 20px; }

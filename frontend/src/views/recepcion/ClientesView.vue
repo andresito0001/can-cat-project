@@ -155,12 +155,7 @@
           >
             <td class="cell-cliente">
               <div class="cliente-cell">
-                <div
-                  class="cliente-avatar"
-                  :style="{ backgroundColor: colorAvatar(cliente.nombreCompleto) }"
-                >
-                  {{ inicialesCliente(cliente.nombreCompleto) }}
-                </div>
+                <EntityAvatar :nombre="cliente.nombreCompleto" tipo="cliente" size="md" />
                 <div class="cliente-info">
                   <p class="cliente-nombre">{{ cliente.nombreCompleto }}</p>
                   <p class="cliente-id">ID #{{ cliente.id }}</p>
@@ -209,7 +204,7 @@ import {
   Phone, MapPin, MapPinOff, CalendarPlus
 } from 'lucide-vue-next'
 import ClienteDetalleModal from '@/components/recepcion/ClienteDetalleModal.vue'
-
+import EntityAvatar from '@/components/ui/EntityAvatar.vue'
 
 const router = useRouter()
 
@@ -219,9 +214,6 @@ const isLoading = ref(false)
 const errorMessage = ref(null)
 const detalleModalVisible = ref(false)
 const clienteSeleccionado = ref(null)
-
-
-const PALETA_AVATARES = ['#0F766E', '#3B82F6', '#F59E0B', '#F43F5E', '#8B5CF6', '#0EA5E9']
 
 let debounceTimer = null
 
@@ -240,17 +232,6 @@ const nuevosEsteMes = computed(() => {
 })
 
 // ─── Helpers ───
-function colorAvatar(nombre) {
-  let hash = 0
-  for (const ch of String(nombre || '')) hash = (hash * 31 + ch.charCodeAt(0)) % 997
-  return PALETA_AVATARES[hash % PALETA_AVATARES.length]
-}
-function inicialesCliente(nombre) {
-  const words = String(nombre || '?').trim().split(/\s+/).filter(Boolean)
-  if (!words.length) return '?'
-  if (words.length === 1) return words[0].charAt(0).toUpperCase()
-  return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase()
-}
 function formatearFecha(fecha) {
   if (!fecha) return '—'
   return new Date(fecha).toLocaleDateString('es-VE', {
@@ -631,20 +612,6 @@ button { font-family: inherit; }
   align-items: center;
   gap: 12px;
 }
-.cliente-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
-  flex-shrink: 0;
-  box-shadow: 0 4px 10px -3px rgba(15, 23, 42, .12);
-  letter-spacing: .3px;
-}
 .cliente-info { min-width: 0; }
 .cliente-nombre {
   margin: 0;
@@ -794,7 +761,6 @@ button { font-family: inherit; }
   .data-table td:first-child { margin-top: 0; }
 
   .cell-cliente { margin-bottom: 4px; }
-  .cliente-avatar { width: 36px; height: 36px; font-size: 12px; }
   .cliente-nombre { font-size: 14px; }
 
   /* Etiquetas antes de cada celda en móvil */

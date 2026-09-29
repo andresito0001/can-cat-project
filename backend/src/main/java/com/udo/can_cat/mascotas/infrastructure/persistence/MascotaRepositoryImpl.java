@@ -33,6 +33,13 @@ public class MascotaRepositoryImpl implements MascotaRepository {
     }
 
     @Override
+    public List<Mascota> findAllByClienteId(ClienteId clienteId) {
+        return jpaRepository.findByIdCliente(clienteId.value()).stream()
+                .map(this::toDomain)
+                .toList();
+    }
+
+    @Override
     public List<Mascota> findByClienteId(ClienteId clienteId) {
         return jpaRepository.findByIdClienteAndActivoTrue(clienteId.value()).stream()
                 .map(this::toDomain)

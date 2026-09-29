@@ -59,7 +59,7 @@
           <div class="cita-principal">
             <span class="estado-badge">{{ formatEstadoCita(cita) }}</span>
             <h3 class="cita-mascota">
-              <span class="mascota-avatar"><PawPrint :size="14" /></span>
+              <PetAvatar size="sm" />
               <span class="mascota-nombre">{{ cita.nombreMascota }}</span>
             </h3>
             <p class="cita-servicio">{{ cita.nombreServicio }}</p>
@@ -171,13 +171,14 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   CalendarPlus, CalendarX2, Loader2,
-  PawPrint, Stethoscope, Clock,
+  Stethoscope, Clock,
   CreditCard, X, AlertTriangle, Info,
 } from 'lucide-vue-next'
 import { getMisCitas, cancelarCita } from '@/api/citas.api'
 import { getApiErrorMessage } from '@/utils/apiError'
 import { useToast } from '@/composables/useToast'
 import CitaCountdown from '@/components/cliente/CitaCountdown.vue'
+import PetAvatar from '@/components/ui/PetAvatar.vue'
 
 const router = useRouter()
 const { toastSuccess, toastError } = useToast()
@@ -537,16 +538,6 @@ function formatBs(v) {
   font-size: 16px;
   font-weight: 700;
   color: #1E293B;
-}
-.mascota-avatar {
-  width: 26px; height: 26px;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  background: #F0FDFA;
-  color: #0F766E;
 }
 .mascota-nombre {
   min-width: 0;

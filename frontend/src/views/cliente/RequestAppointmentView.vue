@@ -112,9 +112,7 @@
                           title="Quitar filtros para verla en la lista"
                           @click="busquedaMascota = ''"
                         >
-                          <div class="pick-avatar" :style="{ backgroundColor: colorAvatar(mascotasFiltradas.seleccionada.nombre) }">
-                            {{ inicialNombre(mascotasFiltradas.seleccionada.nombre) }}
-                          </div>
+                          <PetAvatar :nombre-especie="mascotasFiltradas.seleccionada.nombreEspecie" size="md" />
                           <div class="pick-info">
                             <span class="pick-name">{{ mascotasFiltradas.seleccionada.nombre }}</span>
                             <span class="pick-meta">
@@ -141,9 +139,7 @@
                           :class="{ selected: selectedMascota === m.idMascota }"
                           @click="selectedMascota = m.idMascota"
                         >
-                          <div class="pick-avatar" :style="{ backgroundColor: colorAvatar(m.nombre) }">
-                            {{ inicialNombre(m.nombre) }}
-                          </div>
+                          <PetAvatar :nombre-especie="m.nombreEspecie" size="md" />
                           <div class="pick-info">
                             <span class="pick-name">{{ m.nombre }}</span>
                             <span class="pick-meta">
@@ -252,9 +248,7 @@
                           title="Quitar filtros para verlo en la lista"
                           @click="busquedaVeterinario = ''; filtroEspecialidad = ''"
                         >
-                          <div class="pick-avatar pick-avatar-vet" :style="{ backgroundColor: colorAvatar(veterinariosFiltrados.seleccionado.nombre) }">
-                            {{ inicialesNombre(veterinariosFiltrados.seleccionado.nombre) }}
-                          </div>
+                          <EntityAvatar :nombre="veterinariosFiltrados.seleccionado.nombre" tipo="veterinario" size="md" />
                           <div class="pick-info">
                             <span class="pick-name">{{ veterinariosFiltrados.seleccionado.nombre }}</span>
                             <span class="pick-meta">{{ ESPECIALIDAD_LABELS[veterinariosFiltrados.seleccionado.especialidad] || veterinariosFiltrados.seleccionado.especialidad || 'Veterinario' }}</span>
@@ -279,9 +273,7 @@
                           :class="{ selected: selectedVeterinario === v.id }"
                           @click="selectVeterinario(v)"
                         >
-                          <div class="pick-avatar pick-avatar-vet" :style="{ backgroundColor: colorAvatar(v.nombre) }">
-                            {{ inicialesNombre(v.nombre) }}
-                          </div>
+                          <EntityAvatar :nombre="v.nombre" tipo="veterinario" size="md" />
                           <div class="pick-info">
                             <span class="pick-name">{{ v.nombre }}</span>
                             <span class="pick-meta">{{ ESPECIALIDAD_LABELS[v.especialidad] || v.especialidad || 'Veterinario' }}</span>
@@ -703,8 +695,109 @@
         </Transition>
       </main>
 
-      <!-- ═══ SIDEBAR ═══ -->
+      <!-- ═══ ✅ SIDEBAR — sticky vive en el WRAPPER, no en las cards:
+           ambas viajan juntas al hacer scroll y nunca se tapan. ═══ -->
       <aside v-if="currentStep < 4" class="wizard-sidebar">
+
+        <!-- ═══ ✅ Datos bancarios: SOLO en paso de pago, ARRIBA del
+             resumen (es lo que el usuario consulta mientras transfiere) ═══ -->
+        <div v-if="datosBancarios && currentStep === 3" class="banco-card">
+          <header class="banco-head">
+            <div class="banco-icon">
+              <Landmark :size="16" />
+            </div>
+            <div>
+              <h4 class="banco-title">Datos para pagar</h4>
+              <p class="banco-sub">{{ datosBancarios.nombreTitular }}</p>
+            </div>
+          </header>
+
+          <div class="banco-body">
+            <!-- ✅ Monto destacado: lo primero que se necesita saber -->
+            <div v-if="resumenActual.total" class="banco-monto">
+              <span class="banco-monto-label">Monto a transferir</span>
+              <div class="banco-monto-valores">
+                <strong class="banco-monto-usd">{{ resumenActual.total }}</strong>
+                <span v-if="resumenActual.totalBs" class="banco-monto-bs">{{ resumenActual.totalBs }}</span>
+              </div>
+            </div>
+
+            <!-- Pago Móvil -->
+            <div class="banco-bloque">
+              <p class="banco-bloque-titulo">
+                <Smartphone :size="13" /> Pago Móvil
+              </p>
+              <div class="banco-fila">
+                <span class="banco-label">Banco</span>
+                <span class="banco-valor">{{ datosBancarios.pagoMovil.banco }}</span>
+              </div>
+              <div class="banco-fila">
+                <span class="banco-label">Teléfono</span>
+                <button
+                  type="button"
+                  class="banco-copiar mono"
+                  title="Copiar teléfono"
+                  @click="copiarDato(datosBancarios.pagoMovil.telefono, 'Teléfono')"
+                >
+                  {{ datosBancarios.pagoMovil.telefono }} <Copy :size="12" />
+                </button>
+              </div>
+              <div class="banco-fila">
+                <span class="banco-label">Cédula / RIF</span>
+                <button
+                  type="button"
+                  class="banco-copiar mono"
+                  title="Copiar cédula"
+                  @click="copiarDato(datosBancarios.pagoMovil.cedula, 'Cédula')"
+                >
+                  {{ datosBancarios.pagoMovil.cedula }} <Copy :size="12" />
+                </button>
+              </div>
+            </div>
+
+            <!-- Transferencia -->
+            <div class="banco-bloque">
+              <p class="banco-bloque-titulo">
+                <ArrowRightLeft :size="13" /> Transferencia
+              </p>
+              <div class="banco-fila">
+                <span class="banco-label">Banco</span>
+                <span class="banco-valor">
+                  {{ datosBancarios.bancoPrincipal.codigo }} {{ datosBancarios.bancoPrincipal.nombre }}
+                </span>
+              </div>
+              <div class="banco-fila">
+                <span class="banco-label">Cuenta</span>
+                <button
+                  type="button"
+                  class="banco-copiar mono"
+                  title="Copiar número de cuenta"
+                  @click="copiarDato(datosBancarios.bancoPrincipal.cuenta, 'Número de cuenta')"
+                >
+                  {{ datosBancarios.bancoPrincipal.cuenta }} <Copy :size="12" />
+                </button>
+              </div>
+              <div class="banco-fila">
+                <span class="banco-label">RIF</span>
+                <button
+                  type="button"
+                  class="banco-copiar mono"
+                  title="Copiar RIF"
+                  @click="copiarDato(datosBancarios.rif, 'RIF')"
+                >
+                  {{ datosBancarios.rif }} <Copy :size="12" />
+                </button>
+              </div>
+            </div>
+
+            <div v-if="datosBancarios.nota" class="banco-nota">
+              <Info :size="13" />
+              <span>{{ datosBancarios.nota }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ Resumen (siempre visible, todos los pasos) ═══ -->
         <div class="summary-card">
           <header class="summary-card-header">
             <h4>Resumen de tu reserva</h4>
@@ -806,13 +899,16 @@ import {
   Check, ChevronLeft, ChevronRight, Clock, PawPrint, Stethoscope,
   CreditCard, CalendarDays, ClipboardList, MessageSquare, CircleDot,
   DollarSign, Lock, AlertTriangle, X, ArrowLeft, ArrowRight,
-  LayoutDashboard, Download, Receipt, Sparkles, Inbox, Search
+  LayoutDashboard, Download, Receipt, Sparkles, Inbox, Search,
+  Landmark, Smartphone, ArrowRightLeft, Info, Copy,
 } from 'lucide-vue-next'
 import { getMisMascotas } from '@/api/mascotas.api'
 import { getServicios, getVeterinarios, getDisponibilidad, solicitarCita } from '@/api/citas.api'
-import { getMetodosOnline, procesarPagoCita, descargarFactura } from '@/api/pagos.api'
+import { getMetodosOnline, procesarPagoCita, descargarFactura, getDatosBancarios } from '@/api/pagos.api'
 import { useToast } from '@/composables/useToast'
 import ToastContainer from '@/components/ui/ToastContainer.vue'
+import PetAvatar from '@/components/ui/PetAvatar.vue'
+import EntityAvatar from '@/components/ui/EntityAvatar.vue'
 
 const router = useRouter()
 const { toastSuccess, toastError } = useToast()
@@ -820,7 +916,6 @@ const { toastSuccess, toastError } = useToast()
 const DIAS_SEMANA = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 const MAX_MONTHS_AHEAD = 3
-const PALETA_AVATARES = ['#0F766E', '#3B82F6', '#F59E0B', '#F43F5E', '#8B5CF6', '#0EA5E9']
 
 // Umbrales para el comportamiento adaptativo
 const UMBRAL_BUSQUEDA = 5
@@ -878,6 +973,8 @@ const selectedVeterinario = ref(null)
 const selectedServicio = ref(null)
 const motivoConsulta = ref('')
 const stepErrors = ref({})
+const datosBancarios = ref(null)
+
 
 // Búsqueda y filtros adaptativos
 const busquedaMascota = ref('')
@@ -1082,23 +1179,6 @@ watch(currentStep, () => {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 })
 
-// ─── Helpers de avatar ───
-function colorAvatar(nombre) {
-  let hash = 0
-  for (const caracter of String(nombre || '')) hash = (hash * 31 + caracter.charCodeAt(0)) % 997
-  return PALETA_AVATARES[hash % PALETA_AVATARES.length]
-}
-function inicialNombre(nombre) {
-  return String(nombre || '?').trim().charAt(0).toUpperCase() || '?'
-}
-function inicialesNombre(nombre) {
-  const cleaned = String(nombre || '').replace(/^(Dra?\.?|Dr\.?)\s*/i, '').trim()
-  if (!cleaned) return '?'
-  const words = cleaned.split(/\s+/).filter(Boolean)
-  if (words.length === 1) return words[0].charAt(0).toUpperCase()
-  return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase()
-}
-
 // Mensaje de error unificado (el backend usa "mensaje" o "message" según el handler)
 function mensajeError(err, fallback) {
   const d = err?.response?.data
@@ -1284,7 +1364,9 @@ async function confirmarSeleccion() {
     }
     pagoError.value = null
     currentStep.value = 3
-    await loadMetodosPago()
+    // En paralelo: métodos + reintento silencioso de datos bancarios
+    // (si onMounted ya los cargó, el guard evita el fetch duplicado)
+    await Promise.all([loadMetodosPago(), cargarDatosBancarios()])
   } catch (err) {
     console.error('Error al solicitar cita:', err)
     const msg = mensajeError(err, '')
@@ -1439,8 +1521,44 @@ function onBeforeUnload(e) {
   }
 }
 
+// ─── Datos bancarios de la clínica ───
+// Guard anti-fetch-duplicado: si ya cargaron (desde onMounted), la
+// llamada desde confirmarSeleccion() es un no-op. Si el fetch inicial
+// falló (datosBancarios queda en null), el guard NO bloquea el reintento.
+async function cargarDatosBancarios() {
+  if (datosBancarios.value) return
+  try {
+    const { data } = await getDatosBancarios()
+    datosBancarios.value = data
+  } catch {
+    datosBancarios.value = null
+  }
+}
+
+// ─── Copiar al portapapeles (con fallback para HTTP/navegadores viejos) ───
+async function copiarDato(texto, etiqueta) {
+  const valor = String(texto || '').trim()
+  if (!valor) return
+  try {
+    await navigator.clipboard.writeText(valor)
+    toastSuccess(`${etiqueta} copiado al portapapeles`)
+  } catch {
+    // navigator.clipboard solo existe en contextos seguros (HTTPS).
+    // Fallback con textarea invisible para despliegues HTTP.
+    const tmp = document.createElement('textarea')
+    tmp.value = valor
+    tmp.style.cssText = 'position:fixed;opacity:0;pointer-events:none'
+    document.body.appendChild(tmp)
+    tmp.select()
+    document.execCommand('copy')
+    tmp.remove()
+    toastSuccess(`${etiqueta} copiado al portapapeles`)
+  }
+}
+
 onMounted(() => {
   loadInitialData()
+  cargarDatosBancarios()
   window.addEventListener('beforeunload', onBeforeUnload)
 })
 
@@ -1450,6 +1568,7 @@ onUnmounted(() => {
   if (shakeTimer) clearTimeout(shakeTimer)
 })
 </script>
+
 <style scoped>
 /* ═══ CONTENEDOR ═══ */
 .appointment-view {
@@ -1463,15 +1582,15 @@ button { font-family: inherit; }
 
 /* ═══ HERO ═══ */
 .wizard-hero {
-  position: relative;              /* NUEVO */
-  overflow: hidden;                /* NUEVO */
+  position: relative;
+  overflow: hidden;
   padding: 26px 28px;
   margin-bottom: 16px;
   background: linear-gradient(135deg, #F0FDFA 0%, #FFFFFF 55%);
   border: 1px solid #CCFBF1;
   border-radius: 16px;
 }
-.wizard-hero::after {              /* NUEVO: decoración radial */
+.wizard-hero::after {
   content: '';
   position: absolute;
   right: -60px;
@@ -1596,15 +1715,35 @@ button { font-family: inherit; }
 .wizard-layout.is-success { grid-template-columns: 1fr; }
 .wizard-main { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
 
-/* ═══ SIDEBAR ═══ */
-.summary-card {
+/* ═══ ✅ SIDEBAR — el sticky vive en el WRAPPER ═══
+   Ambas cards viajan juntas al hacer scroll y, si el contenido
+   excede el viewport, scrollean internamente. Esto elimina el
+   tapado entre .summary-card y .banco-card. */
+.wizard-sidebar {
   position: sticky;
   top: 24px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 transparent;
+}
+.wizard-sidebar::-webkit-scrollbar { width: 6px; }
+.wizard-sidebar::-webkit-scrollbar-track { background: transparent; }
+.wizard-sidebar::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+.wizard-sidebar::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+.summary-card {
   background: #fff;
   border: 1px solid #E2E8F0;
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .03), 0 10px 15px -3px rgba(0, 0, 0, .04);
+  flex-shrink: 0;
 }
 .summary-card-header { padding: 18px 20px 14px; border-bottom: 1px solid #F1F5F9; }
 .summary-card-header h4 { margin: 0 0 2px; font-size: 14.5px; font-weight: 700; color: #0F172A; }
@@ -1880,21 +2019,6 @@ button { font-family: inherit; }
   background: #F0FDFA;
   box-shadow: 0 0 0 3px rgba(15, 118, 110, .1);
 }
-.pick-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 11px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: 700;
-  font-size: 17px;
-  flex-shrink: 0;
-  box-shadow: 0 4px 10px -3px rgba(15, 23, 42, .12);
-  letter-spacing: -0.02em;
-}
-.pick-avatar-vet { font-size: 14px; letter-spacing: .3px; }
 .pick-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .pick-name {
   font-size: 14px;
@@ -2523,9 +2647,9 @@ button { font-family: inherit; }
   color: #0F172A;
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 }
-.factura-value.is-text { font-family: inherit; font-weight: 600; }        /* NUEVO */
-.factura-info-row.fila-total { border-top: 1px solid #E2E8F0; padding-top: 12px; } /* NUEVO */
-.factura-total { color: #0F766E; font-size: 15px; }                        /* NUEVO */
+.factura-value.is-text { font-family: inherit; font-weight: 600; }
+.factura-info-row.fila-total { border-top: 1px solid #E2E8F0; padding-top: 12px; }
+.factura-total { color: #0F766E; font-size: 15px; }
 .factura-status {
   font-size: 11.5px;
   font-weight: 700;
@@ -2562,7 +2686,7 @@ button { font-family: inherit; }
   transform: translateY(-1px);
   box-shadow: 0 6px 20px -6px rgba(15, 118, 110, .4);
 }
-.btn-download:disabled { opacity: .6; cursor: not-allowed; transform: none; } /* NUEVO */
+.btn-download:disabled { opacity: .6; cursor: not-allowed; transform: none; }
 .btn-history {
   display: inline-flex;
   align-items: center;
@@ -2598,22 +2722,22 @@ button { font-family: inherit; }
 }
 .btn-back-dashboard:hover { background: #F1F5F9; color: #0F766E; }
 
-/* ═══ STEP ACTIONS (ahora flotante con blur) ═══ */
+/* ═══ STEP ACTIONS (flotante con blur) ═══ */
 .step-actions {
-  position: sticky;                              /* NUEVO */
-  bottom: 16px;                                  /* NUEVO */
-  z-index: 10;                                   /* NUEVO */
+  position: sticky;
+  bottom: 16px;
+  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-top: 20px;
   padding: 14px 20px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, .92);          /* MODIFICADO */
-  backdrop-filter: blur(10px);                   /* NUEVO */
-  -webkit-backdrop-filter: blur(10px);           /* NUEVO */
+  background: rgba(255, 255, 255, .92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid #E2E8F0;
-  box-shadow: 0 12px 32px -12px rgba(15, 23, 42, .18); /* MODIFICADO */
+  box-shadow: 0 12px 32px -12px rgba(15, 23, 42, .18);
   gap: 12px;
   flex-wrap: wrap;
 }
@@ -2644,7 +2768,7 @@ button { font-family: inherit; }
   border-color: #FECACA;
   color: #EF4444;
 }
-.btn-cancel.is-armed {                          /* NUEVO */
+.btn-cancel.is-armed {
   background: #FEF2F2;
   border-color: #DC2626;
   color: #DC2626;
@@ -2655,7 +2779,7 @@ button { font-family: inherit; }
   color: #475569;
 }
 .btn-back:hover:not(:disabled) { background: #F8FAFC; border-color: #CBD5E1; }
-.btn-back:disabled { opacity: .6; cursor: not-allowed; } /* NUEVO */
+.btn-back:disabled { opacity: .6; cursor: not-allowed; }
 .btn-next {
   background: #0F766E;
   border: none;
@@ -2667,8 +2791,8 @@ button { font-family: inherit; }
   box-shadow: 0 6px 16px -4px rgba(15, 118, 110, .4);
 }
 .btn-next:disabled { opacity: .5; cursor: not-allowed; }
-.btn-next.is-shake { animation: shake .45s ease; } /* NUEVO */
-@keyframes shake {                               /* NUEVO */
+.btn-next.is-shake { animation: shake .45s ease; }
+@keyframes shake {
   0%, 100% { transform: translateX(0); }
   20% { transform: translateX(-5px); }
   40% { transform: translateX(5px); }
@@ -2676,7 +2800,7 @@ button { font-family: inherit; }
   80% { transform: translateX(3px); }
 }
 
-/* ═══ FOCUS VISIBLE (accesibilidad teclado) ═══ NUEVO */
+/* ═══ FOCUS VISIBLE (accesibilidad teclado) ═══ */
 .pick-card:focus-visible,
 .service-item:focus-visible,
 .slot-btn:focus-visible,
@@ -2709,10 +2833,125 @@ button { font-family: inherit; }
 .expand-enter-from,
 .expand-leave-to { opacity: 0; transform: translateY(-6px); }
 
+/* ═══ Datos bancarios ═══ */
+.banco-card {
+  background: #fff;
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .03);
+  flex-shrink: 0;
+}
+.banco-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 18px;
+  background: #F8FAFC;
+  border-bottom: 1px solid #E2E8F0;
+}
+.banco-icon {
+  width: 34px; height: 34px; border-radius: 9px;
+  background: #EFF6FF; color: #2563EB;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.banco-title { margin: 0; font-size: 14px; font-weight: 700; color: #0F172A; }
+.banco-sub { margin: 2px 0 0; font-size: 11.5px; color: #64748B; }
+.banco-body { padding: 14px 18px 16px; display: flex; flex-direction: column; gap: 14px; }
+
+.banco-bloque { display: flex; flex-direction: column; gap: 6px; }
+.banco-bloque-titulo {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin: 0 0 4px;
+  font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .5px;
+  color: #2563EB;
+}
+.banco-fila {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; font-size: 12.5px;
+  padding: 6px 0;
+  border-bottom: 1px dashed #F1F5F9;
+}
+.banco-fila:last-child { border-bottom: none; }
+.banco-label { color: #64748B; font-weight: 500; flex-shrink: 0; }
+.banco-valor {
+  color: #0F172A; font-weight: 700;
+  text-align: right; word-break: break-word; min-width: 0;
+}
+.banco-valor.mono,
+.banco-copiar.mono {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+.banco-nota {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 10px 12px;
+  background: #FFFBEB; color: #92400E;
+  border: 1px solid #FDE68A; border-radius: 8px;
+  font-size: 11.5px; line-height: 1.45;
+}
+.banco-nota svg { flex-shrink: 0; margin-top: 1px; }
+
+/* ─── ✅ Botón copiar: transcribir a mano genera referencias erróneas ─── */
+.banco-copiar {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: 1px dashed transparent;
+  border-radius: 6px;
+  padding: 3px 7px;
+  color: #0F172A;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.banco-copiar svg { color: #94A3B8; transition: color .15s ease; }
+.banco-copiar:hover {
+  background: #EFF6FF;
+  border-color: #BFDBFE;
+  color: #2563EB;
+}
+.banco-copiar:hover svg { color: #2563EB; }
+.banco-copiar:active { transform: scale(.96); }
+.banco-copiar:focus-visible {
+  outline: none;
+  border-color: #2563EB;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .15);
+}
+
+/* ─── ✅ Monto a transferir ─── */
+.banco-monto {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, #F0FDFA 0%, #ECFDF5 100%);
+  border: 1px solid #99F6E4;
+  border-radius: 10px;
+}
+.banco-monto-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: #0F766E;
+}
+.banco-monto-valores { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.banco-monto-usd { font-size: 16px; font-weight: 800; color: #0F766E; letter-spacing: -.01em; }
+.banco-monto-bs { font-size: 11.5px; font-weight: 600; color: #64748B; }
+
 /* ═══ RESPONSIVE ═══ */
 @media (max-width: 1024px) {
   .wizard-layout { grid-template-columns: 1fr; }
-  .summary-card { position: static; }
+  .wizard-sidebar {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
 }
 @media (max-width: 768px) {
   .appointment-view { padding: 16px; }
@@ -2761,7 +3000,7 @@ button { font-family: inherit; }
   .chip-count { min-width: 18px; height: 16px; font-size: 10px; }
 }
 
-/* ═══ MOVIMIENTO REDUCIDO ═══ NUEVO */
+/* ═══ MOVIMIENTO REDUCIDO ═══ */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: .01ms !important;
@@ -2769,5 +3008,4 @@ button { font-family: inherit; }
     transition-duration: .01ms !important;
   }
 }
-
 </style>

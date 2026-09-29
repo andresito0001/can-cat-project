@@ -1,8 +1,11 @@
 package com.udo.can_cat.mascotas.application.service;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Objects;
 import com.udo.can_cat.atenciones.domain.exception.MascotaNoEncontradaException;
+import com.udo.can_cat.mascotas.application.dto.ActualizarMascotaRequestDTO;
 import com.udo.can_cat.mascotas.application.dto.MascotaRegistradaResponseDTO;
 import com.udo.can_cat.mascotas.application.dto.RegistrarMascotaRequestDTO;
 import com.udo.can_cat.mascotas.domain.entity.Especie;
@@ -45,34 +48,25 @@ public class MascotaApplicationService {
         this.usuarioRepository = usuarioRepository;
     }
 
+    // ═══════════════════════════════════════════════════════
+    // CREAR
+    // ═══════════════════════════════════════════════════════
+
     @Transactional
     public MascotaRegistradaResponseDTO registrarMascota(RegistrarMascotaRequestDTO request,
                                                           UsuarioAutenticado usuarioAutenticado) {
-        // 1. Resolver el cliente según el rol
-        ClienteId clienteId = resolverClienteId(request, usuarioAutenticado);
+        ClienteId clienteId = resolverClienteId(request.documentoIdentidadCliente(), usuarioAutenticado);
 
-        // 2. Validar que la especie existe
         Especie especie = especieRepository.findById(new EspecieId(request.idEspecie()))
                 .orElseThrow(() -> new MascotaRegistrationException("La especie especificada no existe"));
 
-        // 3. Validar raza si se proporcionó (y su coherencia con la especie)
-        Raza raza = null;
-        if (request.idRaza() != null) {
-            raza = razaRepository.findById(new RazaId(request.idRaza()))
-                    .orElseThrow(() -> new MascotaRegistrationException("La raza especificada no existe"));
+        Raza raza = validarRaza(request.idRaza(), request.idEspecie());
 
-            if (!raza.getEspecieId().equals(new EspecieId(request.idEspecie()))) {
-                throw new MascotaRegistrationException(
-                        "La raza '" + raza.getNombre() + "' no pertenece a la especie seleccionada");
-            }
-        }
-
-        // 4. Validar fecha de nacimiento
         if (request.fechaNacimiento() != null && request.fechaNacimiento().isAfter(LocalDate.now())) {
             throw new MascotaRegistrationException("La fecha de nacimiento no puede ser futura");
         }
 
-        boolean duplicada = mascotaRepository.findByClienteId(clienteId).stream()
+        boolean duplicada = mascotaRepository.findAllByClienteId(clienteId).stream()
                 .filter(Mascota::isActivo)
                 .anyMatch(m -> normalizar(m.getNombre()).equals(normalizar(request.nombre())));
 
@@ -82,12 +76,11 @@ public class MascotaApplicationService {
                     + "\". Usa un nombre distinto o revisa si ya está registrada.");
         }
 
-        // 5. Crear entidad de dominio
         Mascota mascota = Mascota.crear(
                 clienteId,
                 new EspecieId(request.idEspecie()),
                 request.idRaza() != null ? new RazaId(request.idRaza()) : null,
-                request.nombre(),
+                request.nombre().trim(),
                 request.fechaNacimiento(),
                 Sexo.valueOf(request.sexo()),
                 request.color(),
@@ -95,78 +88,104 @@ public class MascotaApplicationService {
                 Boolean.TRUE.equals(request.esterilizado())
         );
 
-        // 6. Persistir
-        Mascota mascotaGuardada = mascotaRepository.save(mascota);
-
-        // 7. Obtener nombre del cliente para la respuesta
+        Mascota guardada = mascotaRepository.save(mascota);
         Cliente cliente = clienteRepository.findById(clienteId)
                 .orElseThrow(() -> new MascotaRegistrationException("Cliente no encontrado"));
 
-        // 8. Construir respuesta
-        return construirRespuesta(mascotaGuardada, cliente, especie, raza);
+        return construirRespuesta(guardada, cliente, especie, raza);
     }
 
-    private ClienteId resolverClienteId(RegistrarMascotaRequestDTO request,
-                                        UsuarioAutenticado usuarioAutenticado) {
-        return switch (usuarioAutenticado.rol()) {
-            case "Cliente" -> {
-                if (request.documentoIdentidadCliente() != null) {
-                    throw new MascotaRegistrationException(
-                            "Un cliente no puede especificar un documento de identidad");
-                }
-                
-                Usuario usuario = usuarioRepository.findByCorreoElectronico(usuarioAutenticado.correo())
-                        .orElseThrow(() -> new MascotaRegistrationException(
-                                "Usuario autenticado no encontrado en el sistema"));
-                
-                        
-                yield clienteRepository.findByUsuarioId(usuario.getId())
-                        .map(Cliente::getId)
-                        .orElseThrow(() -> new MascotaRegistrationException(
-                                "No se encontró un perfil de cliente asociado a su usuario"));
-            }
-            case "Recepcionista" -> {
-                if (request.documentoIdentidadCliente() == null 
-                        || request.documentoIdentidadCliente().isBlank()) {
-                    throw new MascotaRegistrationException(
-                            "Debe ingresar el documento de identidad del cliente dueño de la mascota");
-                }
-                yield clienteRepository.findByDocumentoIdentidad(
-                                request.documentoIdentidadCliente().trim())
-                        .map(Cliente::getId)
-                        .orElseThrow(() -> new MascotaRegistrationException(
-                                "No existe un cliente registrado con el documento: " 
-                                        + request.documentoIdentidadCliente()));
-            }
+    // ═══════════════════════════════════════════════════════
+    // ACTUALIZAR
+    // ═══════════════════════════════════════════════════════
+
+    @Transactional
+    public MascotaRegistradaResponseDTO actualizarMascota(Integer mascotaId,
+                                                          ActualizarMascotaRequestDTO request,
+                                                          UsuarioAutenticado usuarioAutenticado) {
+        Mascota mascota = mascotaRepository.findById(new Mascota.MascotaId(mascotaId))
+                .orElseThrow(() -> new MascotaNoEncontradaException(mascotaId));
+
+        validarPropiedad(mascota, usuarioAutenticado);
+
+        Especie especie = especieRepository.findById(new EspecieId(request.idEspecie()))
+                .orElseThrow(() -> new MascotaRegistrationException("La especie especificada no existe"));
+
+        Raza raza = validarRaza(request.idRaza(), request.idEspecie());
+
+        if (request.fechaNacimiento() != null && request.fechaNacimiento().isAfter(LocalDate.now())) {
+            throw new MascotaRegistrationException("La fecha de nacimiento no puede ser futura");
+        }
+
+        // Duplicado: misma regla, pero excluyendo la propia mascota
+        boolean duplicada = mascotaRepository.findAllByClienteId(mascota.getClienteId()).stream()
+                .filter(Mascota::isActivo)
+                .filter(m -> !m.getId().value().equals(mascotaId))
+                .anyMatch(m -> normalizar(m.getNombre()).equals(normalizar(request.nombre())));
+
+        if (duplicada) {
+            throw new MascotaRegistrationException(
+                    "Ya tienes otra mascota llamada \"" + request.nombre().trim() + "\".");
+        }
+
+        mascota.setNombre(request.nombre().trim());
+        mascota.setEspecieId(new EspecieId(request.idEspecie()));
+        mascota.setRazaId(request.idRaza() != null ? new RazaId(request.idRaza()) : null);
+        mascota.setFechaNacimiento(request.fechaNacimiento());
+        mascota.setSexo(Sexo.valueOf(request.sexo()));
+        mascota.setColor(request.color());
+        mascota.setPesoActual(request.pesoActual());
+        mascota.setEsterilizado(Boolean.TRUE.equals(request.esterilizado()));
+
+        Mascota guardada = mascotaRepository.save(mascota);
+        Cliente cliente = clienteRepository.findById(mascota.getClienteId())
+                .orElseThrow(() -> new MascotaRegistrationException("Cliente no encontrado"));
+
+        return construirRespuesta(guardada, cliente, especie, raza);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // CAMBIAR ESTADO (Activa / Inactiva / Fallecida)
+    // ═══════════════════════════════════════════════════════
+
+    @Transactional
+    public MascotaRegistradaResponseDTO cambiarEstado(Integer mascotaId,
+                                                       String nuevoEstado,
+                                                       UsuarioAutenticado usuarioAutenticado) {
+        Mascota mascota = mascotaRepository.findById(new Mascota.MascotaId(mascotaId))
+                .orElseThrow(() -> new MascotaNoEncontradaException(mascotaId));
+
+        validarPropiedad(mascota, usuarioAutenticado);
+
+        switch (nuevoEstado) {
+            case "Activa" -> mascota.reactivar();
+            case "Inactiva" -> mascota.desactivar();
+            case "Fallecida" -> mascota.marcarComoFallecida();
             default -> throw new MascotaRegistrationException(
-                    "Su rol no tiene permisos para registrar mascotas");
-        };
+                    "Estado inválido: " + nuevoEstado);
+        }
+
+        Mascota guardada = mascotaRepository.save(mascota);
+        Cliente cliente = clienteRepository.findById(mascota.getClienteId())
+                .orElseThrow(() -> new MascotaRegistrationException("Cliente no encontrado"));
+        Especie especie = especieRepository.findById(mascota.getEspecieId()).orElse(null);
+        Raza raza = mascota.getRazaId() != null
+                ? razaRepository.findById(mascota.getRazaId()).orElse(null)
+                : null;
+
+        return construirRespuesta(guardada, cliente, especie, raza);
     }
 
-    private MascotaRegistradaResponseDTO construirRespuesta(Mascota mascota, Cliente cliente,
-                                                            Especie especie, Raza raza) {
-        return new MascotaRegistradaResponseDTO(
-                mascota.getId().value(),
-                mascota.getClienteId().value(),
-                cliente.getNombreCompleto(),
-                mascota.getEspecieId().value(),
-                especie.getNombre(),
-                raza != null ? raza.getId().value() : null,
-                raza != null ? raza.getNombre() : null,
-                mascota.getNombre(),
-                mascota.getFechaNacimiento(),
-                mascota.getSexo().name(),
-                mascota.getColor(),
-                mascota.getPesoActual(),
-                mascota.isEsterilizado(),
-                mascota.isActivo(),
-                mascota.getCreatedAt()
-        );
-    }
+    // ═══════════════════════════════════════════════════════
+    // LISTADOS
+    // ═══════════════════════════════════════════════════════
 
-    public List<MascotaRegistradaResponseDTO> listarMascotasDeCliente(UsuarioAutenticado usuarioAutenticado) {
+    public List<MascotaRegistradaResponseDTO> listarMascotasDeCliente(
+            UsuarioAutenticado usuarioAutenticado,
+            boolean incluirArchivadas) {
+
         if (!"Cliente".equals(usuarioAutenticado.rol())) {
-                throw new MascotaRegistrationException("Este endpoint es solo para clientes");
+            throw new MascotaRegistrationException("Este endpoint es solo para clientes");
         }
 
         Usuario usuario = usuarioRepository.findByCorreoElectronico(usuarioAutenticado.correo())
@@ -176,84 +195,155 @@ public class MascotaApplicationService {
                 .map(Cliente::getId)
                 .orElseThrow(() -> new MascotaRegistrationException("Perfil de cliente no encontrado"));
 
-        return mascotaRepository.findByClienteId(clienteId).stream()
+        Cliente cliente = clienteRepository.findById(clienteId)
+                .orElseThrow(() -> new MascotaRegistrationException("Cliente no encontrado"));
+
+        List<Mascota> mascotas = incluirArchivadas
+                ? mascotaRepository.findAllByClienteId(clienteId)
+                : mascotaRepository.findByClienteId(clienteId);
+
+        return mascotas.stream()
                 .map(mascota -> {
-                        Especie especie = especieRepository.findById(mascota.getEspecieId()).orElse(null);
-                        Raza raza = mascota.getRazaId() != null
-                                ? razaRepository.findById(mascota.getRazaId()).orElse(null)
-                                : null;
-                        Cliente cliente = clienteRepository.findById(clienteId).orElse(null);
-                        return construirRespuesta(mascota, cliente, especie, raza);
+                    Especie especie = especieRepository.findById(mascota.getEspecieId()).orElse(null);
+                    Raza raza = mascota.getRazaId() != null
+                            ? razaRepository.findById(mascota.getRazaId()).orElse(null)
+                            : null;
+                    return construirRespuesta(mascota, cliente, especie, raza);
                 })
                 .toList();
-        }
+    }
 
-        // En MascotaApplicationService:
-        @Transactional(readOnly = true)
-        public List<MascotaRegistradaResponseDTO> listarMascotasPorIdCliente(Integer idCliente) {
-                Cliente cliente = clienteRepository.findById(new Cliente.ClienteId(idCliente))
-                        .orElseThrow(() -> new MascotaRegistrationException("Cliente no encontrado"));
+    @Transactional(readOnly = true)
+    public List<MascotaRegistradaResponseDTO> listarMascotasPorIdCliente(Integer idCliente,
+                                                                         boolean incluirArchivadas) {
+        Cliente cliente = clienteRepository.findById(new Cliente.ClienteId(idCliente))
+                .orElseThrow(() -> new MascotaRegistrationException("Cliente no encontrado"));
 
-                return mascotaRepository.findByClienteId(cliente.getId()).stream()
-                        .map(mascota -> construirRespuesta(
-                                mascota, cliente,
-                                especieRepository.findById(mascota.getEspecieId()).orElse(null),
-                                mascota.getRazaId() != null
-                                        ? razaRepository.findById(mascota.getRazaId()).orElse(null)
-                                        : null))
-                        .toList();
-        }
+        List<Mascota> mascotas = incluirArchivadas
+                ? mascotaRepository.findAllByClienteId(cliente.getId())
+                : mascotaRepository.findByClienteId(cliente.getId());
 
-        @Transactional
-        public void eliminarMascota(Integer mascotaId, Integer usuarioAutenticadoId) {
-            Mascota mascota = mascotaRepository.findById(new Mascota.MascotaId(mascotaId))
-                    .orElseThrow(() -> new MascotaNoEncontradaException(
-                            "Mascota no encontrada con id: " + mascotaId));
-
-            // Verificar que la mascota pertenece al cliente autenticado
-            Cliente cliente = clienteRepository.findByUsuarioId(new UsuarioId(usuarioAutenticadoId))
-                    .orElseThrow(() -> new RuntimeException("Cliente no encontrado para el usuario"));
-
-            if (!mascota.getClienteId().value().equals(cliente.getId().value())) {
-                throw new AccessDeniedException("No puedes eliminar una mascota que no te pertenece");
-            }
-
-            // Soft delete
-            mascota.desactivar();
-            mascotaRepository.save(mascota);
-        }
-
-        @Transactional(readOnly = true)
-        public List<MascotaRegistradaResponseDTO> getMisMascotas(Integer usuarioAutenticadoId) {
-            Cliente cliente = clienteRepository.findByUsuarioId(new UsuarioId(usuarioAutenticadoId))
-                    .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
-
-            return mascotaRepository.findByClienteId(cliente.getId()).stream()
-                    .filter(Mascota::isActivo)
-                    .map(mascota -> {
-                        Especie especie = especieRepository.findById(mascota.getEspecieId())
-                                .orElse(null);
-                        Raza raza = mascota.getRazaId() != null
+        return mascotas.stream()
+                .map(mascota -> construirRespuesta(
+                        mascota, cliente,
+                        especieRepository.findById(mascota.getEspecieId()).orElse(null),
+                        mascota.getRazaId() != null
                                 ? razaRepository.findById(mascota.getRazaId()).orElse(null)
-                                : null;
-                        return construirRespuesta(mascota, cliente, especie, raza);
-                    })
-                    .toList();
-        }
+                                : null))
+                .toList();
+    }
 
-    // Record para encapsular los datos del usuario autenticado que necesita el servicio
+    @Transactional(readOnly = true)
+    public List<MascotaRegistradaResponseDTO> getMisMascotas(Integer usuarioAutenticadoId,
+                                                             boolean incluirArchivadas) {
+        Cliente cliente = clienteRepository.findByUsuarioId(new UsuarioId(usuarioAutenticadoId))
+                .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+
+        List<Mascota> mascotas = incluirArchivadas
+                ? mascotaRepository.findAllByClienteId(cliente.getId())
+                : mascotaRepository.findByClienteId(cliente.getId());
+
+        return mascotas.stream()
+                .map(mascota -> {
+                    Especie especie = especieRepository.findById(mascota.getEspecieId()).orElse(null);
+                    Raza raza = mascota.getRazaId() != null
+                            ? razaRepository.findById(mascota.getRazaId()).orElse(null)
+                            : null;
+                    return construirRespuesta(mascota, cliente, especie, raza);
+                })
+                .toList();
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // HELPERS
+    // ═══════════════════════════════════════════════════════
+
+    private Raza validarRaza(Integer idRaza, Integer idEspecie) {
+        if (idRaza == null) return null;
+        Raza raza = razaRepository.findById(new RazaId(idRaza))
+                .orElseThrow(() -> new MascotaRegistrationException("La raza especificada no existe"));
+        if (!raza.getEspecieId().equals(new EspecieId(idEspecie))) {
+            throw new MascotaRegistrationException(
+                    "La raza '" + raza.getNombre() + "' no pertenece a la especie seleccionada");
+        }
+        return raza;
+    }
+
+    private void validarPropiedad(Mascota mascota, UsuarioAutenticado usuarioAutenticado) {
+        if ("Cliente".equals(usuarioAutenticado.rol())) {
+            Usuario usuario = usuarioRepository.findByCorreoElectronico(usuarioAutenticado.correo())
+                    .orElseThrow(() -> new MascotaRegistrationException("Usuario no encontrado"));
+            ClienteId clienteId = clienteRepository.findByUsuarioId(usuario.getId())
+                    .map(Cliente::getId)
+                    .orElseThrow(() -> new MascotaRegistrationException("Cliente no encontrado"));
+            if (!Objects.equals(mascota.getClienteId().value(), clienteId.value())) {
+                throw new AccessDeniedException("Esta mascota no te pertenece");
+            }
+        }
+        // Recepcionista/Vet/Admin: sin restricción
+    }
+
+    private ClienteId resolverClienteId(String documentoIdentidadCliente,
+                                        UsuarioAutenticado usuarioAutenticado) {
+        return switch (usuarioAutenticado.rol()) {
+            case "Cliente" -> {
+                if (documentoIdentidadCliente != null) {
+                    throw new MascotaRegistrationException(
+                            "Un cliente no puede especificar un documento de identidad");
+                }
+                Usuario usuario = usuarioRepository.findByCorreoElectronico(usuarioAutenticado.correo())
+                        .orElseThrow(() -> new MascotaRegistrationException("Usuario no encontrado"));
+                yield clienteRepository.findByUsuarioId(usuario.getId())
+                        .map(Cliente::getId)
+                        .orElseThrow(() -> new MascotaRegistrationException(
+                                "No se encontró un perfil de cliente asociado a su usuario"));
+            }
+            case "Recepcionista" -> {
+                if (documentoIdentidadCliente == null || documentoIdentidadCliente.isBlank()) {
+                    throw new MascotaRegistrationException(
+                            "Debe ingresar el documento de identidad del cliente");
+                }
+                yield clienteRepository.findByDocumentoIdentidad(documentoIdentidadCliente.trim())
+                        .map(Cliente::getId)
+                        .orElseThrow(() -> new MascotaRegistrationException(
+                                "No existe un cliente con ese documento"));
+            }
+            default -> throw new MascotaRegistrationException(
+                    "Su rol no tiene permisos para registrar mascotas");
+        };
+    }
+
+    private MascotaRegistradaResponseDTO construirRespuesta(Mascota mascota, Cliente cliente,
+                                                             Especie especie, Raza raza) {
+        return new MascotaRegistradaResponseDTO(
+                mascota.getId() != null ? mascota.getId().value() : null,
+                mascota.getClienteId().value(),
+                cliente != null ? cliente.getNombreCompleto() : "—",
+                mascota.getEspecieId().value(),
+                especie != null ? especie.getNombre() : "—",
+                mascota.getRazaId() != null ? mascota.getRazaId().value() : null,
+                raza != null ? raza.getNombre() : null,
+                mascota.getNombre(),
+                mascota.getFechaNacimiento(),
+                mascota.getSexo().name(),
+                mascota.getColor(),
+                mascota.getPesoActual(),
+                mascota.isEsterilizado(),
+                mascota.isActivo(),
+                mascota.isFallecido(),
+                mascota.getCreatedAt()
+        );
+    }
+
     public record UsuarioAutenticado(String correo, String rol) {}
 
-    // Excepción específica del caso de uso
     public static class MascotaRegistrationException extends RuntimeException {
-        public MascotaRegistrationException(String message) {
-            super(message);
-        }
+        public MascotaRegistrationException(String message) { super(message); }
     }
 
     private String normalizar(String str) {
         if (str == null) return "";
         return java.text.Normalizer.normalize(str.trim().toLowerCase(), java.text.Normalizer.Form.NFD)
-            .replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
+                .replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
     }
 }

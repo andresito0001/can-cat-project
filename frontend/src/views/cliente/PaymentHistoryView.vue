@@ -145,6 +145,54 @@ function fmtUsd(v) {
   return `$${n.toFixed(2)}`
 }
 
+/**
+ * Deriva un estado amigable combinando el estado de la cita con el del pago.
+ * Evita mostrar "Pendiente de Pago" cuando el cliente YA pagó y está en verificación.
+ */
+function estadoCitaVisible(pago) {
+  if (!pago) return '—'
+  const cita = pago.estadoCita
+  const pagoEstado = pago.estadoPago
+
+  if (cita === 'Pendiente_Pago') {
+    if (pagoEstado === 'Pendiente_Verificacion') return 'Verificando pago'
+    if (pagoEstado === 'Rechazado') return 'Pago rechazado'
+    return 'Pendiente de pago'
+  }
+  const map = {
+    'Confirmada': 'Confirmada',
+    'En_Atencion': 'En atención',
+    'Completada': 'Completada',
+    'Cancelada': 'Cancelada',
+  }
+  return map[cita] || cita.replaceAll('_', ' ')
+}
+
+function badgeClassCitaVisible(pago) {
+  const estado = estadoCitaVisible(pago)
+  switch (estado) {
+    case 'Confirmada':
+    case 'Completada':
+      return 'verificado'
+    case 'Verificando pago':
+    case 'Pendiente de pago':
+      return 'pendiente'
+    case 'En atención':
+      return 'info'
+    case 'Cancelada':
+    case 'Pago rechazado':
+      return 'rechazado'
+    default:
+      return 'otro'
+  }
+}
+
+function fmtBs(v) {
+  const n = Number(v)
+  if (v == null || Number.isNaN(n)) return '—'
+  return n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 function metodoPagoLabel(m) {
   return m ? String(m).replaceAll('_', ' ') : '—'
 }
@@ -484,11 +532,14 @@ onUnmounted(() => {
               <div class="modal-body">
                 <div class="modal-monto">
                   <span class="monto-label">Monto total</span>
-                  <strong class="monto-valor">{{ fmtUsd(pagoSeleccionado.monto) }}</strong>
+                  <strong class="monto-valor">{{ fmtUsd(pagoSeleccionado.monto) }} USD</strong>
+                  <strong v-if="pagoSeleccionado.montoBs != null" class="monto-valor-bs">
+                    Bs. {{ fmtBs(pagoSeleccionado.montoBs) }}
+                  </strong>
                   <span class="badge" :class="badgeClass(pagoSeleccionado.estadoPago)">
                     {{ etiquetaPago(pagoSeleccionado.estadoPago) }}
                   </span>
-                </div>
+                </div>  
 
                 <div class="detalle-resumen">
                   <div class="detalle-fila">
@@ -510,8 +561,8 @@ onUnmounted(() => {
                   <div v-if="pagoSeleccionado.estadoCita" class="detalle-fila">
                     <span class="detalle-label"><Calendar :size="14" /> Estado de la cita</span>
                     <span class="detalle-valor">
-                      <span class="badge" :class="badgeClassCita(pagoSeleccionado.estadoCita)">
-                        {{ pagoSeleccionado.estadoCita.replaceAll('_', ' ') }}
+                      <span class="badge" :class="badgeClassCitaVisible(pagoSeleccionado)">
+                        {{ estadoCitaVisible(pagoSeleccionado) }}
                       </span>
                     </span>
                   </div>
@@ -1313,4 +1364,20 @@ button { font-family: inherit; }
   .modal-footer .btn-primary,
   .modal-footer .btn-secondary { width: 100%; justify-content: center; }
 }
+
+.badge.info {
+  background: #EFF6FF;
+  color: #2563EB;
+  border-color: #BFDBFE;
+}
+.monto-valor-bs {
+  font-size: 17px;
+  font-weight: 700;
+  color: #334155;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
 </style>

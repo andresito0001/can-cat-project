@@ -157,9 +157,11 @@
                 class="alerta-item"
                 :class="criticidadClass(a)"
               >
-                <div class="alerta-avatar" :data-cat="a.categoria">
-                  {{ inicialNombre(a.nombre) }}
-                </div>
+                <EntityAvatar
+                  :nombre="a.nombre"
+                  :tipo="`producto-${(a.categoria || '').toLowerCase()}`"
+                  size="sm"
+                />
                 <div class="alerta-info">
                   <p class="alerta-nombre">{{ a.nombre }}</p>
                   <p class="alerta-meta">
@@ -257,6 +259,7 @@ import {
   Activity, ArrowUpFromLine, Settings2,
 } from 'lucide-vue-next'
 import ToastContainer from '@/components/ui/ToastContainer.vue'
+import EntityAvatar from '@/components/ui/EntityAvatar.vue'
 import { useAuthStore } from '@/stores/auth.store'
 import { useToast } from '@/composables/useToast'
 import { getProductos, getMovimientos } from '@/api/almacen.api'
@@ -356,10 +359,6 @@ function fmtFechaCorta(iso) {
 
   const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
   return `${d.getDate()} ${MESES[d.getMonth()]}`
-}
-
-function inicialNombre(nombre) {
-  return String(nombre || '?').trim().charAt(0).toUpperCase() || '?'
 }
 
 function criticidadClass(p) {
@@ -760,24 +759,6 @@ button { font-family: inherit; }
   background: #FFFBEB;
   border-color: #FDE68A;
 }
-
-.alerta-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: #0F766E;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 700;
-  flex-shrink: 0;
-  box-shadow: 0 2px 6px -2px rgba(15, 23, 42, .15);
-}
-.alerta-avatar[data-cat="Medicamento"] { background: #3B82F6; }
-.alerta-avatar[data-cat="Alimento"] { background: #F59E0B; }
-.alerta-avatar[data-cat="Accesorio"] { background: #8B5CF6; }
 
 .alerta-info { min-width: 0; }
 .alerta-nombre {

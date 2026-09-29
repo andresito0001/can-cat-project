@@ -1,5 +1,7 @@
 package com.udo.can_cat.mascotas.infrastructure.controller;
 
+import com.udo.can_cat.mascotas.application.dto.ActualizarMascotaRequestDTO;
+import com.udo.can_cat.mascotas.application.dto.CambiarEstadoMascotaRequestDTO;
 import com.udo.can_cat.mascotas.application.dto.MascotaRegistradaResponseDTO;
 import com.udo.can_cat.mascotas.application.dto.RegistrarMascotaRequestDTO;
 import com.udo.can_cat.mascotas.application.service.MascotaApplicationService;
@@ -33,59 +35,75 @@ public class MascotaController {
     public ResponseEntity<MascotaRegistradaResponseDTO> registrarMascota(
             @RequestBody @Valid RegistrarMascotaRequestDTO request,
             HttpServletRequest httpRequest) {
-
         UsuarioAutenticado usuarioAutenticado = obtenerUsuarioAutenticado(httpRequest);
-        MascotaRegistradaResponseDTO response = mascotaService.registrarMascota(request, usuarioAutenticado);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(mascotaService.registrarMascota(request, usuarioAutenticado));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('Cliente', 'Recepcionista')")
+    public ResponseEntity<MascotaRegistradaResponseDTO> actualizarMascota(
+            @PathVariable Integer id,
+            @RequestBody @Valid ActualizarMascotaRequestDTO request,
+            HttpServletRequest httpRequest) {
+        UsuarioAutenticado usuarioAutenticado = obtenerUsuarioAutenticado(httpRequest);
+        return ResponseEntity.ok(mascotaService.actualizarMascota(id, request, usuarioAutenticado));
+    }
+
+    @PatchMapping("/{id}/estado")
+    @PreAuthorize("hasAnyRole('Cliente', 'Recepcionista')")
+    public ResponseEntity<MascotaRegistradaResponseDTO> cambiarEstado(
+            @PathVariable Integer id,
+            @RequestBody @Valid CambiarEstadoMascotaRequestDTO request,
+            HttpServletRequest httpRequest) {
+        UsuarioAutenticado usuarioAutenticado = obtenerUsuarioAutenticado(httpRequest);
+        return ResponseEntity.ok(mascotaService.cambiarEstado(id, request.estado(), usuarioAutenticado));
     }
 
     @GetMapping("/mias")
     @PreAuthorize("hasRole('Cliente')")
     public ResponseEntity<List<MascotaRegistradaResponseDTO>> listarMisMascotas(
+            @RequestParam(name = "incluirArchivadas", required = false, defaultValue = "false")
+            boolean incluirArchivadas,
             HttpServletRequest httpRequest) {
-
         UsuarioAutenticado usuarioAutenticado = obtenerUsuarioAutenticado(httpRequest);
-        return ResponseEntity.ok(mascotaService.listarMascotasDeCliente(usuarioAutenticado));
+        return ResponseEntity.ok(
+                mascotaService.listarMascotasDeCliente(usuarioAutenticado, incluirArchivadas));
     }
 
-    /**
-     * GET /api/mascotas/por-cliente/{idCliente}
-     * CU 4.6.1.11 paso 3: mascotas del cliente seleccionado (rol Recepcionista).
-     */
     @GetMapping("/por-cliente/{idCliente}")
     @PreAuthorize("hasRole('Recepcionista')")
     public ResponseEntity<List<MascotaRegistradaResponseDTO>> listarMascotasPorCliente(
-            @PathVariable Integer idCliente) {
-        return ResponseEntity.ok(mascotaService.listarMascotasPorIdCliente(idCliente));
+            @PathVariable Integer idCliente,
+            @RequestParam(name = "incluirArchivadas", required = false, defaultValue = "false")
+            boolean incluirArchivadas) {
+        return ResponseEntity.ok(
+                mascotaService.listarMascotasPorIdCliente(idCliente, incluirArchivadas));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('Cliente', 'Recepcionista')")
+    public ResponseEntity<Void> eliminarMascota(
+            @PathVariable Integer id,
+            HttpServletRequest httpRequest) {
+        UsuarioAutenticado usuarioAutenticado = obtenerUsuarioAutenticado(httpRequest);
+        mascotaService.cambiarEstado(id, "Inactiva", usuarioAutenticado);
+        return ResponseEntity.noContent().build();
     }
 
     private UsuarioAutenticado obtenerUsuarioAutenticado(HttpServletRequest request) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
         String rol = authentication.getAuthorities().stream()
                 .map(auth -> {
                     String authority = auth.getAuthority();
                     return authority.startsWith("ROLE_") ? authority.substring(5) : authority;
                 })
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("No se pudo determinar el rol del usuario"));
-
-        // Extraer correo desde el token (no del subject)
+                .orElseThrow(() -> new RuntimeException("No se pudo determinar el rol"));
         String bearerToken = request.getHeader("Authorization");
         String token = (bearerToken != null && bearerToken.startsWith("Bearer "))
-                ? bearerToken.substring(7)
-                : null;
+                ? bearerToken.substring(7) : null;
         String correo = jwtTokenProvider.getEmailFromToken(token);
-
         return new UsuarioAutenticado(correo, rol);
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminarMascota(
-            @PathVariable Integer id,
-            Authentication auth) {
-        Integer usuarioId = (Integer) auth.getPrincipal();
-        mascotaService.eliminarMascota(id, usuarioId);
-        return ResponseEntity.noContent().build();
     }
 }

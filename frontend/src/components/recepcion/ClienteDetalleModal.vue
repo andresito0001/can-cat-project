@@ -6,9 +6,7 @@
           <div v-if="modelValue" class="cliente-modal">
             <header class="modal-head">
               <div class="modal-head-left">
-                <div class="avatar" :style="{ background: colorAvatar(cliente?.nombreCompleto) }">
-                  {{ inicial(cliente?.nombreCompleto) }}
-                </div>
+                <EntityAvatar :nombre="cliente?.nombreCompleto" tipo="cliente" size="md" />
                 <div>
                   <span class="modal-eyebrow">Cliente</span>
                   <h3>{{ cliente?.nombreCompleto || '—' }}</h3>
@@ -64,6 +62,7 @@
 
 <script setup>
 import { X, CreditCard, Phone, Mail, Calendar, MapPin, Home } from 'lucide-vue-next'
+import EntityAvatar from '@/components/ui/EntityAvatar.vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -75,16 +74,6 @@ function cerrar() {
   emit('update:modelValue', false)
 }
 
-const PALETA = ['#0F766E', '#3B82F6', '#F59E0B', '#F43F5E', '#8B5CF6', '#0EA5E9']
-function colorAvatar(nombre) {
-  let hash = 0
-  const s = String(nombre || '?')
-  for (let i = 0; i < s.length; i++) hash = s.charCodeAt(i) + ((hash << 5) - hash)
-  return PALETA[Math.abs(hash) % PALETA.length]
-}
-function inicial(nombre) {
-  return String(nombre || '?').trim().charAt(0).toUpperCase() || '?'
-}
 function fmtFecha(iso) {
   if (!iso) return '—'
   const d = new Date(iso + 'T12:00:00')
@@ -115,12 +104,6 @@ function fmtFecha(iso) {
   border-bottom: 1px solid #E2E8F0;
 }
 .modal-head-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
-.avatar {
-  width: 48px; height: 48px; border-radius: 12px;
-  color: #fff; font-size: 20px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
 .modal-eyebrow {
   display: inline-block;
   font-size: 10.5px; font-weight: 700;
@@ -195,4 +178,5 @@ function fmtFecha(iso) {
 @media (max-width: 640px) {
   .data-grid { grid-template-columns: 1fr; }
 }
+
 </style>

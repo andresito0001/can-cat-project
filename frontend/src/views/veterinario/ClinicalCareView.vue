@@ -340,9 +340,7 @@
 
       <!-- Patient strip -->
       <div class="patient-strip">
-        <div class="patient-avatar" :style="{ backgroundColor: colorAvatar(mascota?.nombre) }">
-          {{ inicialNombre(mascota?.nombre) }}
-        </div>
+        <PetAvatar :nombre-especie="mascota?.especie" size="lg" />
         <div class="patient-info">
           <p class="patient-name">{{ mascota?.nombre }}</p>
           <p class="patient-line">
@@ -1065,6 +1063,7 @@ import {
 } from 'lucide-vue-next';
 import { useToast } from '@/composables/useToast';
 import ToastContainer from '@/components/ui/ToastContainer.vue';
+import PetAvatar from '@/components/ui/PetAvatar.vue';
 import { getAgendaVet, getCitaContexto, iniciarAtencion, guardarAtencion, descargarRecetaPdf } from '@/api/atenciones.api';
 import { getProductos } from '@/api/almacen.api';
 import { getApiErrorMessage, getValidationFieldErrors } from '@/utils/apiError';
@@ -1166,15 +1165,6 @@ function subtotalInsumo(insumo) {
   return insumo.subtotal ?? insumo.subtotalUsd ?? (insumo.cantidad * insumo.precioUnitarioUsd);
 }
 
-const PALETA_AVATARES = ['#0F766E', '#3B82F6', '#F59E0B', '#F43F5E', '#8B5CF6', '#0EA5E9'];
-function colorAvatar(nombre) {
-  let hash = 0;
-  for (const c of String(nombre || '')) hash = (hash * 31 + c.charCodeAt(0)) % 997;
-  return PALETA_AVATARES[hash % PALETA_AVATARES.length];
-}
-function inicialNombre(nombre) {
-  return String(nombre || '?').trim().charAt(0).toUpperCase() || '?';
-}
 function infoEstado(estado) {
   return { color: ESTADO_COLOR[estado] || '#64748B', etiqueta: String(estado || '').replaceAll('_', ' ') };
 }
@@ -2114,18 +2104,6 @@ button { font-family: inherit; }
   border: 1px solid #CCFBF1;
   border-radius: 14px;
   flex-wrap: wrap;
-}
-.patient-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: 20px;
-  font-weight: 700;
-  flex-shrink: 0;
 }
 .patient-info { min-width: 0; flex: 1; }
 .patient-name {

@@ -9,6 +9,7 @@ public record PagoPendienteVerificacionDTO(
         Integer idFactura,
         String numeroControl,
         BigDecimal monto,
+        BigDecimal montoBs,
         String metodoPago,
         String referenciaTransaccion,
         Map<String, Object> metadataPago,

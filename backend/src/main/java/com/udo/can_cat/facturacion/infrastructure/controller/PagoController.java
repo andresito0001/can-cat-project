@@ -100,7 +100,10 @@ public class PagoController {
                     respuesta.estadoCita(),
                     respuesta.mensaje(),
                     enviado,
-                    advertencia
+                    advertencia,
+                    respuesta.montoUsd(),      
+                    respuesta.montoBs(),       
+                    respuesta.tasaCambio()     
             ));
 
         } catch (Exception e) {
@@ -111,7 +114,10 @@ public class PagoController {
                     respuesta.estadoCita(),
                     respuesta.mensaje(),
                     false,
-                    "Su pago fue procesado pero no se pudo generar el comprobante PDF en este momento. Puede descargarlo más tarde desde su historial de pagos."
+                    "Su pago fue procesado pero no se pudo generar el comprobante PDF en este momento. Puede descargarlo más tarde desde su historial de pagos.",
+                    respuesta.montoUsd(),      
+                    respuesta.montoBs(),       
+                    respuesta.tasaCambio()     
             ));
         }
     }

@@ -19,5 +19,6 @@ public record MascotaRegistradaResponseDTO(
         BigDecimal pesoActual,
         Boolean esterilizado,
         Boolean activo,
+        Boolean fallecido,
         LocalDateTime registradoEn
 ) {}

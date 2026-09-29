@@ -104,9 +104,7 @@
                       class="result-row"
                       @click="seleccionarCliente(c)"
                     >
-                      <div class="result-avatar">
-                        {{ inicialesCliente(c.nombreCompleto) }}
-                      </div>
+                      <EntityAvatar :nombre="c.nombreCompleto" tipo="cliente" size="sm" />
                       <div class="result-info">
                         <p class="result-name">{{ c.nombreCompleto }}</p>
                         <p class="result-meta">
@@ -120,9 +118,7 @@
 
                 <!-- Cliente seleccionado -->
                 <div v-else class="cliente-chip">
-                  <div class="cliente-chip-avatar">
-                    {{ inicialesCliente(clienteSeleccionado.nombreCompleto) }}
-                  </div>
+                  <EntityAvatar :nombre="clienteSeleccionado.nombreCompleto" tipo="cliente" size="md" />
                   <div class="cliente-chip-info">
                     <p class="cliente-chip-name">{{ clienteSeleccionado.nombreCompleto }}</p>
                     <p class="cliente-chip-doc">{{ clienteSeleccionado.documentoIdentidad }}</p>
@@ -161,9 +157,7 @@
                       :class="{ selected: selectedMascota === m.idMascota }"
                       @click="selectedMascota = m.idMascota; step1Errors.mascota = null"
                     >
-                      <div class="pick-avatar" :style="{ backgroundColor: colorAvatar(m.nombre) }">
-                        {{ inicialNombre(m.nombre) }}
-                      </div>
+                      <PetAvatar :nombre-especie="m.nombreEspecie" size="md" />
                       <div class="pick-info">
                         <span class="pick-name">{{ m.nombre }}</span>
                         <span class="pick-meta">
@@ -251,12 +245,7 @@
                     :class="{ selected: selectedVeterinario === v.id }"
                     @click="selectedVeterinario = v.id; onVeterinarioChange(); step2Errors.veterinario = null"
                   >
-                    <div
-                      class="pick-avatar pick-avatar-vet"
-                      :style="{ backgroundColor: colorAvatar(v.nombre) }"
-                    >
-                      {{ inicialesNombre(v.nombre) }}
-                    </div>
+                    <EntityAvatar :nombre="v.nombre" tipo="veterinario" size="md" />
                     <div class="pick-info">
                       <span class="pick-name">{{ v.nombre }}</span>
                       <span class="pick-meta">{{ v.especialidad || 'Veterinario' }}</span>
@@ -684,6 +673,8 @@ import * as clientesApi from '@/api/clientes.api'
 import { getServicios, getVeterinarios, getDisponibilidad, agendarMostrador } from '@/api/citas.api'
 import { getMetodosPresenciales, enviarFactura, descargarFactura } from '@/api/pagos.api'
 import { getMascotasPorCliente } from '@/api/mascotas.api'
+import PetAvatar from '@/components/ui/PetAvatar.vue'
+import EntityAvatar from '@/components/ui/EntityAvatar.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -705,7 +696,6 @@ const METODO_LABEL = {
   Tarjeta: 'Tarjeta (Punto de Venta)',
   Pago_Movil: 'Pago Móvil',
 }
-const PALETA_AVATARES = ['#0F766E', '#3B82F6', '#F59E0B', '#F43F5E', '#8B5CF6', '#0EA5E9']
 
 const steps = [
   { num: 1, label: 'Cliente y Mascota', desc: 'Datos del paciente' },
@@ -1019,27 +1009,6 @@ function fmtFieldLabel(key) {
     ultimos_digitos: 'Últimos 4 dígitos de la tarjeta',
   }
   return labels[key] || key.replace(/_/g, ' ')
-}
-function inicialNombre(nombre) {
-  return String(nombre || '?').trim().charAt(0).toUpperCase() || '?'
-}
-function inicialesCliente(nombre) {
-  const words = String(nombre || '?').trim().split(/\s+/).filter(Boolean)
-  if (!words.length) return '?'
-  if (words.length === 1) return words[0].charAt(0).toUpperCase()
-  return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase()
-}
-function inicialesNombre(nombre) {
-  const cleaned = String(nombre || '').replace(/^(Dra?\.?|Dr\.?)\s*/i, '').trim()
-  if (!cleaned) return '?'
-  const words = cleaned.split(/\s+/).filter(Boolean)
-  if (words.length === 1) return words[0].charAt(0).toUpperCase()
-  return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase()
-}
-function colorAvatar(nombre) {
-  let hash = 0
-  for (const caracter of String(nombre || '')) hash = (hash * 31 + caracter.charCodeAt(0)) % 997
-  return PALETA_AVATARES[hash % PALETA_AVATARES.length]
 }
 
 // ─── Init ───
@@ -1420,20 +1389,6 @@ button { font-family: inherit; }
 }
 .result-row:last-child { border-bottom: none; }
 .result-row:hover { background: #F0FDFA; }
-.result-avatar {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: #0F766E;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: .3px;
-  flex-shrink: 0;
-}
 .result-info { min-width: 0; }
 .result-name {
   margin: 0;
@@ -1464,21 +1419,6 @@ button { font-family: inherit; }
   background: #F0FDFA;
   border: 1px solid #99F6E4;
   border-radius: 12px;
-}
-.cliente-chip-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 11px;
-  background: #0F766E;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: .3px;
-  flex-shrink: 0;
-  box-shadow: 0 4px 10px -3px rgba(15, 23, 42, .12);
 }
 .cliente-chip-info { flex: 1; min-width: 0; }
 .cliente-chip-name {
@@ -1555,20 +1495,6 @@ button { font-family: inherit; }
   background: #F0FDFA;
   box-shadow: 0 0 0 3px rgba(15, 118, 110, .1);
 }
-.pick-avatar {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: 700;
-  font-size: 16px;
-  flex-shrink: 0;
-  box-shadow: 0 4px 10px -3px rgba(15, 23, 42, .12);
-}
-.pick-avatar-vet { font-size: 13px; letter-spacing: .3px; }
 .pick-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .pick-name {
   font-size: 13.5px;

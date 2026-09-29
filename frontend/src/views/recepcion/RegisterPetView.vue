@@ -88,9 +88,7 @@
               <div class="card-body">
                 <!-- Cliente seleccionado -->
                 <div v-if="clienteDocumento" class="cliente-chip">
-                  <div class="cliente-chip-avatar">
-                    {{ inicialesCliente(clienteNombre) }}
-                  </div>
+                  <EntityAvatar :nombre="clienteNombre" tipo="cliente" size="md" />
                   <div class="cliente-chip-info">
                     <p class="cliente-chip-name">{{ clienteNombre }}</p>
                     <p class="cliente-chip-doc">{{ clienteDocumento }}</p>
@@ -144,9 +142,7 @@
                       class="result-row"
                       @click="seleccionarCliente(c)"
                     >
-                      <div class="result-avatar">
-                        {{ inicialesCliente(c.nombreCompleto) }}
-                      </div>
+                      <EntityAvatar :nombre="c.nombreCompleto" tipo="cliente" size="sm" />
                       <div class="result-info">
                         <p class="result-name">{{ c.nombreCompleto }}</p>
                         <p class="result-meta">{{ c.documentoIdentidad }}</p>
@@ -364,12 +360,7 @@
           </header>
 
           <div class="preview-body">
-            <div
-              class="preview-avatar"
-              :style="{ backgroundColor: colorAvatar(form.nombre) }"
-            >
-              {{ inicialNombre(form.nombre) }}
-            </div>
+            <PetAvatar size="lg" />
 
             <p class="preview-nombre" :class="{ 'is-empty': !form.nombre }">
               {{ form.nombre || 'Nombre de la mascota' }}
@@ -470,13 +461,13 @@ import {
   ArrowLeft, ChevronRight, X, User, CreditCard, Sparkles, Info, Save,
   Dog, Weight, CalendarDays, Mars, Venus, Check
 } from 'lucide-vue-next'
+import PetAvatar from '@/components/ui/PetAvatar.vue'
+import EntityAvatar from '@/components/ui/EntityAvatar.vue'
 import * as clientesApi from '@/api/clientes.api'
 import { registrarMascota, getEspecies, getRazasPorEspecie } from '@/api/mascotas.api'
 
 const router = useRouter()
 const route = useRoute()
-
-const PALETA_AVATARES = ['#0F766E', '#3B82F6', '#F59E0B', '#F43F5E', '#8B5CF6', '#0EA5E9']
 
 // ─── Cliente ───
 const clienteDocumento = ref(route.query.clienteDocumento || '')
@@ -575,20 +566,6 @@ watch(() => form.value.idEspecie, async (id) => {
 })
 
 // ─── Helpers visuales ───
-function inicialNombre(nombre) {
-  return String(nombre || '?').trim().charAt(0).toUpperCase() || '?'
-}
-function inicialesCliente(nombre) {
-  const words = String(nombre || '?').trim().split(/\s+/).filter(Boolean)
-  if (!words.length) return '?'
-  if (words.length === 1) return words[0].charAt(0).toUpperCase()
-  return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase()
-}
-function colorAvatar(nombre) {
-  let hash = 0
-  for (const ch of String(nombre || '')) hash = (hash * 31 + ch.charCodeAt(0)) % 997
-  return PALETA_AVATARES[hash % PALETA_AVATARES.length]
-}
 function fmtFechaCorta(iso) {
   if (!iso) return ''
   const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
@@ -812,21 +789,6 @@ button { font-family: inherit; }
   border: 1px solid #99F6E4;
   border-radius: 12px;
 }
-.cliente-chip-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 11px;
-  background: #0F766E;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: .3px;
-  flex-shrink: 0;
-  box-shadow: 0 4px 10px -3px rgba(15, 23, 42, .12);
-}
 .cliente-chip-info { flex: 1; min-width: 0; }
 .cliente-chip-name {
   margin: 0;
@@ -940,20 +902,6 @@ button { font-family: inherit; }
 }
 .result-row:last-child { border-bottom: none; }
 .result-row:hover { background: #F0FDFA; }
-.result-avatar {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: #0F766E;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: .3px;
-  flex-shrink: 0;
-}
 .result-info { min-width: 0; }
 .result-name {
   margin: 0;
@@ -1324,20 +1272,6 @@ button { font-family: inherit; }
   align-items: center;
   text-align: center;
   gap: 12px;
-}
-.preview-avatar {
-  width: 72px;
-  height: 72px;
-  border-radius: 18px;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  box-shadow: 0 8px 20px -6px rgba(15, 23, 42, .2);
-  transition: background-color .3s ease;
 }
 .preview-nombre {
   margin: 0;

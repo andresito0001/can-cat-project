@@ -250,14 +250,7 @@
           </header>
 
           <div class="preview-body">
-            <div class="preview-avatar-wrap">
-              <div
-                class="preview-avatar"
-                :style="{ backgroundColor: colorAvatar(form.nombreCompleto || '?') }"
-              >
-                {{ inicialesCliente(form.nombreCompleto) || '?' }}
-              </div>
-            </div>
+            <EntityAvatar :nombre="form.nombreCompleto" tipo="cliente" size="lg" />
 
             <p class="preview-nombre" :class="{ 'is-empty': !form.nombreCompleto }">
               {{ form.nombreCompleto || 'Nombre del cliente' }}
@@ -405,6 +398,7 @@ import {
   UserPlus, UserCircle, AtSign, Mail, Phone, MapPin, CreditCard,
   Loader2, Sparkles, Info
 } from 'lucide-vue-next'
+import EntityAvatar from '@/components/ui/EntityAvatar.vue'
 
 const router = useRouter()
 
@@ -432,8 +426,6 @@ const form = reactive({
   fechaNacimiento: '',
 })
 
-const PALETA_AVATARES = ['#0F766E', '#3B82F6', '#F59E0B', '#F43F5E', '#8B5CF6', '#0EA5E9']
-
 // ─── Progreso de campos obligatorios ───
 const totalObligatorios = 5
 
@@ -450,19 +442,6 @@ const completadosObligatorios = computed(() => {
 const progresoObligatorios = computed(() =>
   Math.round((completadosObligatorios.value / totalObligatorios) * 100)
 )
-
-// ─── Helpers visuales ───
-function inicialesCliente(nombre) {
-  const words = String(nombre || '').trim().split(/\s+/).filter(Boolean)
-  if (!words.length) return ''
-  if (words.length === 1) return words[0].charAt(0).toUpperCase()
-  return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase()
-}
-function colorAvatar(nombre) {
-  let hash = 0
-  for (const ch of String(nombre || '')) hash = (hash * 31 + ch.charCodeAt(0)) % 997
-  return PALETA_AVATARES[hash % PALETA_AVATARES.length]
-}
 
 // ─── Validación ───
 function resetErrors() {
@@ -874,24 +853,6 @@ button { font-family: inherit; }
   align-items: center;
   text-align: center;
   gap: 12px;
-}
-.preview-avatar-wrap {
-  position: relative;
-  margin-bottom: 4px;
-}
-.preview-avatar {
-  width: 72px;
-  height: 72px;
-  border-radius: 18px;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  box-shadow: 0 8px 20px -6px rgba(15, 23, 42, .2);
-  transition: background-color .3s ease;
 }
 .preview-nombre {
   margin: 0;

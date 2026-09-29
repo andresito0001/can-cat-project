@@ -127,6 +127,64 @@
               </p>
             </div>
           </div>
+
+          <!-- ═══ Datos bancarios de la clínica ═══ -->
+          <div v-if="datosBancarios" class="banco-card">
+            <header class="banco-head">
+              <div class="banco-icon">
+                <Landmark :size="16" />
+              </div>
+              <div>
+                <h3 class="banco-title">Datos para pagar</h3>
+                <p class="banco-sub">{{ datosBancarios.nombreTitular }}</p>
+              </div>
+            </header>
+
+            <div class="banco-body">
+              <!-- Pago Móvil -->
+              <div class="banco-bloque">
+                <p class="banco-bloque-titulo">
+                  <Smartphone :size="13" /> Pago Móvil
+                </p>
+                <div class="banco-fila">
+                  <span class="banco-label">Banco</span>
+                  <span class="banco-valor">{{ datosBancarios.pagoMovil.banco }}</span>
+                </div>
+                <div class="banco-fila">
+                  <span class="banco-label">Teléfono</span>
+                  <span class="banco-valor mono">{{ datosBancarios.pagoMovil.telefono }}</span>
+                </div>
+                <div class="banco-fila">
+                  <span class="banco-label">Cédula / RIF</span>
+                  <span class="banco-valor mono">{{ datosBancarios.pagoMovil.cedula }}</span>
+                </div>
+              </div>
+
+              <!-- Transferencia -->
+              <div class="banco-bloque">
+                <p class="banco-bloque-titulo">
+                  <ArrowRightLeft :size="13" /> Transferencia
+                </p>
+                <div class="banco-fila">
+                  <span class="banco-label">Banco</span>
+                  <span class="banco-valor">{{ datosBancarios.bancoPrincipal.codigo }} {{ datosBancarios.bancoPrincipal.nombre }}</span>
+                </div>
+                <div class="banco-fila">
+                  <span class="banco-label">Cuenta</span>
+                  <span class="banco-valor mono">{{ datosBancarios.bancoPrincipal.cuenta }}</span>
+                </div>
+                <div class="banco-fila">
+                  <span class="banco-label">RIF</span>
+                  <span class="banco-valor mono">{{ datosBancarios.rif }}</span>
+                </div>
+              </div>
+
+              <div v-if="datosBancarios.nota" class="banco-nota">
+                <Info :size="13" />
+                <span>{{ datosBancarios.nota }}</span>
+              </div>
+            </div>
+          </div>
         </aside>
 
         <!-- ─── Columna derecha: formulario ─── -->
@@ -175,35 +233,27 @@
               <div v-if="metodoSeleccionado" class="dynamic-fields">
                 <h4 class="fields-title">Datos del pago</h4>
 
-                <div
-                  v-for="key in camposDinamicos"
-                  :key="key"
-                  class="form-field"
-                >
+                <div v-for="key in camposDinamicos" :key="key" class="form-field">
                   <label :for="`field-${key}`">
                     {{ labelCampo(key) }} <span class="required">*</span>
                   </label>
 
-                  <!-- Select para BANCO (lista oficial de bancos venezolanos) -->
                   <select
                     v-if="key === 'banco'"
                     :id="`field-${key}`"
                     v-model="datosPago[key]"
                     class="form-select"
+                    :class="{ 'field-invalid': erroresCampos[key] }"
+                    @change="erroresCampos[key] = ''"
                   >
                     <option value="" disabled>Selecciona un banco...</option>
                     <optgroup label="Bancos universales">
-                      <option
-                        v-for="b in BANCOS_VE"
-                        :key="b.codigo"
-                        :value="`${b.codigo} - ${b.nombre}`"
-                      >
+                      <option v-for="b in BANCOS_VE" :key="b.codigo" :value="`${b.codigo} - ${b.nombre}`">
                         {{ b.codigo }} — {{ b.nombre }}
                       </option>
                     </optgroup>
                   </select>
 
-                  <!-- Input normal para el resto de campos -->
                   <input
                     v-else
                     :id="`field-${key}`"
@@ -211,8 +261,13 @@
                     :type="tipoCampo(key)"
                     :placeholder="placeholderCampo(key)"
                     :inputmode="inputModeCampo(key)"
+                    :maxlength="maxlengthCampo(key)"
                     autocomplete="off"
+                    :class="{ 'field-invalid': erroresCampos[key] }"
+                    @input="erroresCampos[key] = ''"
                   />
+
+                  <small v-if="erroresCampos[key]" class="field-error">{{ erroresCampos[key] }}</small>
                 </div>
 
                 <!-- Referencia de transacción -->
@@ -224,18 +279,20 @@
                     id="referencia"
                     v-model="referenciaTransaccion"
                     type="text"
-                    maxlength="100"
+                    maxlength="20"
+                    inputmode="numeric"
                     placeholder="Ej: 1234567890"
                     autocomplete="off"
+                    :class="{ 'field-invalid': erroresCampos.referencia }"
+                    @input="erroresCampos.referencia = ''"
                   />
-                  <small class="field-hint">
-                    Número de confirmación de tu banco o app
-                  </small>
+                  <small v-if="erroresCampos.referencia" class="field-error">{{ erroresCampos.referencia }}</small>
+                  <small v-else class="field-hint">Número de confirmación de tu banco o app</small>
                 </div>
               </div>
             </Transition>
 
-            <!-- Error -->
+            <!-- Error general -->
             <Transition name="slide-down">
               <div v-if="errorForm" class="alert-error">
                 <AlertCircle :size="16" />
@@ -285,6 +342,18 @@
                   <span class="detail-label">Estado</span>
                   <span class="detail-value">{{ formatEstadoCita(pagoExitoso.estadoCita) }}</span>
                 </div>
+                <div v-if="pagoExitoso.montoUsd != null" class="detail-row detail-row--total">
+                  <span class="detail-label">Total USD</span>
+                  <span class="detail-value amount">{{ fmtUsd(pagoExitoso.montoUsd) }} USD</span>
+                </div>
+                <div v-if="pagoExitoso.montoBs != null" class="detail-row detail-row--total">
+                  <span class="detail-label">Total Bs</span>
+                  <span class="detail-value amount-bs">Bs. {{ fmtBs(pagoExitoso.montoBs) }}</span>
+                </div>
+                <div v-if="pagoExitoso.tasaCambio != null" class="detail-row detail-row--tasa">
+                  <span class="detail-label">Tasa aplicada</span>
+                  <span class="detail-value tasa">{{ fmtTasa(pagoExitoso.tasaCambio) }} Bs/USD</span>
+                </div>
               </div>
 
               <div v-if="pagoExitoso.advertenciaEmail" class="alert-info">
@@ -318,10 +387,10 @@ import {
   ArrowLeft, PawPrint, Stethoscope, ClipboardList, CalendarDays, Clock,
   Loader2, AlertTriangle, AlertCircle, CheckCircle2, Info,
   ShieldCheck, Lock, Download, ReceiptText,
-  Landmark, Smartphone,
+  Landmark, Smartphone, ArrowRightLeft
 } from 'lucide-vue-next'
 import api from '@/api/axios.config'
-import { getMetodosOnline, procesarPagoCita, descargarFacturaPdf } from '@/api/pagos.api.js'
+import { getMetodosOnline, procesarPagoCita, descargarFacturaPdf, getDatosBancarios } from '@/api/pagos.api.js'
 import { getApiErrorMessage } from '@/utils/apiError'
 import { useToast } from '@/composables/useToast'
 import CitaCountdown from '@/components/cliente/CitaCountdown.vue'
@@ -348,10 +417,74 @@ const datosPago = ref({})
 const referenciaTransaccion = ref('')
 const errorForm = ref('')
 const procesando = ref(false)
+const erroresCampos = ref({})
 
 // ─── Resultado ───
 const pagoExitoso = ref(null)
 const descargandoPdf = ref(false)
+
+// ─── Datos bancarios ───
+const datosBancarios = ref(null)
+
+// ═══════════════════════════════════════════════════════════
+// VALIDACIONES DE CAMPOS DE PAGO
+// ═══════════════════════════════════════════════════════════
+const SOLO_DIGITOS = /^\d+$/
+
+/** Referencia de transacción: 4-20 dígitos */
+function validarReferencia(v) {
+  const s = String(v || '').trim()
+  if (!s) return 'La referencia es obligatoria'
+  if (!SOLO_DIGITOS.test(s)) return 'La referencia debe contener solo números'
+  if (s.length < 4) return 'Mínimo 4 dígitos'
+  if (s.length > 20) return 'Máximo 20 dígitos'
+  return null
+}
+
+/** Teléfono Venezuela: 04XX-XXXXXXX (11 dígitos), acepta guiones/espacios */
+function validarTelefono(v) {
+  const s = String(v || '').replace(/[\s\-()]/g, '')
+  if (!s) return 'El teléfono es obligatorio'
+  if (!SOLO_DIGITOS.test(s)) return 'El teléfono debe contener solo números'
+  if (!s.startsWith('04')) return 'Debe comenzar con 04 (Venezuela)'
+  if (s.length !== 11) return 'Debe tener 11 dígitos (ej: 04141234567)'
+  return null
+}
+
+/** Número de cuenta Venezuela: 20 dígitos */
+function validarCuenta(v) {
+  const s = String(v || '').replace(/[\s\-]/g, '')
+  if (!s) return 'El número de cuenta es obligatorio'
+  if (!SOLO_DIGITOS.test(s)) return 'Solo números'
+  if (s.length !== 20) return 'Debe tener 20 dígitos'
+  return null
+}
+
+/** Últimos 4 dígitos de tarjeta */
+function validarUltimosDigitos(v) {
+  const s = String(v || '').trim()
+  if (!s) return 'Requerido'
+  if (!SOLO_DIGITOS.test(s)) return 'Solo números'
+  if (s.length !== 4) return 'Deben ser exactamente 4 dígitos'
+  return null
+}
+
+/** Lote: 4-10 dígitos */
+function validarLote(v) {
+  const s = String(v || '').trim()
+  if (!s) return 'El lote es obligatorio'
+  if (!SOLO_DIGITOS.test(s)) return 'Solo números'
+  if (s.length < 4 || s.length > 10) return 'Entre 4 y 10 dígitos'
+  return null
+}
+
+/** Mapa de validador por campo */
+const VALIDADORES_CAMPO = {
+  telefono: validarTelefono,
+  numero_cuenta: validarCuenta,
+  ultimos_digitos: validarUltimosDigitos,
+  lote: validarLote,
+}
 
 // ─── Computados ───
 const esPagable = computed(() => cita.value?.estado === 'Pendiente_Pago')
@@ -359,18 +492,21 @@ const esPagable = computed(() => cita.value?.estado === 'Pendiente_Pago')
 const camposDinamicos = computed(() => {
   if (!metodoSeleccionado.value) return []
   const req = metodoSeleccionado.value.camposRequeridos || {}
-  // Excluye 'referencia' porque se maneja aparte (top-level + datosPago)
   return Object.keys(req).filter((k) => k !== 'referencia')
 })
 
 const puedeConfirmar = computed(() => {
   if (!metodoSeleccionado.value) return false
   if (!referenciaTransaccion.value.trim()) return false
+  if (validarReferencia(referenciaTransaccion.value) !== null) return false
+
   const req = metodoSeleccionado.value.camposRequeridos || {}
   for (const key of Object.keys(req)) {
     if (key === 'referencia') continue
     const v = datosPago.value[key]
     if (v == null || String(v).trim() === '') return false
+    const validador = VALIDADORES_CAMPO[key]
+    if (validador && validador(v) !== null) return false
   }
   return true
 })
@@ -420,8 +556,6 @@ const estadoDescripcion = computed(() => {
 
 // ═══════════════════════════════════════════════════════════
 // BANCOS DE VENEZUELA — códigos oficiales SUDEBAN
-// Fuente: https://www.sudeban.gob.ve/  (actualizado 2026)
-// Formato de valor: "0102 - Banco de Venezuela"
 // ═══════════════════════════════════════════════════════════
 const BANCOS_VE = [
   { codigo: '0102', nombre: 'Banco de Venezuela' },
@@ -450,9 +584,33 @@ const BANCOS_VE = [
   { codigo: '0191', nombre: 'BNC (Banco Nacional de Crédito)' },
 ]
 
+const FIELD_META = {
+  banco:           { label: 'Banco',              placeholder: 'Selecciona un banco', type: 'text' },
+  numero_cuenta:   { label: 'Número de cuenta',   placeholder: '0102-0123-45-6789012345', type: 'text', inputmode: 'numeric', maxlength: 30 },
+  telefono:        { label: 'Teléfono asociado',  placeholder: '0414-1234567', type: 'tel', inputmode: 'tel', maxlength: 15 },
+  ultimos_digitos: { label: 'Últimos 4 dígitos',  placeholder: '1234', type: 'text', inputmode: 'numeric', maxlength: 4 },
+  lote:            { label: 'Lote / aprobación',  placeholder: '987654', type: 'text', inputmode: 'numeric', maxlength: 10 },
+}
+
+function labelCampo(k) {
+  return FIELD_META[k]?.label || k.replaceAll('_', ' ')
+}
+function placeholderCampo(k) {
+  return FIELD_META[k]?.placeholder || ''
+}
+function tipoCampo(k) {
+  return FIELD_META[k]?.type || 'text'
+}
+function inputModeCampo(k) {
+  return FIELD_META[k]?.inputmode || 'text'
+}
+function maxlengthCampo(k) {
+  return FIELD_META[k]?.maxlength || undefined
+}
+
 // ─── Carga inicial ───
 onMounted(async () => {
-  await Promise.all([cargarCita(), cargarMetodos()])
+  await Promise.all([cargarCita(), cargarMetodos(), cargarDatosBancarios()])
 })
 
 async function cargarCita() {
@@ -466,7 +624,6 @@ async function cargarCita() {
       return
     }
     cita.value = found
-    // Si ya expiró, marcar
     if (found.expiraEn && new Date(found.expiraEn) <= new Date()) {
       expirado.value = true
     }
@@ -489,13 +646,25 @@ async function cargarMetodos() {
   }
 }
 
+async function cargarDatosBancarios() {
+  try {
+    console.log('[banco] llamando...')
+    const { data } = await getDatosBancarios()
+    console.log('[banco] OK:', data)
+    datosBancarios.value = data
+  } catch (err) {
+    console.error('[banco] ERROR:', err?.response?.status, err?.response?.data, err?.message)
+    datosBancarios.value = null
+  }
+}
+
 // ─── Selección de método ───
 function seleccionarMetodo(m) {
   metodoSeleccionado.value = m
   datosPago.value = {}
   referenciaTransaccion.value = ''
   errorForm.value = ''
-  // Pre-rellenar claves requeridas con string vacío
+  erroresCampos.value = {}
   const req = m.camposRequeridos || {}
   for (const k of Object.keys(req)) {
     if (k !== 'referencia') datosPago.value[k] = ''
@@ -516,34 +685,38 @@ function formatMetodo(nombre) {
   return map[nombre] || nombre
 }
 
-const FIELD_META = {
-  banco:           { label: 'Banco',              placeholder: 'Selecciona un banco',      type: 'text' },
-  numero_cuenta:   { label: 'Número de cuenta',   placeholder: 'Ej: 0102-1234-56-7890123456', type: 'text', inputmode: 'numeric' },
-  telefono:        { label: 'Teléfono',           placeholder: 'Ej: 0414-1234567',          type: 'tel',  inputmode: 'tel' },
-  ultimos_digitos: { label: 'Últimos 4 dígitos',  placeholder: 'Ej: 1234',                  type: 'text', inputmode: 'numeric' },
-  lote:            { label: 'Lote / aprobación',  placeholder: 'Ej: 987654',                type: 'text' },
-}
+// ─── Validación global del formulario ───
+function validarTodo() {
+  const errores = {}
 
-function labelCampo(k) {
-  return FIELD_META[k]?.label || k.replaceAll('_', ' ')
-}
-function placeholderCampo(k) {
-  return FIELD_META[k]?.placeholder || ''
-}
-function tipoCampo(k) {
-  return FIELD_META[k]?.type || 'text'
-}
-function inputModeCampo(k) {
-  return FIELD_META[k]?.inputmode || 'text'
+  const errRef = validarReferencia(referenciaTransaccion.value)
+  if (errRef) errores.referencia = errRef
+
+  const req = metodoSeleccionado.value?.camposRequeridos || {}
+  for (const key of Object.keys(req)) {
+    if (key === 'referencia') continue
+    const validador = VALIDADORES_CAMPO[key]
+    if (validador) {
+      const err = validador(datosPago.value[key])
+      if (err) errores[key] = err
+    }
+  }
+
+  erroresCampos.value = errores
+  return Object.keys(errores).length === 0
 }
 
 // ─── Confirmar pago ───
 async function confirmarPago() {
-  if (!puedeConfirmar.value || procesando.value) return
+  if (procesando.value) return
   errorForm.value = ''
-  procesando.value = true
+  
+  if (!validarTodo()) {
+    errorForm.value = 'Corrige los campos marcados antes de continuar.'
+    return
+  }
 
-  // Componer payload: referencia va en ambos lugares si el método la requiere
+  procesando.value = true
   const req = metodoSeleccionado.value.camposRequeridos || {}
   const datosFinales = { ...datosPago.value }
   if (Object.prototype.hasOwnProperty.call(req, 'referencia')) {
@@ -818,19 +991,31 @@ button { font-family: inherit; }
   outline: none; border-color: #0F766E;
   box-shadow: 0 0 0 3px rgba(15, 118, 110, .1);
 }
-.form-field select option {
-  padding: 8px;
-}
-.form-field select option:disabled {
-  color: #94A3B8;
-}
+.form-field select option { padding: 8px; }
+.form-field select option:disabled { color: #94A3B8; }
 .form-field select optgroup {
   font-weight: 700; color: #0F766E; font-size: 11.5px;
-  text-transform: uppercase; letter-spacing: .5px;
-  padding: 6px 0;
+  text-transform: uppercase; letter-spacing: .5px; padding: 6px 0;
 }
 
 .field-hint { font-size: 11px; color: #94A3B8; margin-top: 2px; }
+
+/* ── Validación de errores en campos ── */
+.form-field input.field-invalid,
+.form-field select.field-invalid {
+  border-color: #EF4444;
+  background: #FEF2F2;
+}
+.form-field input.field-invalid:focus,
+.form-field select.field-invalid:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+.field-error {
+  font-size: 11.5px;
+  color: #EF4444;
+  font-weight: 600;
+  margin-top: 2px;
+}
 
 /* ── Alertas ── */
 .alert-error, .alert-info {
@@ -923,4 +1108,61 @@ button { font-family: inherit; }
   .success-actions { flex-direction: column; }
   .summary-card, .payment-card { padding: 18px 18px; }
 }
+
+.detail-row--total .amount { color: #0F766E; font-size: 14px; }
+.detail-row--total .amount-bs { color: #334155; font-size: 14px; font-weight: 700; }
+.detail-row--tasa .tasa { font-size: 11.5px; color: #94A3B8; font-weight: 600; }
+
+/* ═══ Datos bancarios de la clínica ═══ */
+.banco-card {
+  background: #fff;
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.banco-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 18px;
+  background: #F8FAFC;
+  border-bottom: 1px solid #E2E8F0;
+}
+.banco-icon {
+  width: 34px; height: 34px; border-radius: 9px;
+  background: #EFF6FF; color: #2563EB;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.banco-title { margin: 0; font-size: 14px; font-weight: 700; color: #0F172A; }
+.banco-sub { margin: 2px 0 0; font-size: 11.5px; color: #64748B; }
+.banco-body { padding: 14px 18px 16px; display: flex; flex-direction: column; gap: 14px; }
+
+.banco-bloque { display: flex; flex-direction: column; gap: 6px; }
+.banco-bloque-titulo {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin: 0 0 4px;
+  font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .5px;
+  color: #2563EB;
+}
+.banco-fila {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; font-size: 12.5px;
+  padding: 6px 0;
+  border-bottom: 1px dashed #F1F5F9;
+}
+.banco-fila:last-child { border-bottom: none; }
+.banco-label { color: #64748B; font-weight: 500; }
+.banco-valor { color: #0F172A; font-weight: 700; text-align: right; word-break: break-word; }
+.banco-valor.mono {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+.banco-nota {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 10px 12px;
+  background: #FFFBEB; color: #92400E;
+  border: 1px solid #FDE68A; border-radius: 8px;
+  font-size: 11.5px; line-height: 1.45;
+}
+.banco-nota svg { flex-shrink: 0; margin-top: 1px; }
 </style>

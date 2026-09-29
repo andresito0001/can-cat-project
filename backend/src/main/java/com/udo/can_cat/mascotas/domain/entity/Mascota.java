@@ -67,6 +67,15 @@ public class Mascota {
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 
+    public void setNombre(String nombre) { this.nombre = nombre; this.updatedAt = LocalDateTime.now(); }
+    public void setEspecieId(Especie.EspecieId especieId) { this.especieId = especieId; }
+    public void setRazaId(Raza.RazaId razaId) { this.razaId = razaId; }
+    public void setFechaNacimiento(LocalDate fechaNacimiento) { this.fechaNacimiento = fechaNacimiento; }
+    public void setSexo(Sexo sexo) { this.sexo = sexo; }
+    public void setColor(String color) { this.color = color; }
+    public void setPesoActual(BigDecimal pesoActual) { this.pesoActual = pesoActual; }
+    public void setEsterilizado(boolean esterilizado) { this.esterilizado = esterilizado; }
+
     public record MascotaId(Integer value) {
         public MascotaId {
             Objects.requireNonNull(value, "El ID de mascota no puede ser nulo");
@@ -75,6 +84,20 @@ public class Mascota {
 
     public void desactivar() {
         this.activo = false;
+        this.fallecido = false;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void marcarComoFallecida() {
+        this.activo = false;
+        this.fallecido = true;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+
+    public void reactivar() {
+        this.activo = true;
+        this.fallecido = false;
         this.updatedAt = LocalDateTime.now();
     }
 }

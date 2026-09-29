@@ -170,16 +170,16 @@
               <!-- Acciones contextuales según estado -->
               <template v-if="pagoPendienteDe(c)">
                 <!-- Cita con pago online en verificación -->
-                <button
-                  v-if="pagoPendienteDe(c).aprobado !== null"
-                  class="btn-accion btn-verificar"
-                  type="button"
-                  title="Verificar pago online"
-                  @click="abrirVerificarPago(pagoPendienteDe(c).pago, true)"
-                >
-                  <ShieldCheck :size="14" />
-                  <span class="btn-accion-text">Verificar</span>
-                </button>
+              <button
+                v-if="pagoPendienteDe(c)"
+                class="btn-accion btn-verificar"
+                type="button"
+                title="Ir a caja para verificar el pago"
+                @click="irAVerificarEnCaja(pagoPendienteDe(c).pago)"
+              >
+                <ShieldCheck :size="14" />
+                <span class="btn-accion-text">Ver pago</span>
+              </button>
               </template>
               <template v-else-if="c.estado === 'Pendiente_Pago'">
                 <!-- Cita sin pago online → cobrar en mostrador -->
@@ -228,12 +228,12 @@
     />
 
     <!-- MODAL: VERIFICAR PAGO -->
-    <VerificarPagoModal
+    <!-- <VerificarPagoModal
       v-model="verificarModalVisible"
       :pago="pagoSeleccionado || {}"
       :aprobado="verificarAprobado"
       @verificado="onVerificado"
-    />
+    /> -->
 
     <!-- MODAL: DETALLE -->
     <DetalleCitaModal
@@ -297,7 +297,6 @@ import { getPagosPendientesVerificacion } from '@/api/pagos.api'
 import { ESTADO_LABEL, ESTADO_COLOR } from '@/utils/constants/estadosCita'
 import ToastContainer from '@/components/ui/ToastContainer.vue'
 import CobroCitaModal from '@/components/recepcion/CobroCitaModal.vue'
-import VerificarPagoModal from '@/components/recepcion/VerificarPagoModal.vue'
 import DetalleCitaModal from '@/components/recepcion/DetalleCitaModal.vue'
 import { useToast } from '@/composables/useToast'
 import {
@@ -498,8 +497,6 @@ function chipEstadoStyle({ estado }) {
 // ─── Modales ───
 const citaSeleccionada = ref(null)
 const cobroModalVisible = ref(false)
-const verificarModalVisible = ref(false)
-const verificarAprobado = ref(true)
 const pagoSeleccionado = ref(null)
 const detalleModalVisible = ref(false)
 const cancelarModalVisible = ref(false)
@@ -510,11 +507,8 @@ function abrirCobro(cita) {
   citaSeleccionada.value = cita
   cobroModalVisible.value = true
 }
-function abrirVerificarPago(pago, aprobado) {
-  pagoSeleccionado.value = pago
-  verificarAprobado.value = aprobado
-  verificarModalVisible.value = true
-}
+
+
 function abrirDetalle(cita) {
   citaSeleccionada.value = cita
   detalleModalVisible.value = true
@@ -534,11 +528,6 @@ async function onCobrado(cita) {
   await cargarTodo()
 }
 
-async function onVerificado({ pago, aprobado }) {
-  toastSuccess(aprobado ? 'Pago confirmado' : 'Pago rechazado y cita cancelada')
-  await cargarTodo()
-}
-
 async function confirmarCancelar() {
   if (!citaSeleccionada.value) return
   cancelando.value = true
@@ -553,6 +542,13 @@ async function confirmarCancelar() {
   } finally {
     cancelando.value = false
   }
+}
+
+function irAVerificarEnCaja(pago) {
+  router.push({
+    path: '/recepcion/caja',
+    query: { tab: 'verificacion', focus: pago.idPago },
+  })
 }
 
 onMounted(cargarTodo)

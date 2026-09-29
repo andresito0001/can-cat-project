@@ -3,13 +3,14 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   ArrowRight, Banknote, CalendarDays, CheckCircle2, Clock,
-  CreditCard, FileText, Inbox, Receipt, User
+  CreditCard, FileText, Inbox, Receipt, User,
+  ShieldCheck,
 } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth.store'
 import { useToast } from '@/composables/useToast'
 import ToastContainer from '@/components/ui/ToastContainer.vue'
 import { getAgenda, getPendientesPago } from '@/api/citas.api'
-import { getFacturasPendientes } from '@/api/pagos.api'
+import { getFacturasPendientes, getPagosPendientesVerificacion } from '@/api/pagos.api'
 import { getApiErrorMessage } from '@/utils/apiError'
 import { fechaCompleta, hoyISO, horaCorta } from '@/utils/fecha'
 
@@ -22,6 +23,7 @@ const cargando = ref(true)
 const agendaHoy = ref([])
 const citasPendientesPago = ref([])
 const facturasPendientes = ref([])
+const pagosPorVerificar = ref([])
 
 const nombreRecep = computed(() => authStore.userName || 'Recepción')
 
@@ -40,6 +42,14 @@ const stats = computed(() => {
       icono: CalendarDays,
       color: '#0F766E',
       bg: '#F0FDFA',
+    },
+    {
+      etiqueta: 'Pagos por verificar',
+      valor: pagosPorVerificar.value.length,
+      icono: ShieldCheck,
+      color: '#D97706',
+      bg: '#FFFBEB',
+      resaltar: pagosPorVerificar.value.length > 0,
     },
     {
       etiqueta: 'Pendientes de pago',
@@ -135,6 +145,9 @@ function estiloEstado(estadoNombre, estadoColor) {
 function irACobros() {
   router.push('/recepcion/cobrar')
 }
+function irAVerificacion() {
+  router.push('/recepcion/caja?tab=verificacion')
+}
 function irAAgenda() {
   router.push('/recepcion/citas')
 }
@@ -145,17 +158,22 @@ function verDetalleCita(idCita) {
 
 async function cargarDatos() {
   cargando.value = true
-  const [agendaRes, pendientesRes, facturasRes] = await Promise.allSettled([
+  const [agendaRes, pendientesRes, facturasRes, verificacionRes] = await Promise.allSettled([
     getAgenda({ fecha: hoy }),
     getPendientesPago(),
     getFacturasPendientes(),
+    getPagosPendientesVerificacion(),
   ])
 
   agendaHoy.value = agendaRes.status === 'fulfilled' ? agendaRes.value.data || [] : []
   citasPendientesPago.value = pendientesRes.status === 'fulfilled' ? pendientesRes.value.data || [] : []
   facturasPendientes.value = facturasRes.status === 'fulfilled' ? facturasRes.value.data || [] : []
+  pagosPorVerificar.value = verificacionRes.status === 'fulfilled'
+    ? verificacionRes.value.data || []
+    : []
 
-  const todosFallaron = [agendaRes, pendientesRes, facturasRes].every(r => r.status === 'rejected')
+  const todosFallaron = [agendaRes, pendientesRes, facturasRes, verificacionRes]
+    .every(r => r.status === 'rejected')
   if (todosFallaron) {
     toastError(getApiErrorMessage(agendaRes.reason) || 'No se pudieron cargar los datos del panel')
   }
@@ -190,15 +208,36 @@ onMounted(cargarDatos)
 
     <template v-else>
       <section class="stats-grid">
-        <article v-for="s in stats" :key="s.etiqueta" class="stat-card">
-          <div class="stat-icon" :style="{ backgroundColor: s.bg, color: s.color }">
-            <component :is="s.icono" :size="22" />
-          </div>
-          <div class="stat-texto">
-            <p class="stat-value">{{ s.valor }}</p>
-            <p class="stat-label">{{ s.etiqueta }}</p>
-          </div>
-        </article>
+        <template v-for="s in stats" :key="s.etiqueta">
+          <router-link
+            v-if="s.etiqueta === 'Pagos por verificar'"
+            :to="{ path: '/recepcion/caja', query: { tab: 'verificacion' } }"
+            class="stat-card stat-card--link"
+            :class="{ 'is-warn': s.resaltar }"
+          >
+            <div class="stat-icon" :style="{ backgroundColor: s.bg, color: s.color }">
+              <component :is="s.icono" :size="22" />
+            </div>
+            <div class="stat-texto">
+              <p class="stat-value" :class="{ 'is-warn': s.resaltar }">{{ s.valor }}</p>
+              <p class="stat-label">{{ s.etiqueta }}</p>
+            </div>
+          </router-link>
+
+          <article
+            v-else
+            class="stat-card"
+            :class="{ 'is-warn': s.resaltar }"
+          >
+            <div class="stat-icon" :style="{ backgroundColor: s.bg, color: s.color }">
+              <component :is="s.icono" :size="22" />
+            </div>
+            <div class="stat-texto">
+              <p class="stat-value" :class="{ 'is-warn': s.resaltar }">{{ s.valor }}</p>
+              <p class="stat-label">{{ s.etiqueta }}</p>
+            </div>
+          </article>
+        </template>
       </section>
 
       <section v-if="proximaCita" class="proximo">
@@ -453,8 +492,8 @@ button { font-family: inherit; }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
   margin-bottom: 20px;
 }
 .stat-card {
@@ -467,10 +506,19 @@ button { font-family: inherit; }
   padding: 18px;
   transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
 }
+.stat-card--link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
 .stat-card:hover {
   border-color: #CBD5E1;
   transform: translateY(-2px);
   box-shadow: 0 10px 20px -10px rgba(15, 23, 42, .08);
+}
+.stat-card.is-warn {
+  border-color: #FDE68A;
+  background: linear-gradient(135deg, #FFFBEB 0%, #FFFFFF 60%);
 }
 .stat-icon {
   width: 46px;
@@ -489,6 +537,9 @@ button { font-family: inherit; }
   color: #0F172A;
   line-height: 1.1;
   letter-spacing: -0.01em;
+}
+.stat-card .stat-value.is-warn {
+  color: #B45309;
 }
 .stat-label {
   margin: 3px 0 0;
@@ -885,10 +936,10 @@ button { font-family: inherit; }
 .empty-state p { margin: 0; }
 
 @media (max-width: 1100px) {
+  .stats-grid { grid-template-columns: repeat(3, 1fr); }
   .content-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 1024px) {
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .proximo { grid-template-columns: 1fr; gap: 18px; }
   .proximo-accion { width: 100%; }
   .btn-accion-grande { width: 100%; justify-content: center; }
@@ -897,7 +948,7 @@ button { font-family: inherit; }
   .dashboard { padding: 16px 16px 40px; }
   .hero { padding: 20px; border-radius: 14px; }
   .hero-left h1 { font-size: 22px; }
-  .stats-grid { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .proximo { padding: 20px; border-radius: 14px; }
   .proximo-nombre { font-size: 20px; }
   .cita-item {

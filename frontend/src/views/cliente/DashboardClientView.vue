@@ -182,12 +182,9 @@
                 :key="mascota.idMascota"
                 type="button"
                 class="pet-card"
-                :style="{ '--pet-color': mascota.color }"
                 @click="verHistorial(mascota.idMascota)"
               >
-                <div class="pet-avatar" :style="{ backgroundColor: mascota.color }">
-                  {{ inicialNombre(mascota.nombre) }}
-                </div>
+                <PetAvatar :nombre-especie="mascota.especie" size="md" />
                 <div class="pet-info">
                   <p class="pet-nombre">{{ mascota.nombre }}</p>
                   <p class="pet-meta">{{ mascota.especie }} · {{ mascota.edad }}</p>
@@ -201,54 +198,26 @@
         </div>
       </section>
 
-      <!-- ═══ PAGOS PENDIENTES ═══ -->
-      <section class="card wide">
-        <div class="card-header">
-          <div>
-            <h3>Pagos pendientes</h3>
-            <p class="card-sub">
-              {{ pagosPendientes.length
-                ? 'Completa tus pagos para confirmar tus citas'
-                : 'Al día con tus pagos' }}
-            </p>
-          </div>
-          <span v-if="pagosPendientes.length > 0" class="badge-alert">
-            {{ pagosPendientes.length }} pendiente{{ pagosPendientes.length === 1 ? '' : 's' }}
-          </span>
+            <!-- ═══ PAGOS PENDIENTES (banner compacto) ═══ -->
+      <section v-if="pagosPendientes.length > 0" class="pagos-banner">
+        <div class="pagos-banner-icon">
+          <CreditCard :size="22" />
         </div>
-        <div class="card-body">
-          <div v-if="pagosPendientes.length === 0" class="empty-state">
-            <CheckCircle :size="40" />
-            <p>No tienes pagos pendientes</p>
-          </div>
-
-          <div v-else class="tabla-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Servicio</th>
-                  <th>Mascota</th>
-                  <th>Fecha</th>
-                  <th class="der">Monto</th>
-                  <th class="der">Acción</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="pago in pagosPendientes" :key="pago.id">
-                  <td>{{ pago.servicio }}</td>
-                  <td>{{ pago.mascota }}</td>
-                  <td>{{ pago.fecha }}</td>
-                  <td class="der amount">{{ pago.monto }}</td>
-                  <td class="der">
-                    <button class="btn-pay" type="button" @click="pagar(pago)">
-                      Pagar
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        <div class="pagos-banner-texto">
+          <p class="pagos-banner-titulo">
+            Tienes {{ pagosPendientes.length }}
+            {{ pagosPendientes.length === 1 ? 'cita pendiente' : 'citas pendientes' }} de pago
+          </p>
+          <p class="pagos-banner-sub">
+            Total a pagar: <strong>{{ fmtUsd(totalPendienteUsd) }} USD</strong>
+            <template v-if="totalPendienteBs > 0">
+              · <strong>Bs. {{ fmtBs(totalPendienteBs) }}</strong>
+            </template>
+          </p>
         </div>
+        <router-link to="/cliente/mis-citas" class="pagos-banner-btn">
+          Ver y pagar <ArrowRight :size="15" />
+        </router-link>
       </section>
     </template>
   </div>
@@ -264,6 +233,7 @@ import {
 import { useAuthStore } from '@/stores/auth.store'
 import { useToast } from '@/composables/useToast'
 import ToastContainer from '@/components/ui/ToastContainer.vue'
+import PetAvatar from '@/components/ui/PetAvatar.vue'
 import { getMisCitas } from '@/api/citas.api'
 import { getMisMascotas, getEspecies } from '@/api/mascotas.api'
 import { getHistorialMascota } from '@/api/atenciones.api'
@@ -292,20 +262,18 @@ const stats = ref({
 // ─── CONSTANTES ───
 const ESTADOS_ACTIVOS = ['Pendiente_Pago', 'Confirmada']
 const ESTADO_PENDIENTE = 'Pendiente_Pago'
-const PALETA_AVATARES = ['#0F766E', '#3B82F6', '#F59E0B', '#F43F5E', '#8B5CF6', '#0EA5E9']
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
 // ─── HELPERS ───
-function colorAvatar(nombre) {
-  let hash = 0
-  for (const caracter of String(nombre || '')) hash = (hash * 31 + caracter.charCodeAt(0)) % 997
-  return PALETA_AVATARES[hash % PALETA_AVATARES.length]
-}
-function inicialNombre(nombre) {
-  return String(nombre || '?').trim().charAt(0).toUpperCase() || '?'
-}
 function fmtUsd(v) {
   return `$ ${Number(v || 0).toFixed(2)}`
+}
+
+function fmtBs(v) {
+  return Number(v || 0).toLocaleString('es-VE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
 }
 function formatearFechaCorta(iso) {
   if (!iso) return ''
@@ -368,6 +336,14 @@ function textoCuentaRegresiva(cita) {
 
 const citaDestacada = computed(() => proximasCitas.value[0] || null)
 
+const totalPendienteUsd = computed(() =>
+  pagosPendientes.value.reduce((s, p) => s + Number(p.costoUsd || 0), 0)
+)
+
+const totalPendienteBs = computed(() =>
+  pagosPendientes.value.reduce((s, p) => s + Number(p.costoBs || 0), 0)
+)
+
 // ─── CARGA DE DATOS ───
 async function cargarDatos() {
   cargando.value = true
@@ -391,7 +367,6 @@ async function cargarDatos() {
         nombre: m.nombre,
         especie: m.nombreEspecie || mapaEspecies[m.idEspecie] || 'Mascota',
         edad: edadMascota(m.fechaNacimiento),
-        color: colorAvatar(m.nombre),
         fechaNacimiento: m.fechaNacimiento,
         pesoActual: m.pesoActual,
       }))
@@ -402,12 +377,15 @@ async function cargarDatos() {
     const hoyStr = hoyISO()
 
     // 3a. Pagos pendientes = citas Pendiente_Pago
-    const pendientesPago = todasLasCitas.filter((c) => c.estado === ESTADO_PENDIENTE)
+    const pendientesPago = todasLasCitas.filter(
+      (c) => c.estado === ESTADO_PENDIENTE
+          && c.estadoPago !== 'Pendiente_Verificacion'
+    )
     pagosPendientes.value = pendientesPago.map((c) => ({
       id: c.idCita,
       idCita: c.idCita,
-      servicio: c.servicio,
-      mascota: c.mascota,
+      servicio: c.nombreServicio,         // ← corregido
+      mascota: c.nombreMascota,            // ← corregido
       fecha: formatearFechaCorta(c.fechaCita),
       monto: fmtUsd(c.costoUsd),
       costoUsd: c.costoUsd,
@@ -485,13 +463,6 @@ async function calcularConsultasMes() {
 function verHistorial(mascotaId) {
   if (!mascotaId) return
   router.push(`/cliente/historial-clinico?mascota=${mascotaId}`)
-}
-
-function pagar(pago) {
-  // Navega a "Mis citas" — ahí vive el modal de pago y el usuario ve la cita completa.
-  const id = pago?.idCita || pago?.id
-  if (!id) return
-  router.push('/cliente/mis-citas')
 }
 
 onMounted(cargarDatos)
@@ -879,19 +850,6 @@ button { font-family: inherit; }
   border-color: #0F766E;
   box-shadow: 0 0 0 3px rgba(15, 118, 110, .15);
 }
-.pet-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: 700;
-  font-size: 16px;
-  flex-shrink: 0;
-  box-shadow: 0 4px 10px -3px rgba(15, 23, 42, .12);
-}
 .pet-info { flex: 1; min-width: 0; }
 .pet-nombre {
   margin: 0;
@@ -928,57 +886,80 @@ button { font-family: inherit; }
   transform: translateX(2px);
 }
 
-/* ═══ TABLA ═══ */
-.tabla-wrap { overflow-x: auto; border-radius: 10px; }
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: inherit;
-  min-width: 520px;
+/* ═══ BANNER PAGOS PENDIENTES ═══ */
+.pagos-banner {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 16px;
+  align-items: center;
+  padding: 16px 20px;
+  margin-top: 20px;
+  background: linear-gradient(135deg, #FFFBEB 0%, #FFFFFF 60%);
+  border: 1px solid #FDE68A;
+  border-radius: 14px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .03);
 }
-.data-table th {
-  text-align: left;
-  padding: 10px 14px;
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #64748B;
-  text-transform: uppercase;
-  letter-spacing: .5px;
-  border-bottom: 2px solid #E2E8F0;
-  background: transparent;
-}
-.data-table td {
-  padding: 14px;
-  font-size: 13.5px;
-  color: #1E293B;
-  border-bottom: 1px solid #F1F5F9;
-  vertical-align: middle;
-}
-.data-table tbody tr:last-child td { border-bottom: none; }
-.data-table tbody tr:hover td { background: rgba(15, 118, 110, .03); }
-.der { text-align: right; }
-.amount { font-weight: 700; color: #0F766E; }
 
-.btn-pay {
-  display: inline-flex;
+.pagos-banner-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #FEF3C7;
+  color: #B45309;
+  display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 18px;
-  background: #0F766E;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-size: 12.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all .2s ease;
-  font-family: inherit;
-  white-space: nowrap;
+  flex-shrink: 0;
 }
-.btn-pay:hover {
-  background: #115E59;
+
+.pagos-banner-texto { min-width: 0; }
+.pagos-banner-titulo {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #0F172A;
+  line-height: 1.3;
+}
+.pagos-banner-sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #64748B;
+}
+.pagos-banner-sub strong {
+  color: #B45309;
+  font-weight: 700;
+}
+
+.pagos-banner-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 20px;
+  background: #B45309;
+  color: #fff;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all .15s ease;
+  flex-shrink: 0;
+}
+.pagos-banner-btn:hover {
+  background: #92400E;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(15, 118, 110, .25);
+  box-shadow: 0 6px 16px -4px rgba(180, 83, 9, .4);
+}
+
+@media (max-width: 640px) {
+  .pagos-banner {
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+  }
+  .pagos-banner-btn {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
 }
 
 /* ═══ LINKS / BADGES ═══ */

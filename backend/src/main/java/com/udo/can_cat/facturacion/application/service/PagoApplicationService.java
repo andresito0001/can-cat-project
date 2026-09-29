@@ -53,6 +53,7 @@ import com.udo.can_cat.usuarios.domain.repository.ClienteRepository;
 import com.udo.can_cat.usuarios.domain.repository.PersonalRepository;
 import com.udo.can_cat.usuarios.domain.repository.UsuarioRepository;
 import java.util.List;
+import java.math.RoundingMode;
 
 @Service
 public class PagoApplicationService {
@@ -163,6 +164,13 @@ public class PagoApplicationService {
                 .orElseThrow(() -> new FacturacionException("Método de pago no encontrado"));
         validarDatosPago(metodoPago, request.datosPago());
 
+        if (request.referenciaTransaccion() != null) {
+            String ref = request.referenciaTransaccion().trim();
+            if (!ref.matches("^\\d{4,20}$")) {
+                throw new FacturacionException("La referencia de transacción debe tener entre 4 y 20 dígitos.");
+            }
+        }
+
         // 4. Buscar servicio para el detalle
         Servicio servicio = servicioRepo.buscarPorId(cita.getIdServicio())
                 .filter(Servicio::getActivo)
@@ -196,6 +204,7 @@ public class PagoApplicationService {
         detalleFacturaRepo.guardar(detalle);
 
         // 8. Crear pago en Pendiente_Verificacion
+        
         Pago pago = new Pago();
         pago.setIdFactura(factura.getId());
         pago.setIdMetodoPago(metodoPago.getId());
@@ -212,6 +221,7 @@ public class PagoApplicationService {
                         (a, b) -> a,
                         LinkedHashMap::new))
                 : Map.of());
+
         pagoRepo.guardar(pago);
 
         // ─── 9. NO se cambia el estado de la cita ───
@@ -227,6 +237,12 @@ public class PagoApplicationService {
             citaRepo.guardar(cita);
         }
         
+        BigDecimal montoUsd = factura.getTotalNeto();
+        BigDecimal tasa = cita.getTasaCambioAplicada();
+        BigDecimal montoBs = (tasa != null)
+                ? montoUsd.multiply(tasa).setScale(2, RoundingMode.HALF_UP)
+                : null;
+
         return new ProcesarPagoCitaResponseDTO(
                 factura.getId(),
                 numeroControl,
@@ -234,7 +250,10 @@ public class PagoApplicationService {
                 "Su pago fue registrado y está siendo verificado. " +
                 "Recibirá una confirmación cuando el pago sea aprobado por recepción.",
                 true,
-                null
+                null,
+                montoUsd,
+                montoBs,
+                tasa
         );
     }
 
@@ -374,18 +393,34 @@ public class PagoApplicationService {
                 fecha = factura.getCreatedAt();
             }
 
-            return new HistorialPagoResponseDTO(
-                    factura.getId(),
-                    factura.getNumeroControl(),
-                    fecha != null ? fecha.toString() : null,
-                    concepto,
-                    factura.getTotalNeto(),
-                    pago != null ? pago.getEstadoPago() : factura.getEstadoFactura(),
-                    factura.getMetodoPagoPrincipal(),
-                    pago != null ? pago.getReferenciaTransaccion() : null,
-                    factura.getIdCita(),
-                    estadoCita
-            );
+        BigDecimal montoBs = null;
+        Cita citaAsociada = null;
+        if (factura.getIdCita() != null) {
+        citaAsociada = citaRepo.buscarPorId(factura.getIdCita()).orElse(null);
+        if (citaAsociada != null && citaAsociada.getTasaCambioAplicada() != null
+                && factura.getTotalNeto() != null) {
+                montoBs = factura.getTotalNeto()
+                        .multiply(citaAsociada.getTasaCambioAplicada())
+                        .setScale(2, RoundingMode.HALF_UP);
+        }
+        if (citaAsociada != null) {
+                estadoCita = obtenerNombreEstado(citaAsociada.getIdEstado());
+        }
+        }
+
+        return new HistorialPagoResponseDTO(
+                factura.getId(),
+                factura.getNumeroControl(),
+                fecha != null ? fecha.toString() : null,
+                concepto,
+                factura.getTotalNeto(),
+                montoBs,
+                pago != null ? pago.getEstadoPago() : factura.getEstadoFactura(),
+                factura.getMetodoPagoPrincipal(),
+                pago != null ? pago.getReferenciaTransaccion() : null,
+                factura.getIdCita(),
+                estadoCita
+        );
         }).toList();
     }
 
@@ -548,12 +583,23 @@ public class PagoApplicationService {
                 : null;
 
         String mascotaNombre = null;
+        BigDecimal montoBs = null;
+
         if (factura != null && factura.getIdCita() != null) {
-            mascotaNombre = citaRepo.buscarPorId(factura.getIdCita())
-                    .flatMap(c -> mascotaRepo.findById(
-                            new com.udo.can_cat.mascotas.domain.entity.Mascota.MascotaId(c.getIdMascota())))
-                    .map(Mascota::getNombre)
-                    .orElse(null);
+            Cita cita = citaRepo.buscarPorId(factura.getIdCita()).orElse(null);
+            if (cita != null) {
+                mascotaNombre = mascotaRepo.findById(
+                        new com.udo.can_cat.mascotas.domain.entity.Mascota.MascotaId(cita.getIdMascota()))
+                        .map(Mascota::getNombre)
+                        .orElse(null);
+
+                // Calcular monto en Bs con la tasa aplicada a la cita
+                if (cita.getTasaCambioAplicada() != null && pago.getMonto() != null) {
+                    montoBs = pago.getMonto()
+                            .multiply(cita.getTasaCambioAplicada())
+                            .setScale(2, RoundingMode.HALF_UP);
+                }
+            }
         }
 
         String metodoNombre = metodoPagoRepo.buscarPorId(pago.getIdMetodoPago())
@@ -564,6 +610,7 @@ public class PagoApplicationService {
                 pago.getIdFactura(),
                 factura != null ? factura.getNumeroControl() : "—",
                 pago.getMonto(),
+                montoBs,
                 metodoNombre,
                 pago.getReferenciaTransaccion(),
                 pago.getMetadataJson(),
@@ -611,15 +658,48 @@ public class PagoApplicationService {
         Map<String, String> requeridos = metodoPago.getDatosRequeridos();
         if (requeridos == null || requeridos.isEmpty()) return;
         if (datosPago == null) {
-            throw new FacturacionException(
-                    "Debe proporcionar los datos requeridos para el método de pago: " + metodoPago.getNombre());
+            throw new FacturacionException("Debe proporcionar los datos requeridos para el método de pago: " + metodoPago.getNombre());
         }
+
         for (String campo : requeridos.keySet()) {
             String valor = datosPago.get(campo);
             if (valor == null || valor.isBlank()) {
-                throw new FacturacionException(
-                        "El campo '" + campo + "' es obligatorio para " + metodoPago.getNombre());
+                throw new FacturacionException("El campo '" + campo + "' es obligatorio para " + metodoPago.getNombre());
             }
+
+            switch (campo) {
+                case "telefono" -> validarTelefonoVE(valor);
+                case "numero_cuenta" -> validarCuentaVE(valor);
+                case "ultimos_digitos" -> validarUltimosDigitos(valor);
+                case "lote" -> validarLote(valor);
+            }
+        }
+    }
+
+
+    private void validarTelefonoVE(String valor) {
+        String s = valor.replaceAll("[\\s\\-()]", "");
+        if (!s.matches("^04\\d{9}$")) {
+            throw new FacturacionException("Teléfono inválido. Formato: 04XX-XXXXXXX");
+        }
+    }
+
+    private void validarCuentaVE(String valor) {
+        String s = valor.replaceAll("[\\s\\-]", "");
+        if (!s.matches("^\\d{20}$")) {
+            throw new FacturacionException("Número de cuenta inválido. Debe tener 20 dígitos.");
+        }
+    }
+
+    private void validarUltimosDigitos(String valor) {
+        if (!valor.matches("^\\d{4}$")) {
+            throw new FacturacionException("Los últimos dígitos deben ser exactamente 4 números.");
+        }
+    }
+
+    private void validarLote(String valor) {
+        if (!valor.matches("^\\d{4,10}$")) {
+            throw new FacturacionException("El lote debe tener entre 4 y 10 dígitos.");
         }
     }
 

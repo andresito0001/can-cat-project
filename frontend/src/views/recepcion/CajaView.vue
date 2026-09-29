@@ -247,7 +247,12 @@
       </div>
 
       <div v-else class="verificacion-list">
-        <article v-for="p in pagosPorVerificar" :key="p.idPago" class="verif-card">
+        <article
+          v-for="p in pagosPorVerificar"
+          :key="p.idPago"
+          class="verif-card"
+          :data-pago-id="p.idPago"
+        >
           <header class="verif-header">
             <div class="verif-metodo">
               <div class="verif-icon">
@@ -684,6 +689,41 @@ import {
   FileText, Package, Check,
   ShieldCheck, Landmark, Smartphone,
 } from 'lucide-vue-next'
+import { useRoute } from 'vue-router'
+import { watch, nextTick } from 'vue'
+
+
+const route = useRoute()
+
+// Al montar, si viene ?tab=verificacion, cambia de pestaña
+onMounted(async () => {
+  if (route.query.tab === 'verificacion') {
+    tab.value = 'verificacion'
+  }
+  await cargarTodo()
+  enfocarPagoDesdeQuery()
+})
+
+// Reacciona si el usuario navega a la misma vista con otro focus
+watch(() => route.query, () => {
+  if (route.query.tab === 'verificacion') {
+    tab.value = 'verificacion'
+    nextTick(() => enfocarPagoDesdeQuery())
+  }
+}, { deep: true })
+
+function enfocarPagoDesdeQuery() {
+  const idPago = Number(route.query.focus)
+  if (!idPago) return
+  nextTick(() => {
+    const el = document.querySelector(`[data-pago-id="${idPago}"]`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('is-focused')
+      setTimeout(() => el.classList.remove('is-focused'), 2400)
+    }
+  })
+}
 
 const BANCOS_VENEZUELA = [
   { codigo: '0102', nombre: 'Banco de Venezuela, S.A.C.A.' },
@@ -697,6 +737,7 @@ const BANCOS_VENEZUELA = [
   { codigo: '0177', nombre: 'BANFANB' },
   { codigo: '0190', nombre: 'Banco Nacional de Crédito, C.A.' },
 ]
+
 const METODO_LABEL = {
   Efectivo: 'Efectivo',
   Tarjeta: 'Tarjeta (Punto de Venta)',
@@ -2208,6 +2249,20 @@ button { font-family: inherit; }
   }
   .resumen-value { text-align: left; }
   .total-value { align-items: flex-start; }
+}
+
+.verif-card.is-focused {
+  animation: highlightPulse 2.4s ease;
+}
+@keyframes highlightPulse {
+  0%, 100% {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .04);
+    border-color: #FDE68A;
+  }
+  20%, 60% {
+    box-shadow: 0 0 0 4px rgba(217, 119, 6, .18);
+    border-color: #F59E0B;
+  }
 }
 
 </style>

@@ -96,3 +96,5 @@ export const getPagosPendientesVerificacion = () =>
 
 export const verificarPago = (idPago, payload) =>
   api.post(`/pagos/${idPago}/verificar`, payload)
+
+export const getDatosBancarios = () => api.get('/public/datos-bancarios')

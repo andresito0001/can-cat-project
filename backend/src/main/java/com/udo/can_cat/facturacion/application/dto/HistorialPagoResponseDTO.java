@@ -8,6 +8,7 @@ public record HistorialPagoResponseDTO(
         String fecha,
         String concepto,            
         BigDecimal monto,           
+        BigDecimal montoBs,
         String estadoPago,
         String metodoPago,
         String referenciaTransaccion,

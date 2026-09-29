@@ -40,7 +40,12 @@
                 </div>
                 <div class="info-row">
                   <span class="info-label"><Wallet :size="13" /> Monto</span>
-                  <span class="info-value amount">{{ fmtUsd(pago?.monto) }}</span>
+                  <span class="info-value amount">
+                    {{ fmtUsd(pago?.monto) }} USD
+                    <span v-if="pago?.montoBs != null" class="monto-bs">
+                      · Bs. {{ fmtBs(pago.montoBs) }}
+                    </span>
+                  </span>
                 </div>
               </div>
 
@@ -52,10 +57,13 @@
                     <span class="tx-label">Referencia</span>
                     <span class="tx-value mono">{{ pago.referenciaTransaccion }}</span>
                   </div>
-                  <div v-for="(val, key) in (pago?.metadataPago || {})" :key="key" class="tx-field">
-                    <span class="tx-label">{{ fmtFieldLabel(key) }}</span>
-                    <span class="tx-value">{{ val }}</span>
-                  </div>
+                  <template v-for="(val, key) in (pago?.metadataPago || {})" :key="key">
+                    <!-- Evita duplicar la referencia: ya se muestra arriba como campo destacado -->
+                    <div v-if="key !== 'referencia'" class="tx-field">
+                      <span class="tx-label">{{ fmtFieldLabel(key) }}</span>
+                      <span class="tx-value">{{ val }}</span>
+                    </div>
+                  </template>
                 </div>
               </div>
 
@@ -141,6 +149,7 @@ function cerrar() {
 }
 
 async function confirmar() {
+  if (procesando.value) return
   procesando.value = true
   error.value = ''
   try {
@@ -148,8 +157,9 @@ async function confirmar() {
       aprobado: props.aprobado,
       observaciones: observaciones.value.trim() || null,
     })
+    procesando.value = false              // ← bajar ANTES de cerrar
     emit('verificado', { pago: props.pago, aprobado: props.aprobado })
-    cerrar()
+    emit('update:modelValue', false)      // ← cerrar directo, sin pasar por cerrar()
   } catch (err) {
     error.value = getApiErrorMessage(err) || 'No se pudo procesar la verificación.'
   } finally {
@@ -160,6 +170,15 @@ async function confirmar() {
 function fmtUsd(v) {
   if (v == null) return '$0.00'
   return `$${Number(v).toFixed(2)}`
+}
+
+function fmtBs(v) {
+  const n = Number(v)
+  if (v == null || Number.isNaN(n)) return '—'
+  return n.toLocaleString('es-VE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
 }
 
 function fmtFieldLabel(key) {
@@ -255,6 +274,11 @@ function fmtFieldLabel(key) {
   padding: 2px 8px; border-radius: 5px;
 }
 .info-value.amount { color: #0F766E; font-size: 14px; }
+.info-value .monto-bs {
+  color: #334155;
+  font-weight: 700;
+  font-size: 13px;
+}
 
 .tx-card {
   background: #F8FAFC; border: 1px solid #E2E8F0;
