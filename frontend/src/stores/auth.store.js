@@ -88,8 +88,11 @@ export const useAuthStore = defineStore('auth', () => {
       })
       return { success: true }
     } catch (err) {
-      error.value = getApiErrorMessage(err) || 'No se pudo restablecer'
-      return { success: false }
+      const data = err.response?.data || {}
+      const mensaje = getApiErrorMessage(err) || 'No se pudo restablecer la contraseña.'
+      const codigo = data.error || ''
+      error.value = mensaje
+      return { success: false, mensaje, codigo }
     } finally {
       isLoading.value = false
     }

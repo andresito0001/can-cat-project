@@ -16,7 +16,7 @@ public record SolicitarCitaRequestDTO(
         Integer idServicio,
 
         @NotNull(message = "La fecha de la cita es obligatoria")
-        @Future(message = "La fecha de la cita debe ser futura")
+        @FutureOrPresent(message = "La fecha de la cita no puede ser pasada")
         LocalDate fechaCita,
 
         @NotNull(message = "La hora de inicio es obligatoria")

@@ -14,10 +14,22 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status
+    const url = error.config?.url || ''
+
+    const esEndpointAuth =
+      url.includes('/auth/login') ||
+      url.includes('/auth/registro') ||
+      url.includes('/auth/recuperar-password') ||
+      url.includes('/auth/nueva-contrasena')
+
+    const yaEnAuth = window.location.pathname.startsWith('/auth/')
+
+    if (status === 401 && !esEndpointAuth && !yaEnAuth) {
       localStorage.removeItem('token')
-      window.location.href = '/auth/login'
+      window.location.href = '/auth/login?session=expired'
     }
+
     return Promise.reject(error)
   }
 )

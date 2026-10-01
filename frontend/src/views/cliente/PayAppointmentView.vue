@@ -1,70 +1,98 @@
 <template>
   <div class="pay-view">
-    <!-- ═══ Loading ═══ -->
-    <div v-if="cargando" class="state-full">
-      <Loader2 :size="36" class="spin" />
-      <p>Cargando información de la cita...</p>
-    </div>
+    <ToastContainer />
 
-    <!-- ═══ Error de carga ═══ -->
-    <div v-else-if="errorCarga" class="state-full state-error">
-      <AlertTriangle :size="48" />
-      <h2>No pudimos cargar la cita</h2>
-      <p>{{ errorCarga }}</p>
-      <button class="btn-secondary" @click="volver">
-        <ArrowLeft :size="15" /> Volver a Mis Citas
-      </button>
-    </div>
-
-    <!-- ═══ Estado no pagable ═══ -->
-    <div v-else-if="!esPagable" class="state-full">
-      <component :is="estadoIcono" :size="52" :class="estadoIconClass" />
-      <h2>{{ estadoTitulo }}</h2>
-      <p>{{ estadoDescripcion }}</p>
-      <div class="state-actions">
-        <button class="btn-secondary" @click="volver">
-          <ArrowLeft :size="15" /> Volver a Mis Citas
-        </button>
-        <button
-          v-if="['Confirmada', 'Completada'].includes(cita.estado)"
-          class="btn-primary"
-          @click="irAlHistorial"
-        >
-          <ReceiptText :size="15" /> Ver en historial
-        </button>
+    <!-- ═══ LOADING ═══ -->
+    <div v-if="cargando" class="card state-full">
+      <div class="card-body">
+        <div class="loading-state">
+          <span class="spinner spinner-lg" />
+          <p>Cargando información de la cita…</p>
+        </div>
       </div>
     </div>
 
-    <!-- ═══ Flujo de pago ═══ -->
+    <!-- ═══ ERROR DE CARGA ═══ -->
+    <div v-else-if="errorCarga" class="state-full">
+      <div class="state-error-icon"><AlertTriangle :size="48" /></div>
+      <h2 class="state-title">No pudimos cargar la cita</h2>
+      <p class="state-text">{{ errorCarga }}</p>
+      <AppButton variant="secondary" @click="volver">
+        <template #icon-left><ArrowLeft :size="15" /></template>
+        Volver a Mis Citas
+      </AppButton>
+    </div>
+
+    <!-- ═══ ESTADO NO PAGABLE ═══ -->
+    <div v-else-if="!esPagable" class="state-full">
+      <component :is="estadoIcono" :size="52" :class="estadoIconClass" />
+      <h2 class="state-title">{{ estadoTitulo }}</h2>
+      <p class="state-text">{{ estadoDescripcion }}</p>
+      <div class="state-actions">
+        <AppButton variant="secondary" @click="volver">
+          <template #icon-left><ArrowLeft :size="15" /></template>
+          Volver a Mis Citas
+        </AppButton>
+
+        <!-- NUEVO: solo aparece cuando expiró -->
+        <AppButton
+          v-if="expirado"
+          variant="primary"
+          @click="irANuevaCita"
+        >
+          <template #icon-left><CalendarPlus :size="15" /></template>
+          Agendar nueva cita
+        </AppButton>
+
+        <AppButton
+          v-if="!expirado && ['Confirmada', 'Completada'].includes(cita.estado)"
+          variant="primary"
+          @click="irAlHistorial"
+        >
+          <template #icon-left><ReceiptText :size="15" /></template>
+          Ver en historial
+        </AppButton>
+      </div>
+    </div>
+
+    <!-- ═══ FLUJO DE PAGO ═══ -->
     <template v-else>
       <header class="page-header">
-        <button class="btn-back" @click="volver">
-          <ArrowLeft :size="16" /> Volver
-        </button>
-        <div class="header-title">
+        <div>
+          <button class="btn-back" type="button" @click="volver">
+            <ArrowLeft :size="16" /> Volver
+          </button>
+          <span class="page-header-eyebrow">
+            <CreditCard :size="12" /> Pago de cita
+          </span>
           <h1>Pagar Cita</h1>
-          <p>Completa el pago para confirmar tu reserva</p>
+          <p class="page-header-sub">
+            Completa el pago para confirmar tu reserva.
+          </p>
         </div>
       </header>
 
       <div class="pay-layout">
-        <!-- ─── Columna izquierda: resumen ─── -->
+        <!-- ═══ COLUMNA IZQUIERDA: resumen ═══ -->
         <aside class="summary-col">
           <!-- Countdown -->
           <CitaCountdown
             v-if="cita.expiraEn && !expirado"
             :expira-en="cita.expiraEn"
+            :duracion-total-min="15"
             @expirado="onExpirado"
           />
 
           <!-- Alerta de expirado -->
-          <div v-if="expirado" class="alert-expired">
-            <AlertTriangle :size="18" />
+          <AppAlert v-if="expirado" variant="error">
             <div>
               <strong>La reserva expiró</strong>
-              <p>Este horario ya no está disponible. Vuelve a agendar una nueva cita.</p>
+              <p style="margin-top: 4px;">
+                Este horario ya no está disponible y la cita fue cancelada.
+                Vuelve a agendar una nueva cita cuando estés listo.
+              </p>
             </div>
-          </div>
+          </AppAlert>
 
           <!-- Card resumen -->
           <div class="summary-card">
@@ -110,9 +138,8 @@
               </div>
             </div>
 
-            <div class="divider"></div>
+            <div class="divider" />
 
-            <!-- Totales -->
             <div class="total-block">
               <div class="total-line">
                 <span>Total USD</span>
@@ -128,12 +155,10 @@
             </div>
           </div>
 
-          <!-- ═══ Datos bancarios de la clínica ═══ -->
+          <!-- Datos bancarios -->
           <div v-if="datosBancarios" class="banco-card">
             <header class="banco-head">
-              <div class="banco-icon">
-                <Landmark :size="16" />
-              </div>
+              <div class="banco-icon"><Landmark :size="16" /></div>
               <div>
                 <h3 class="banco-title">Datos para pagar</h3>
                 <p class="banco-sub">{{ datosBancarios.nombreTitular }}</p>
@@ -141,7 +166,6 @@
             </header>
 
             <div class="banco-body">
-              <!-- Pago Móvil -->
               <div class="banco-bloque">
                 <p class="banco-bloque-titulo">
                   <Smartphone :size="13" /> Pago Móvil
@@ -152,30 +176,59 @@
                 </div>
                 <div class="banco-fila">
                   <span class="banco-label">Teléfono</span>
-                  <span class="banco-valor mono">{{ datosBancarios.pagoMovil.telefono }}</span>
+                  <button
+                    type="button"
+                    class="banco-copiar mono"
+                    title="Copiar teléfono"
+                    @click="copiarDato(datosBancarios.pagoMovil.telefono, 'Teléfono')"
+                  >
+                    {{ datosBancarios.pagoMovil.telefono }} <Copy :size="12" />
+                  </button>
                 </div>
                 <div class="banco-fila">
                   <span class="banco-label">Cédula / RIF</span>
-                  <span class="banco-valor mono">{{ datosBancarios.pagoMovil.cedula }}</span>
+                  <button
+                    type="button"
+                    class="banco-copiar mono"
+                    title="Copiar cédula"
+                    @click="copiarDato(datosBancarios.pagoMovil.cedula, 'Cédula')"
+                  >
+                    {{ datosBancarios.pagoMovil.cedula }} <Copy :size="12" />
+                  </button>
                 </div>
               </div>
 
-              <!-- Transferencia -->
               <div class="banco-bloque">
                 <p class="banco-bloque-titulo">
                   <ArrowRightLeft :size="13" /> Transferencia
                 </p>
                 <div class="banco-fila">
                   <span class="banco-label">Banco</span>
-                  <span class="banco-valor">{{ datosBancarios.bancoPrincipal.codigo }} {{ datosBancarios.bancoPrincipal.nombre }}</span>
+                  <span class="banco-valor">
+                    {{ datosBancarios.bancoPrincipal.codigo }} {{ datosBancarios.bancoPrincipal.nombre }}
+                  </span>
                 </div>
                 <div class="banco-fila">
                   <span class="banco-label">Cuenta</span>
-                  <span class="banco-valor mono">{{ datosBancarios.bancoPrincipal.cuenta }}</span>
+                  <button
+                    type="button"
+                    class="banco-copiar mono"
+                    title="Copiar número de cuenta"
+                    @click="copiarDato(datosBancarios.bancoPrincipal.cuenta, 'Número de cuenta')"
+                  >
+                    {{ datosBancarios.bancoPrincipal.cuenta }} <Copy :size="12" />
+                  </button>
                 </div>
                 <div class="banco-fila">
                   <span class="banco-label">RIF</span>
-                  <span class="banco-valor mono">{{ datosBancarios.rif }}</span>
+                  <button
+                    type="button"
+                    class="banco-copiar mono"
+                    title="Copiar RIF"
+                    @click="copiarDato(datosBancarios.rif, 'RIF')"
+                  >
+                    {{ datosBancarios.rif }} <Copy :size="12" />
+                  </button>
                 </div>
               </div>
 
@@ -187,25 +240,22 @@
           </div>
         </aside>
 
-        <!-- ─── Columna derecha: formulario ─── -->
+        <!-- ═══ COLUMNA DERECHA: formulario ═══ -->
         <main class="form-col">
           <div class="payment-card">
             <h3 class="card-title">Método de pago</h3>
             <p class="card-hint">Selecciona cómo deseas pagar esta cita</p>
 
-            <!-- Cargando métodos -->
             <div v-if="cargandoMetodos" class="mini-loading">
-              <Loader2 :size="20" class="spin" />
-              <span>Cargando métodos disponibles...</span>
+              <span class="spinner spinner-sm" />
+              <span>Cargando métodos disponibles…</span>
             </div>
 
-            <!-- Sin métodos disponibles -->
-            <div v-else-if="metodos.length === 0" class="mini-empty">
+            <div v-else-if="!metodos.length" class="mini-empty">
               <AlertCircle :size="20" />
               <span>No hay métodos de pago disponibles en este momento.</span>
             </div>
 
-            <!-- Grid de métodos -->
             <div v-else class="method-grid">
               <button
                 v-for="m in metodos"
@@ -223,12 +273,11 @@
                   <span class="method-desc">{{ m.descripcion }}</span>
                 </div>
                 <div class="method-radio">
-                  <div class="radio-dot" :class="{ filled: metodoSeleccionado?.id === m.id }"></div>
+                  <div class="radio-dot" :class="{ filled: metodoSeleccionado?.id === m.id }" />
                 </div>
               </button>
             </div>
 
-            <!-- Campos dinámicos -->
             <Transition name="slide-down">
               <div v-if="metodoSeleccionado" class="dynamic-fields">
                 <h4 class="fields-title">Datos del pago</h4>
@@ -246,9 +295,13 @@
                     :class="{ 'field-invalid': erroresCampos[key] }"
                     @change="erroresCampos[key] = ''"
                   >
-                    <option value="" disabled>Selecciona un banco...</option>
+                    <option value="" disabled>Selecciona un banco…</option>
                     <optgroup label="Bancos universales">
-                      <option v-for="b in BANCOS_VE" :key="b.codigo" :value="`${b.codigo} - ${b.nombre}`">
+                      <option
+                        v-for="b in BANCOS_VENEZUELA"
+                        :key="b.codigo"
+                        :value="`${b.codigo} - ${b.nombre}`"
+                      >
                         {{ b.codigo }} — {{ b.nombre }}
                       </option>
                     </optgroup>
@@ -270,7 +323,6 @@
                   <small v-if="erroresCampos[key]" class="field-error">{{ erroresCampos[key] }}</small>
                 </div>
 
-                <!-- Referencia de transacción -->
                 <div class="form-field">
                   <label for="referencia">
                     Referencia de transacción <span class="required">*</span>
@@ -292,24 +344,24 @@
               </div>
             </Transition>
 
-            <!-- Error general -->
             <Transition name="slide-down">
-              <div v-if="errorForm" class="alert-error">
-                <AlertCircle :size="16" />
-                <span>{{ errorForm }}</span>
-              </div>
+              <AppAlert v-if="errorForm" variant="error" class="mt-4">
+                {{ errorForm }}
+              </AppAlert>
             </Transition>
 
-            <!-- Botón confirmar -->
-            <button
-              class="btn-confirm"
-              :disabled="!puedeConfirmar || procesando || expirado"
+            <AppButton
+              variant="primary"
+              size="lg"
+              block
+              class="mt-5"
+              :loading="procesando"
+              :disabled="!puedeConfirmar || expirado"
               @click="confirmarPago"
             >
-              <Loader2 v-if="procesando" :size="18" class="spin" />
-              <ShieldCheck v-else :size="18" />
-              {{ procesando ? 'Procesando pago...' : 'Confirmar pago' }}
-            </button>
+              <template #icon-left><ShieldCheck :size="18" /></template>
+              {{ procesando ? 'Procesando pago…' : 'Confirmar pago' }}
+            </AppButton>
 
             <p class="secure-hint">
               <Lock :size="12" />
@@ -320,63 +372,62 @@
       </div>
     </template>
 
-    <!-- ═══ Modal de éxito ═══ -->
-    <Teleport to="body">
-      <Transition name="fade">
-        <div v-if="pagoExitoso" class="modal-overlay">
-          <Transition name="slide-up" appear>
-            <div class="success-modal" role="dialog" aria-modal="true">
-              <div class="success-icon">
-                <CheckCircle2 :size="34" />
-              </div>
-
-              <h2>¡Pago registrado!</h2>
-              <p class="success-message">{{ pagoExitoso.mensaje }}</p>
-
-              <div class="success-details">
-                <div class="detail-row">
-                  <span class="detail-label">Factura</span>
-                  <span class="detail-value mono">{{ pagoExitoso.numeroControl }}</span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">Estado</span>
-                  <span class="detail-value">{{ formatEstadoCita(pagoExitoso.estadoCita) }}</span>
-                </div>
-                <div v-if="pagoExitoso.montoUsd != null" class="detail-row detail-row--total">
-                  <span class="detail-label">Total USD</span>
-                  <span class="detail-value amount">{{ fmtUsd(pagoExitoso.montoUsd) }} USD</span>
-                </div>
-                <div v-if="pagoExitoso.montoBs != null" class="detail-row detail-row--total">
-                  <span class="detail-label">Total Bs</span>
-                  <span class="detail-value amount-bs">Bs. {{ fmtBs(pagoExitoso.montoBs) }}</span>
-                </div>
-                <div v-if="pagoExitoso.tasaCambio != null" class="detail-row detail-row--tasa">
-                  <span class="detail-label">Tasa aplicada</span>
-                  <span class="detail-value tasa">{{ fmtTasa(pagoExitoso.tasaCambio) }} Bs/USD</span>
-                </div>
-              </div>
-
-              <div v-if="pagoExitoso.advertenciaEmail" class="alert-info">
-                <Info :size="16" />
-                <span>{{ pagoExitoso.advertenciaEmail }}</span>
-              </div>
-
-              <div class="success-actions">
-                <button class="btn-secondary" :disabled="descargandoPdf"
-                        @click="descargarFacturaActual">
-                  <Loader2 v-if="descargandoPdf" :size="15" class="spin" />
-                  <Download v-else :size="15" />
-                  {{ descargandoPdf ? 'Generando...' : 'Descargar factura' }}
-                </button>
-                <button class="btn-primary" @click="irAlHistorial">
-                  Ver historial
-                </button>
-              </div>
-            </div>
-          </Transition>
+    <!-- ═══ MODAL DE ÉXITO ═══ -->
+    <AppModal
+      :model-value="!!pagoExitoso"
+      title="¡Pago registrado!"
+      size="md"
+      @update:model-value="cerrarModalExito"
+    >
+      <div v-if="pagoExitoso" class="success-content">
+        <div class="success-icon-wrap">
+          <CheckCircle2 :size="34" />
         </div>
-      </Transition>
-    </Teleport>
+
+        <p class="success-message">{{ pagoExitoso.mensaje }}</p>
+
+        <div class="success-details">
+          <div class="detail-row">
+            <span class="detail-label">Factura</span>
+            <span class="detail-value mono">{{ pagoExitoso.numeroControl }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Estado</span>
+            <span class="detail-value">{{ formatEstadoCita(pagoExitoso.estadoCita) }}</span>
+          </div>
+          <div v-if="pagoExitoso.montoUsd != null" class="detail-row detail-row-total">
+            <span class="detail-label">Total USD</span>
+            <span class="detail-value amount">{{ fmtUsd(pagoExitoso.montoUsd) }} USD</span>
+          </div>
+          <div v-if="pagoExitoso.montoBs != null" class="detail-row detail-row-total">
+            <span class="detail-label">Total Bs</span>
+            <span class="detail-value amount-bs">Bs. {{ fmtBs(pagoExitoso.montoBs) }}</span>
+          </div>
+          <div v-if="pagoExitoso.tasaCambio != null" class="detail-row detail-row-tasa">
+            <span class="detail-label">Tasa aplicada</span>
+            <span class="detail-value tasa">{{ fmtTasa(pagoExitoso.tasaCambio) }} Bs/USD</span>
+          </div>
+        </div>
+
+        <AppAlert v-if="pagoExitoso.advertenciaEmail" variant="info" class="mt-4">
+          {{ pagoExitoso.advertenciaEmail }}
+        </AppAlert>
+      </div>
+
+      <template #footer>
+        <AppButton
+          variant="secondary"
+          :loading="descargandoPdf"
+          @click="descargarFacturaActual"
+        >
+          <template #icon-left><Download :size="15" /></template>
+          {{ descargandoPdf ? 'Generando…' : 'Descargar factura' }}
+        </AppButton>
+        <AppButton variant="primary" @click="irAlHistorial">
+          Ver historial
+        </AppButton>
+      </template>
+    </AppModal>
   </div>
 </template>
 
@@ -385,15 +436,26 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowLeft, PawPrint, Stethoscope, ClipboardList, CalendarDays, Clock,
-  Loader2, AlertTriangle, AlertCircle, CheckCircle2, Info,
+  AlertTriangle, AlertCircle, CheckCircle2, Info,
   ShieldCheck, Lock, Download, ReceiptText,
-  Landmark, Smartphone, ArrowRightLeft
+  Landmark, Smartphone, ArrowRightLeft, Copy, CreditCard, CalendarPlus,
 } from 'lucide-vue-next'
 import api from '@/api/axios.config'
-import { getMetodosOnline, procesarPagoCita, descargarFacturaPdf, getDatosBancarios } from '@/api/pagos.api.js'
+import {
+  getMetodosOnline, procesarPagoCita, descargarFactura, getDatosBancarios,
+} from '@/api/pagos.api.js'
 import { getApiErrorMessage } from '@/utils/apiError'
 import { useToast } from '@/composables/useToast'
+
 import CitaCountdown from '@/components/cliente/CitaCountdown.vue'
+import ToastContainer from '@/components/ui/ToastContainer.vue'
+import AppButton from '@/components/ui/AppButton.vue'
+import AppAlert from '@/components/ui/AppAlert.vue'
+import AppModal from '@/components/ui/AppModal.vue'
+
+import { BANCOS_VENEZUELA } from '@/utils/constants/bancos'
+
+import { cancelarCitaExpirada } from '@/api/citas.api.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -401,37 +463,34 @@ const { toastError, toastSuccess } = useToast()
 
 const idCita = computed(() => Number(route.params.idCita))
 
-// ─── Estado de la cita ───
+/* ═══════════════════════════════════════════════════════════════
+   ESTADO
+   ═══════════════════════════════════════════════════════════════ */
 const cargando = ref(true)
 const errorCarga = ref('')
 const cita = ref(null)
 const expirado = ref(false)
 
-// ─── Métodos de pago ───
 const cargandoMetodos = ref(true)
 const metodos = ref([])
 const metodoSeleccionado = ref(null)
 
-// ─── Formulario ───
 const datosPago = ref({})
 const referenciaTransaccion = ref('')
 const errorForm = ref('')
 const procesando = ref(false)
 const erroresCampos = ref({})
 
-// ─── Resultado ───
 const pagoExitoso = ref(null)
 const descargandoPdf = ref(false)
 
-// ─── Datos bancarios ───
 const datosBancarios = ref(null)
 
-// ═══════════════════════════════════════════════════════════
-// VALIDACIONES DE CAMPOS DE PAGO
-// ═══════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════
+   VALIDADORES
+   ═══════════════════════════════════════════════════════════════ */
 const SOLO_DIGITOS = /^\d+$/
 
-/** Referencia de transacción: 4-20 dígitos */
 function validarReferencia(v) {
   const s = String(v || '').trim()
   if (!s) return 'La referencia es obligatoria'
@@ -441,7 +500,6 @@ function validarReferencia(v) {
   return null
 }
 
-/** Teléfono Venezuela: 04XX-XXXXXXX (11 dígitos), acepta guiones/espacios */
 function validarTelefono(v) {
   const s = String(v || '').replace(/[\s\-()]/g, '')
   if (!s) return 'El teléfono es obligatorio'
@@ -451,7 +509,6 @@ function validarTelefono(v) {
   return null
 }
 
-/** Número de cuenta Venezuela: 20 dígitos */
 function validarCuenta(v) {
   const s = String(v || '').replace(/[\s\-]/g, '')
   if (!s) return 'El número de cuenta es obligatorio'
@@ -460,7 +517,6 @@ function validarCuenta(v) {
   return null
 }
 
-/** Últimos 4 dígitos de tarjeta */
 function validarUltimosDigitos(v) {
   const s = String(v || '').trim()
   if (!s) return 'Requerido'
@@ -469,7 +525,6 @@ function validarUltimosDigitos(v) {
   return null
 }
 
-/** Lote: 4-10 dígitos */
 function validarLote(v) {
   const s = String(v || '').trim()
   if (!s) return 'El lote es obligatorio'
@@ -478,7 +533,6 @@ function validarLote(v) {
   return null
 }
 
-/** Mapa de validador por campo */
 const VALIDADORES_CAMPO = {
   telefono: validarTelefono,
   numero_cuenta: validarCuenta,
@@ -486,8 +540,12 @@ const VALIDADORES_CAMPO = {
   lote: validarLote,
 }
 
-// ─── Computados ───
-const esPagable = computed(() => cita.value?.estado === 'Pendiente_Pago')
+/* ═══════════════════════════════════════════════════════════════
+   COMPUTED
+   ═══════════════════════════════════════════════════════════════ */
+const esPagable = computed(() =>
+  cita.value?.estado === 'Pendiente_Pago' && !expirado.value
+)
 
 const camposDinamicos = computed(() => {
   if (!metodoSeleccionado.value) return []
@@ -518,8 +576,9 @@ const tasaImplicita = computed(() => {
   return bs / usd
 })
 
-// ─── Estado "no pagable" ───
+/* ─── Estado no pagable ─── */
 const estadoIcono = computed(() => {
+  if (expirado.value) return Clock            // ← reloj para expiradas
   const map = {
     Confirmada: CheckCircle2,
     Completada: CheckCircle2,
@@ -530,11 +589,13 @@ const estadoIcono = computed(() => {
 })
 
 const estadoIconClass = computed(() => {
+  if (expirado.value) return 'icon-warn'
   const ok = ['Confirmada', 'Completada']
   return ok.includes(cita.value?.estado) ? 'icon-ok' : 'icon-warn'
 })
 
 const estadoTitulo = computed(() => {
+  if (expirado.value) return 'La reserva expiró'
   const map = {
     Confirmada: 'Esta cita ya está confirmada',
     Completada: 'Esta cita ya fue completada',
@@ -545,6 +606,10 @@ const estadoTitulo = computed(() => {
 })
 
 const estadoDescripcion = computed(() => {
+  if (expirado.value) {
+    return 'El tiempo para pagar esta reserva terminó y el horario fue liberado automáticamente. ' +
+           'Si aún quieres esta cita, puedes agendar una nueva.'
+  }
   const map = {
     Confirmada: 'La cita fue confirmada. Revisa los detalles en tu historial.',
     Completada: 'La consulta fue atendida. Revisa el historial de pagos si necesitas el comprobante.',
@@ -554,61 +619,23 @@ const estadoDescripcion = computed(() => {
   return map[cita.value?.estado] || 'El estado actual no permite pagar esta cita.'
 })
 
-// ═══════════════════════════════════════════════════════════
-// BANCOS DE VENEZUELA — códigos oficiales SUDEBAN
-// ═══════════════════════════════════════════════════════════
-const BANCOS_VE = [
-  { codigo: '0102', nombre: 'Banco de Venezuela' },
-  { codigo: '0104', nombre: 'Venezolano de Crédito' },
-  { codigo: '0105', nombre: 'Mercantil' },
-  { codigo: '0108', nombre: 'BBVA Provincial' },
-  { codigo: '0114', nombre: 'Bancaribe' },
-  { codigo: '0115', nombre: 'Banco Exterior' },
-  { codigo: '0128', nombre: 'Banco Caroní' },
-  { codigo: '0134', nombre: 'Banesco' },
-  { codigo: '0137', nombre: 'Sofitasa' },
-  { codigo: '0138', nombre: 'Banco Plaza' },
-  { codigo: '0146', nombre: 'Bangente' },
-  { codigo: '0151', nombre: 'BFC Banco Fondo Común' },
-  { codigo: '0156', nombre: '100% Banco' },
-  { codigo: '0157', nombre: 'DelSur' },
-  { codigo: '0163', nombre: 'Banco del Tesoro' },
-  { codigo: '0166', nombre: 'Banco Agrícola de Venezuela' },
-  { codigo: '0168', nombre: 'Bancrecer' },
-  { codigo: '0169', nombre: 'Mi Banco' },
-  { codigo: '0171', nombre: 'Banco Activo' },
-  { codigo: '0172', nombre: 'Bancamiga' },
-  { codigo: '0174', nombre: 'Banplus' },
-  { codigo: '0175', nombre: 'Banco Bicentenario' },
-  { codigo: '0177', nombre: 'Banfanb' },
-  { codigo: '0191', nombre: 'BNC (Banco Nacional de Crédito)' },
-]
-
 const FIELD_META = {
-  banco:           { label: 'Banco',              placeholder: 'Selecciona un banco', type: 'text' },
-  numero_cuenta:   { label: 'Número de cuenta',   placeholder: '0102-0123-45-6789012345', type: 'text', inputmode: 'numeric', maxlength: 30 },
-  telefono:        { label: 'Teléfono asociado',  placeholder: '0414-1234567', type: 'tel', inputmode: 'tel', maxlength: 15 },
-  ultimos_digitos: { label: 'Últimos 4 dígitos',  placeholder: '1234', type: 'text', inputmode: 'numeric', maxlength: 4 },
-  lote:            { label: 'Lote / aprobación',  placeholder: '987654', type: 'text', inputmode: 'numeric', maxlength: 10 },
+  banco:           { label: 'Banco',             placeholder: 'Selecciona un banco', type: 'text' },
+  numero_cuenta:   { label: 'Número de cuenta',  placeholder: '0102-0123-45-6789012345', type: 'text', inputmode: 'numeric', maxlength: 30 },
+  telefono:        { label: 'Teléfono asociado', placeholder: '0414-1234567', type: 'tel', inputmode: 'tel', maxlength: 15 },
+  ultimos_digitos: { label: 'Últimos 4 dígitos', placeholder: '1234', type: 'text', inputmode: 'numeric', maxlength: 4 },
+  lote:            { label: 'Lote / aprobación', placeholder: '987654', type: 'text', inputmode: 'numeric', maxlength: 10 },
 }
 
-function labelCampo(k) {
-  return FIELD_META[k]?.label || k.replaceAll('_', ' ')
-}
-function placeholderCampo(k) {
-  return FIELD_META[k]?.placeholder || ''
-}
-function tipoCampo(k) {
-  return FIELD_META[k]?.type || 'text'
-}
-function inputModeCampo(k) {
-  return FIELD_META[k]?.inputmode || 'text'
-}
-function maxlengthCampo(k) {
-  return FIELD_META[k]?.maxlength || undefined
-}
+function labelCampo(k) { return FIELD_META[k]?.label || k.replaceAll('_', ' ') }
+function placeholderCampo(k) { return FIELD_META[k]?.placeholder || '' }
+function tipoCampo(k) { return FIELD_META[k]?.type || 'text' }
+function inputModeCampo(k) { return FIELD_META[k]?.inputmode || 'text' }
+function maxlengthCampo(k) { return FIELD_META[k]?.maxlength || undefined }
 
-// ─── Carga inicial ───
+/* ═══════════════════════════════════════════════════════════════
+   CARGA INICIAL
+   ═══════════════════════════════════════════════════════════════ */
 onMounted(async () => {
   await Promise.all([cargarCita(), cargarMetodos(), cargarDatosBancarios()])
 })
@@ -624,8 +651,16 @@ async function cargarCita() {
       return
     }
     cita.value = found
+    
     if (found.expiraEn && new Date(found.expiraEn) <= new Date()) {
       expirado.value = true
+      // Actualizamos local + pedimos al backend que la cancele
+      if (found.estado === 'Pendiente_Pago') {
+        cita.value = { ...cita.value, estado: 'Cancelada', expiraEn: null }
+        cancelarCitaExpirada(idCita.value).catch((err) => {
+          console.warn('[cargarCita] Backend no confirmó:', err?.response?.data || err?.message)
+        })
+      }
     }
   } catch (err) {
     errorCarga.value = getApiErrorMessage(err) || 'Error al cargar la cita.'
@@ -648,17 +683,16 @@ async function cargarMetodos() {
 
 async function cargarDatosBancarios() {
   try {
-    console.log('[banco] llamando...')
     const { data } = await getDatosBancarios()
-    console.log('[banco] OK:', data)
     datosBancarios.value = data
-  } catch (err) {
-    console.error('[banco] ERROR:', err?.response?.status, err?.response?.data, err?.message)
+  } catch {
     datosBancarios.value = null
   }
 }
 
-// ─── Selección de método ───
+/* ═══════════════════════════════════════════════════════════════
+   SELECCIÓN DE MÉTODO
+   ═══════════════════════════════════════════════════════════════ */
 function seleccionarMetodo(m) {
   metodoSeleccionado.value = m
   datosPago.value = {}
@@ -685,7 +719,9 @@ function formatMetodo(nombre) {
   return map[nombre] || nombre
 }
 
-// ─── Validación global del formulario ───
+/* ═══════════════════════════════════════════════════════════════
+   VALIDACIÓN GLOBAL
+   ═══════════════════════════════════════════════════════════════ */
 function validarTodo() {
   const errores = {}
 
@@ -706,11 +742,13 @@ function validarTodo() {
   return Object.keys(errores).length === 0
 }
 
-// ─── Confirmar pago ───
+/* ═══════════════════════════════════════════════════════════════
+   CONFIRMAR PAGO
+   ═══════════════════════════════════════════════════════════════ */
 async function confirmarPago() {
   if (procesando.value) return
   errorForm.value = ''
-  
+
   if (!validarTodo()) {
     errorForm.value = 'Corrige los campos marcados antes de continuar.'
     return
@@ -746,20 +784,45 @@ async function confirmarPago() {
   }
 }
 
-// ─── Expirado ───
-function onExpirado() {
+/* ═══════════════════════════════════════════════════════════════
+   EXPIRADO
+   ═══════════════════════════════════════════════════════════════ */
+async function onExpirado() {
+  if (expirado.value) return
   expirado.value = true
-  if (!errorForm.value) {
-    errorForm.value = 'La reserva expiró. Este horario ya no está disponible.'
+
+  // ⚡ Cambio local INMEDIATO — la UI ya se actualiza sin esperar al backend
+  if (cita.value) {
+    cita.value = { ...cita.value, estado: 'Cancelada', expiraEn: null }
+  }
+
+  // En paralelo, sincronizamos con el backend (es idempotente)
+  try {
+    await cancelarCitaExpirada(idCita.value)
+  } catch (err) {
+    // No es crítico: el CitasExpiracionJob del backend la cancelará igual
+    console.warn('[onExpirado] El backend no confirmó la cancelación:',
+      err?.response?.data || err?.message)
   }
 }
 
-// ─── Descargar factura ───
+/* ═══════════════════════════════════════════════════════════════
+   MODAL DE ÉXITO
+   ═══════════════════════════════════════════════════════════════ */
+function cerrarModalExito() {
+  if (!pagoExitoso.value) return
+
+  pagoExitoso.value = null
+
+  router.replace('/cliente/mis-citas')
+}
+
+
 async function descargarFacturaActual() {
   if (!pagoExitoso.value?.idFactura) return
   descargandoPdf.value = true
   try {
-    const { blob, filename } = await descargarFacturaPdf(pagoExitoso.value.idFactura)
+    const { blob, filename } = await descargarFactura(pagoExitoso.value.idFactura)
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -769,34 +832,56 @@ async function descargarFacturaActual() {
     a.remove()
     URL.revokeObjectURL(url)
     toastSuccess('Factura descargada')
-  } catch (err) {
+  } catch {
     toastError('No se pudo descargar la factura. Intenta más tarde.')
   } finally {
     descargandoPdf.value = false
   }
 }
 
-// ─── Navegación ───
+/* ═══════════════════════════════════════════════════════════════
+   NAVEGACIÓN
+   ═══════════════════════════════════════════════════════════════ */
 function volver() {
   router.push('/cliente/mis-citas')
 }
+
 function irAlHistorial() {
-  router.push('/cliente/historial-pagos')
+  pagoExitoso.value = null
+  router.replace('/cliente/historial-pagos')
 }
 
-// ─── Helpers ───
+function irANuevaCita() {
+  router.push('/cliente/solicitar-cita')
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════════════════════════════ */
 function fmtUsd(v) {
   if (v == null) return '0.00'
-  return Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return Number(v).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
 }
+
 function fmtBs(v) {
   if (v == null) return '0,00'
-  return Number(v).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return Number(v).toLocaleString('es-VE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
 }
+
 function fmtTasa(v) {
   if (v == null) return '—'
-  return Number(v).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return Number(v).toLocaleString('es-VE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
 }
+
 function formatFecha(iso) {
   if (!iso) return ''
   const d = new Date(iso + 'T00:00:00')
@@ -804,6 +889,7 @@ function formatFecha(iso) {
     weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
   })
 }
+
 function formatEstadoCita(estado) {
   const map = {
     'Pendiente_Pago': 'Pendiente de Pago',
@@ -814,355 +900,520 @@ function formatEstadoCita(estado) {
   }
   return map[estado] || estado
 }
+
+async function copiarDato(texto, etiqueta) {
+  const valor = String(texto || '').trim()
+  if (!valor) return
+  try {
+    await navigator.clipboard.writeText(valor)
+    toastSuccess(`${etiqueta} copiado al portapapeles`)
+  } catch {
+    const tmp = document.createElement('textarea')
+    tmp.value = valor
+    tmp.style.cssText = 'position:fixed;opacity:0;pointer-events:none'
+    document.body.appendChild(tmp)
+    tmp.select()
+    document.execCommand('copy')
+    tmp.remove()
+    toastSuccess(`${etiqueta} copiado al portapapeles`)
+  }
+}
 </script>
 
 <style scoped>
 .pay-view {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 24px;
-  font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  color: #0F172A;
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
 }
-button { font-family: inherit; }
 
-/* ── Estados de pantalla completa ── */
+/* ═══ ESTADOS FULL ═══ */
 .state-full {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 80px 24px; gap: 16px; color: #94A3B8; text-align: center;
-  background: #fff; border: 1px solid #E2E8F0; border-radius: 16px; min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-12) var(--space-6);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-3xl);
+  text-align: center;
+  min-height: 320px;
+  color: var(--text-secondary);
 }
-.state-full h2 { font-size: 20px; font-weight: 700; color: #1E293B; margin: 0; }
-.state-full p { font-size: 14px; color: #64748B; max-width: 460px; margin: 0; line-height: 1.55; }
-.state-error { color: #DC2626; }
-.state-error svg { color: #DC2626; }
-.state-actions { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
-.icon-ok { color: #059669; }
-.icon-warn { color: #DC2626; }
-
-.spin { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ── Header ── */
-.page-header {
-  display: flex; align-items: center; gap: 16px; margin-bottom: 24px;
+.state-error-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--danger-50);
+  color: var(--danger-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-2);
 }
+.state-title {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  margin: 0;
+}
+.state-text {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  max-width: 460px;
+  line-height: var(--leading-relaxed);
+  margin: 0 0 var(--space-2);
+}
+.state-actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.icon-ok { color: var(--success-600); }
+.icon-warn { color: var(--danger-600); }
+
+/* ═══ HEADER ═══ */
 .btn-back {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 12px; background: #fff; border: 1px solid #E2E8F0;
-  border-radius: 9px; font-size: 13px; font-weight: 600; color: #475569;
-  cursor: pointer; transition: all .15s;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-size: var(--text-md);
+  font-weight: var(--font-semibold);
+  color: var(--neutral-600);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  font-family: inherit;
+  margin-bottom: var(--space-3);
 }
-.btn-back:hover { background: #F8FAFC; border-color: #CBD5E1; color: #0F766E; }
-.header-title h1 { margin: 0; font-size: 22px; font-weight: 700; color: #0F172A; }
-.header-title p { margin: 2px 0 0; font-size: 13.5px; color: #64748B; }
+.btn-back:hover {
+  background: var(--brand-50);
+  border-color: var(--brand-200);
+  color: var(--brand-700);
+}
 
-/* ── Layout 2 columnas ── */
+/* ═══ LAYOUT ═══ */
 .pay-layout {
   display: grid;
   grid-template-columns: 400px 1fr;
-  gap: 20px;
+  gap: var(--space-5);
   align-items: start;
 }
-@media (max-width: 900px) { .pay-layout { grid-template-columns: 1fr; } }
 
-/* ── Card base ── */
-.summary-card, .payment-card {
-  background: #fff; border: 1px solid #E2E8F0; border-radius: 14px;
-  padding: 22px 24px;
+/* ═══ COLUMNA IZQUIERDA ═══ */
+.summary-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  position: sticky;
+  top: var(--space-6);
 }
-.card-title { margin: 0 0 4px; font-size: 15px; font-weight: 700; color: #0F172A; }
-.card-hint { margin: 0 0 18px; font-size: 12.5px; color: #64748B; }
 
-/* ── Columna izquierda: resumen ── */
-.summary-col { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 24px; }
-@media (max-width: 900px) { .summary-col { position: static; } }
+.summary-card,
+.payment-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2xl);
+  padding: var(--space-5) var(--space-6);
+}
 
+.card-title {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+}
+.card-hint {
+  margin: calc(var(--space-3) * -1) 0 var(--space-5);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+/* ── Filas de resumen ── */
 .summary-row {
-  display: flex; align-items: flex-start; gap: 12px; padding: 10px 0;
-  border-bottom: 1px solid #F1F5F9;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-subtle);
 }
 .summary-row:last-of-type { border-bottom: none; }
-.summary-icon { color: #94A3B8; margin-top: 3px; flex-shrink: 0; }
+.summary-icon { color: var(--text-tertiary); margin-top: 3px; flex-shrink: 0; }
 .summary-text { display: flex; flex-direction: column; min-width: 0; }
-.summary-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #94A3B8; }
-.summary-value { font-size: 14px; font-weight: 600; color: #1E293B; margin-top: 2px; }
+.summary-label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+.summary-value {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin-top: 2px;
+}
 
-.divider { height: 1px; background: #E2E8F0; margin: 12px 0 14px; }
+.divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: var(--space-3) 0 var(--space-4);
+}
 
-.total-block { display: flex; flex-direction: column; gap: 8px; }
+.total-block { display: flex; flex-direction: column; gap: var(--space-2); }
 .total-line {
-  display: flex; justify-content: space-between; align-items: center;
-  font-size: 13.5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--text-md);
 }
-.total-line > span:first-child { color: #64748B; font-weight: 500; }
-.total-usd { font-size: 20px; font-weight: 800; color: #0F766E; }
-.total-bs-line { padding-top: 6px; border-top: 1px dashed #E2E8F0; }
-.total-bs { font-size: 15px; font-weight: 700; color: #334155; }
-.tasa-hint { font-size: 11.5px; color: #94A3B8; margin: 4px 0 0; text-align: right; }
+.total-line > span:first-child { color: var(--text-secondary); font-weight: var(--font-medium); }
+.total-usd {
+  font-size: var(--text-3xl);
+  font-weight: var(--font-extrabold);
+  color: var(--brand-700);
+}
+.total-bs-line {
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--border-subtle);
+}
+.total-bs {
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--neutral-700);
+}
+.tasa-hint {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin: var(--space-1) 0 0;
+  text-align: right;
+}
 
-/* ── Alerta expirado ── */
-.alert-expired {
-  display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px;
-  background: #FEF2F2; border: 1px solid #FECACA; color: #B91C1C;
-  border-radius: 10px; font-size: 13px;
+/* ── Datos bancarios ── */
+.banco-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2xl);
+  overflow: hidden;
 }
-.alert-expired svg { flex-shrink: 0; margin-top: 1px; }
-.alert-expired strong { display: block; margin-bottom: 2px; }
-.alert-expired p { margin: 0; font-weight: 500; font-size: 12.5px; line-height: 1.45; }
+.banco-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  background: var(--neutral-50);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.banco-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  background: var(--info-50);
+  color: var(--info-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.banco-title { margin: 0; font-size: var(--text-base); font-weight: var(--font-bold); color: var(--text-primary); }
+.banco-sub { margin: 2px 0 0; font-size: var(--text-sm); color: var(--text-secondary); }
+.banco-body { padding: var(--space-3) var(--space-5) var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+.banco-bloque { display: flex; flex-direction: column; gap: var(--space-2); }
+.banco-bloque-titulo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: var(--font-extrabold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--info-600);
+}
+.banco-fila {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  padding: var(--space-1) 0;
+  border-bottom: 1px dashed var(--neutral-100);
+}
+.banco-fila:last-child { border-bottom: none; }
+.banco-label { color: var(--text-secondary); font-weight: var(--font-medium); flex-shrink: 0; }
+.banco-valor {
+  color: var(--text-primary);
+  font-weight: var(--font-bold);
+  text-align: right;
+  word-break: break-word;
+  min-width: 0;
+}
+.banco-nota {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--warning-50);
+  color: var(--warning-700);
+  border: 1px solid var(--warning-200);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+.banco-nota svg { flex-shrink: 0; margin-top: 1px; }
 
-/* ── Métodos ── */
-.mini-loading, .mini-empty {
-  display: flex; align-items: center; gap: 10px;
-  padding: 20px; color: #94A3B8; font-size: 13px;
-  background: #F8FAFC; border-radius: 10px; border: 1px dashed #E2E8F0;
+.banco-copiar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: none;
+  border: 1px dashed transparent;
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-2);
+  color: var(--text-primary);
+  font-weight: var(--font-bold);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
 }
-.method-grid { display: flex; flex-direction: column; gap: 10px; }
+.banco-copiar svg { color: var(--text-tertiary); transition: color var(--duration-fast) var(--ease-out); }
+.banco-copiar:hover { background: var(--info-50); border-color: var(--info-200); color: var(--info-600); }
+.banco-copiar:hover svg { color: var(--info-600); }
+.banco-copiar:active { transform: scale(0.96); }
+
+/* ═══ COLUMNA DERECHA ═══ */
+.form-col { min-width: 0; }
+
+/* ── Métodos de pago ── */
+.mini-loading,
+.mini-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  color: var(--text-tertiary);
+  font-size: var(--text-md);
+  background: var(--bg-surface-alt);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border-subtle);
+}
+
+.method-grid { display: flex; flex-direction: column; gap: var(--space-3); }
 
 .method-card {
   display: grid;
   grid-template-columns: 44px 1fr 22px;
-  gap: 14px; align-items: center;
-  padding: 14px 16px; background: #fff; border: 1.5px solid #E2E8F0;
-  border-radius: 12px; cursor: pointer; text-align: left;
-  transition: all .15s; font-family: inherit;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-4);
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--duration-base) var(--ease-out);
+  font-family: inherit;
 }
-.method-card:hover { border-color: #CBD5E1; background: #F8FAFC; }
+.method-card:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-surface-alt);
+}
 .method-card.active {
-  border-color: #0F766E; background: #F0FDFA;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, .1);
+  border-color: var(--brand-700);
+  background: var(--brand-50);
+  box-shadow: 0 0 0 3px var(--brand-100);
 }
 .method-icon {
-  width: 44px; height: 44px; border-radius: 11px;
-  background: #F1F5F9; color: #64748B;
-  display: flex; align-items: center; justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  background: var(--neutral-100);
+  color: var(--neutral-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.method-card.active .method-icon { background: #CCFBF1; color: #0F766E; }
-.method-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.method-name { font-size: 14px; font-weight: 700; color: #1E293B; }
-.method-desc { font-size: 12px; color: #64748B; line-height: 1.35; }
+.method-card.active .method-icon { background: var(--brand-100); color: var(--brand-700); }
+.method-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.method-name { font-size: var(--text-base); font-weight: var(--font-bold); color: var(--text-primary); }
+.method-desc { font-size: var(--text-sm); color: var(--text-secondary); line-height: var(--leading-snug); }
 .method-radio { display: flex; justify-content: flex-end; }
 .radio-dot {
-  width: 18px; height: 18px; border-radius: 50%;
-  border: 2px solid #CBD5E1; background: #fff; transition: all .15s;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--neutral-300);
+  background: var(--bg-surface);
+  transition: all var(--duration-fast) var(--ease-out);
 }
 .radio-dot.filled {
-  border-color: #0F766E; background: #0F766E;
-  box-shadow: inset 0 0 0 3px #fff;
+  border-color: var(--brand-700);
+  background: var(--brand-700);
+  box-shadow: inset 0 0 0 3px var(--bg-surface);
 }
 
 /* ── Campos dinámicos ── */
-.dynamic-fields { margin-top: 20px; display: flex; flex-direction: column; gap: 14px; }
+.dynamic-fields {
+  margin-top: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
 .fields-title {
-  margin: 0 0 4px; font-size: 11px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .6px; color: #64748B;
-  padding-bottom: 6px; border-bottom: 1px dashed #E2E8F0;
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px dashed var(--border-subtle);
 }
 
-.form-field { display: flex; flex-direction: column; gap: 6px; }
-.form-field label { font-size: 12.5px; font-weight: 600; color: #475569; }
-.required { color: #EF4444; margin-left: 2px; }
-.form-field input {
-  width: 100%; padding: 10px 14px;
-  border: 1px solid #E2E8F0; border-radius: 10px;
-  font-size: 14px; color: #1E293B; background: #fff;
-  transition: border-color .15s, box-shadow .15s;
-  font-family: inherit; box-sizing: border-box;
+.form-field { display: flex; flex-direction: column; gap: var(--space-2); }
+.form-field label {
+  font-size: var(--text-md);
+  font-weight: var(--font-semibold);
+  color: var(--neutral-700);
 }
-.form-field input::placeholder { color: #94A3B8; }
-.form-field input:focus {
-  outline: none; border-color: #0F766E;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, .1);
-}
-.form-field select,
+.required { color: var(--danger-500); margin-left: 2px; }
+
+.form-field input,
 .form-select {
-  width: 100%; padding: 10px 36px 10px 14px;
-  border: 1px solid #E2E8F0; border-radius: 10px;
-  font-size: 14px; color: #1E293B; background-color: #fff;
-  font-family: inherit; box-sizing: border-box;
-  cursor: pointer; appearance: none;
+  width: 100%;
+  padding: 0 var(--space-4);
+  height: var(--input-h-md);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.form-field input::placeholder { color: var(--text-tertiary); }
+.form-field input:focus,
+.form-select:focus {
+  outline: none;
+  border-color: var(--brand-700);
+  box-shadow: var(--shadow-focus);
+}
+.form-select {
+  appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 14px center;
-  transition: border-color .15s, box-shadow .15s;
-}
-.form-field select:focus,
-.form-select:focus {
-  outline: none; border-color: #0F766E;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, .1);
-}
-.form-field select option { padding: 8px; }
-.form-field select option:disabled { color: #94A3B8; }
-.form-field select optgroup {
-  font-weight: 700; color: #0F766E; font-size: 11.5px;
-  text-transform: uppercase; letter-spacing: .5px; padding: 6px 0;
+  background-position: right var(--space-4) center;
+  padding-right: var(--space-10);
+  cursor: pointer;
 }
 
-.field-hint { font-size: 11px; color: #94A3B8; margin-top: 2px; }
+.field-invalid { border-color: var(--danger-500) !important; background: var(--danger-50) !important; }
+.field-error { font-size: var(--text-sm); color: var(--danger-600); font-weight: var(--font-semibold); margin-top: 2px; }
+.field-hint { font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px; }
 
-/* ── Validación de errores en campos ── */
-.form-field input.field-invalid,
-.form-field select.field-invalid {
-  border-color: #EF4444;
-  background: #FEF2F2;
-}
-.form-field input.field-invalid:focus,
-.form-field select.field-invalid:focus {
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
-}
-.field-error {
-  font-size: 11.5px;
-  color: #EF4444;
-  font-weight: 600;
-  margin-top: 2px;
-}
-
-/* ── Alertas ── */
-.alert-error, .alert-info {
-  display: flex; align-items: flex-start; gap: 10px;
-  padding: 12px 14px; border-radius: 10px; font-size: 13px;
-  line-height: 1.45; margin-top: 16px;
-}
-.alert-error { background: #FEF2F2; color: #B91C1C; border: 1px solid #FECACA; font-weight: 500; }
-.alert-info { background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; }
-.alert-error svg, .alert-info svg { flex-shrink: 0; margin-top: 1px; }
-
-/* ── Botón confirmar ── */
-.btn-confirm {
-  width: 100%; margin-top: 20px;
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 13px 20px; background: #0F766E; color: #fff;
-  border: none; border-radius: 11px; font-size: 14.5px; font-weight: 700;
-  cursor: pointer; transition: all .15s; font-family: inherit;
-}
-.btn-confirm:hover:not(:disabled) {
-  background: #0E6862;
-  box-shadow: 0 6px 16px -6px rgba(15, 118, 110, .4);
-}
-.btn-confirm:disabled { opacity: .5; cursor: not-allowed; }
 .secure-hint {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  font-size: 11.5px; color: #94A3B8; margin: 10px 0 0; text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin: var(--space-4) 0 0;
+  text-align: center;
 }
 
-/* ── Botones secundarios ── */
-.btn-secondary, .btn-primary {
-  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  padding: 10px 18px; border-radius: 10px; font-size: 13.5px;
-  font-weight: 700; cursor: pointer; font-family: inherit;
-  transition: all .15s; border: 1px solid #E2E8F0;
-}
-.btn-secondary { background: #fff; color: #475569; }
-.btn-secondary:hover:not(:disabled) { background: #F1F5F9; border-color: #CBD5E1; }
-.btn-secondary:disabled { opacity: .55; cursor: not-allowed; }
-.btn-primary {
-  background: #0F766E; color: #fff; border-color: #0F766E;
-}
-.btn-primary:hover { background: #0E6862; border-color: #0E6862; }
+/* ── Utilidades ── */
+.mt-4 { margin-top: var(--space-4); }
+.mt-5 { margin-top: var(--space-5); }
 
-/* ── Modal éxito ── */
-.modal-overlay {
-  position: fixed; inset: 0; background: rgba(15, 23, 42, .55);
-  backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center;
-  z-index: 100; padding: 24px;
+/* ═══ MODAL DE ÉXITO ═══ */
+.success-content { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-4); }
+.success-icon-wrap {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--success-50);
+  border: 2px solid var(--success-200);
+  color: var(--success-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-2);
+  animation: successPop 0.5s var(--ease-spring);
 }
-.success-modal {
-  background: #fff; border-radius: 20px; max-width: 460px; width: 100%;
-  padding: 32px 28px 26px; text-align: center;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .3);
-  font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+@keyframes successPop {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.08); }
+  100% { transform: scale(1); opacity: 1; }
 }
-.success-icon {
-  width: 64px; height: 64px; border-radius: 18px;
-  background: #ECFDF5; color: #059669; margin: 0 auto 16px;
-  display: flex; align-items: center; justify-content: center;
-}
-.success-modal h2 { font-size: 20px; font-weight: 700; color: #1E293B; margin: 0 0 8px; }
 .success-message {
-  font-size: 13.5px; color: #64748B; margin: 0 0 20px; line-height: 1.5;
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: var(--leading-relaxed);
+  max-width: 380px;
 }
 .success-details {
-  display: flex; flex-direction: column; gap: 8px;
-  padding: 14px 16px; background: #F8FAFC; border-radius: 12px;
-  margin-bottom: 18px; text-align: left;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  text-align: left;
 }
-.detail-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
-.detail-label { color: #64748B; font-weight: 500; }
-.detail-value { color: #1E293B; font-weight: 700; }
-.mono { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 12.5px; }
+.detail-row { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); font-size: var(--text-md); }
+.detail-label { color: var(--text-secondary); font-weight: var(--font-medium); }
+.detail-value { color: var(--text-primary); font-weight: var(--font-bold); text-align: right; }
+.mono { font-family: var(--font-mono); font-size: var(--text-sm); }
+.detail-row-total .amount { color: var(--brand-700); font-size: var(--text-lg); }
+.detail-row-total .amount-bs { color: var(--neutral-700); font-size: var(--text-base); }
+.detail-row-tasa .tasa { font-size: var(--text-sm); color: var(--text-tertiary); font-weight: var(--font-semibold); }
 
-.success-actions { display: flex; gap: 10px; }
-.success-actions button { flex: 1; justify-content: center; }
-
-/* ── Transiciones ── */
-.fade-enter-active, .fade-leave-active { transition: opacity .2s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-.slide-up-enter-active, .slide-up-leave-active {
-  transition: all .3s cubic-bezier(0.16, 1, 0.3, 1);
+/* ═══ LOADING ═══ */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-12);
+  color: var(--text-secondary);
+  font-size: var(--text-base);
 }
-.slide-up-enter-from, .slide-up-leave-to { opacity: 0; transform: translateY(24px) scale(.97); }
-.slide-down-enter-active, .slide-down-leave-active { transition: all .2s ease; }
-.slide-down-enter-from, .slide-down-leave-to { opacity: 0; transform: translateY(-6px); max-height: 0; }
 
+/* ═══ TRANSICIONES ═══ */
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: opacity var(--duration-base) var(--ease-out),
+              transform var(--duration-base) var(--ease-out);
+}
+.slide-down-enter-from,
+.slide-down-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+/* ═══ RESPONSIVE ═══ */
+@media (max-width: 900px) {
+  .pay-layout { grid-template-columns: 1fr; }
+  .summary-col { position: static; }
+}
 @media (max-width: 640px) {
-  .success-actions { flex-direction: column; }
-  .summary-card, .payment-card { padding: 18px 18px; }
+  .pay-view { padding: var(--space-4); }
+  .summary-card, .payment-card { padding: var(--space-4) var(--space-5); }
+  .state-actions { flex-direction: column; width: 100%; }
+  .state-actions :deep(.btn) { width: 100%; }
 }
-
-.detail-row--total .amount { color: #0F766E; font-size: 14px; }
-.detail-row--total .amount-bs { color: #334155; font-size: 14px; font-weight: 700; }
-.detail-row--tasa .tasa { font-size: 11.5px; color: #94A3B8; font-weight: 600; }
-
-/* ═══ Datos bancarios de la clínica ═══ */
-.banco-card {
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 14px;
-  overflow: hidden;
-}
-.banco-head {
-  display: flex; align-items: center; gap: 12px;
-  padding: 14px 18px;
-  background: #F8FAFC;
-  border-bottom: 1px solid #E2E8F0;
-}
-.banco-icon {
-  width: 34px; height: 34px; border-radius: 9px;
-  background: #EFF6FF; color: #2563EB;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
-.banco-title { margin: 0; font-size: 14px; font-weight: 700; color: #0F172A; }
-.banco-sub { margin: 2px 0 0; font-size: 11.5px; color: #64748B; }
-.banco-body { padding: 14px 18px 16px; display: flex; flex-direction: column; gap: 14px; }
-
-.banco-bloque { display: flex; flex-direction: column; gap: 6px; }
-.banco-bloque-titulo {
-  display: inline-flex; align-items: center; gap: 5px;
-  margin: 0 0 4px;
-  font-size: 10.5px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .5px;
-  color: #2563EB;
-}
-.banco-fila {
-  display: flex; justify-content: space-between; align-items: center;
-  gap: 12px; font-size: 12.5px;
-  padding: 6px 0;
-  border-bottom: 1px dashed #F1F5F9;
-}
-.banco-fila:last-child { border-bottom: none; }
-.banco-label { color: #64748B; font-weight: 500; }
-.banco-valor { color: #0F172A; font-weight: 700; text-align: right; word-break: break-word; }
-.banco-valor.mono {
-  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 12px;
-}
-.banco-nota {
-  display: flex; align-items: flex-start; gap: 8px;
-  padding: 10px 12px;
-  background: #FFFBEB; color: #92400E;
-  border: 1px solid #FDE68A; border-radius: 8px;
-  font-size: 11.5px; line-height: 1.45;
-}
-.banco-nota svg { flex-shrink: 0; margin-top: 1px; }
 </style>

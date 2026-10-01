@@ -2,110 +2,92 @@
   <AuthShell>
     <header class="form-header">
       <h1 class="form-title">Bienvenido de nuevo</h1>
-      <p class="form-subtitle">
-        Ingresa tus credenciales para acceder a tu cuenta.
-      </p>
+      <p class="form-subtitle">Ingresa tus credenciales para acceder a tu cuenta.</p>
     </header>
 
-    <!-- Alertas: éxito de registro o error de login -->
-    <Transition name="slide-fade">
-      <div v-if="mensajeExito" key="ok" class="alert alert-success">
-        <CheckCircle2 :size="16" />
-        <span>{{ mensajeExito }}</span>
-      </div>
-      <div v-else-if="mostrarError || authStore.error" key="err" class="alert alert-error">
-        <AlertCircle :size="16" />
-        <span>
-          {{ authStore.error || authStore.errorMessage || 'Credenciales incorrectas' }}
-        </span>
-      </div>
+    <Transition name="slide-down">
+      <AppAlert v-if="mensajeExito" variant="success" class="alert-spacing">
+        {{ mensajeExito }}
+      </AppAlert>
+      <AppAlert v-else-if="authStore.error" variant="error" class="alert-spacing">
+        {{ authStore.error }}
+      </AppAlert>
     </Transition>
 
     <form @submit.prevent="handleLogin" novalidate>
-      <!-- Correo -->
-      <div class="form-group" :class="{ 'has-error': campoError.correo }">
-        <label class="form-label" for="email">Correo electrónico</label>
-        <div class="input-wrap">
-          <Mail :size="15" class="input-icon" />
-          <input
-            id="email"
+      <AppFormField
+        label="Correo electrónico"
+        :error="campoError.correo ? 'Ingresa un correo electrónico válido.' : ''"
+        required
+      >
+        <template #default="{ id, invalid }">
+          <AppInput
+            :id="id"
             v-model="email"
             type="email"
-            class="form-input"
             placeholder="usuario@ejemplo.com"
-            :disabled="isLoading"
+            :disabled="authStore.isLoading"
+            :error="invalid"
             autocomplete="email"
             @input="limpiarError('correo')"
-            @blur="validarEmail"
           />
-        </div>
-        <span v-if="campoError.correo" class="form-error">
-          Ingresa un correo electrónico válido.
-        </span>
-      </div>
+        </template>
+      </AppFormField>
 
-      <!-- Contraseña -->
-      <div class="form-group" :class="{ 'has-error': campoError.password }">
-        <label class="form-label" for="password">Contraseña</label>
-        <div class="input-wrap">
-          <Lock :size="15" class="input-icon" />
-          <input
-            id="password"
+      <AppFormField
+        label="Contraseña"
+        :error="campoError.password ? 'Ingresa tu contraseña.' : ''"
+        required
+      >
+        <template #default="{ id, invalid }">
+          <AppPasswordField
+            :id="id"
             v-model="password"
-            :type="mostrarPassword ? 'text' : 'password'"
-            class="form-input form-input-password"
-            placeholder="Ingresa tu contraseña"
-            :disabled="isLoading"
+            :disabled="authStore.isLoading"
+            :error="invalid"
             autocomplete="current-password"
-            @input="limpiarError('password')"
+            @update:model-value="limpiarError('password')"
           />
-          <button
-            type="button"
-            class="toggle-password"
-            :aria-label="mostrarPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
-            tabindex="-1"
-            @click="mostrarPassword = !mostrarPassword"
-          >
-            <Eye v-if="!mostrarPassword" :size="16" />
-            <EyeOff v-else :size="16" />
-          </button>
-        </div>
-        <span v-if="campoError.password" class="form-error">
-          Ingresa tu contraseña.
-        </span>
-      </div>
+        </template>
+      </AppFormField>
 
       <div class="form-actions-row">
-        <router-link to="/auth/recuperar" class="link-forgot">
+        <RouterLink to="/auth/recuperar" class="link-forgot">
           ¿Olvidaste tu contraseña?
-        </router-link>
+        </RouterLink>
       </div>
 
-      <button type="submit" class="btn-submit" :disabled="isLoading">
-        <Loader2 v-if="isLoading" :size="16" class="spin" />
-        <LogIn v-else :size="16" />
-        {{ isLoading ? 'Ingresando…' : 'Ingresar' }}
-      </button>
+      <AppButton
+        type="submit"
+        variant="primary"
+        size="lg"
+        block
+        :loading="authStore.isLoading"
+      >
+        <template #icon-left><LogIn :size="16" /></template>
+        {{ authStore.isLoading ? 'Ingresando…' : 'Ingresar' }}
+      </AppButton>
     </form>
 
     <div class="register-block">
       <span class="register-text">¿Aún no tienes una cuenta?</span>
-      <router-link to="/auth/registro" class="link-register">
-        Regístrate gratis
-      </router-link>
+      <RouterLink to="/auth/registro" class="link-register">Regístrate gratis</RouterLink>
     </div>
   </AuthShell>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { LogIn } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth.store'
-import { useRouter, useRoute } from 'vue-router'
-import {
-  AlertCircle, CheckCircle2, Eye, EyeOff, Loader2, LogIn, Mail, Lock,
-} from 'lucide-vue-next'
 
 import AuthShell from './AuthShell.vue'
+import AppAlert from '@/components/ui/AppAlert.vue'
+import AppButton from '@/components/ui/AppButton.vue'
+import AppFormField from '@/components/ui/AppFormField.vue'
+import AppInput from '@/components/ui/AppInput.vue'
+import AppPasswordField from '@/components/ui/AppPasswordField.vue'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -113,79 +95,90 @@ const route = useRoute()
 
 const email = ref('')
 const password = ref('')
-const isLoading = ref(false)
-const mostrarError = ref(false)
-const mostrarPassword = ref(false)
 const mensajeExito = ref('')
-
-const campoError = ref({
-  correo: false,
-  password: false,
-})
+const campoError = ref({ correo: false, password: false })
 
 onMounted(() => {
   if (route.query.session === 'expired') {
-    mostrarError.value = true
     authStore.error = 'Su sesión ha expirado. Inicie sesión nuevamente.'
   }
-  // Feedback al llegar desde el registro
   if (route.query.registered === '1') {
     mensajeExito.value = '¡Cuenta creada correctamente! Ya puedes iniciar sesión.'
   }
 })
 
-const validarEmail = () => {
-  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (email.value.trim() && !regex.test(email.value.trim())) {
-    campoError.value.correo = true
-  }
+function limpiarError(campo) {
+  campoError.value[campo] = false
+  authStore.error = null
+  mensajeExito.value = ''
 }
 
-const handleLogin = async () => {
+async function handleLogin() {
   mensajeExito.value = ''
-  mostrarError.value = false
-  campoError.value = { correo: false, password: false }
   authStore.error = null
+  campoError.value = { correo: false, password: false }
 
-  let hayError = false
-  if (!email.value.trim()) {
-    campoError.value.correo = true
-    hayError = true
-  }
-  if (!password.value) {
-    campoError.value.password = true
-    hayError = true
-  }
-  if (hayError) return
+  if (!email.value.trim()) campoError.value.correo = true
+  if (!password.value) campoError.value.password = true
+  if (campoError.value.correo || campoError.value.password) return
 
-  isLoading.value = true
-
-  // MODO DESARROLLO
-  if (email.value === 'mock') {
-    authStore.mockLogin('Cliente')
-    router.push(authStore.dashboardRoute)
-    return
-  }
-
-  const result = await authStore.login({
+  const { success } = await authStore.login({
     correoElectronico: email.value,
     contrasena: password.value,
   })
 
-  isLoading.value = false
-
-  if (result.success) {
-    router.push(authStore.dashboardRoute)
-  } else {
-    mostrarError.value = true
-    password.value = ''
-  }
-}
-
-const limpiarError = (campo) => {
-  campoError.value[campo] = false
-  if (authStore.error) authStore.error = null
-  if (authStore.errorMessage) authStore.errorMessage = null
-  mostrarError.value = false
+  if (success) router.push(authStore.dashboardRoute)
+  else password.value = ''
 }
 </script>
+
+<style scoped>
+.form-header { margin-bottom: var(--space-6); }
+.form-title {
+  font-size: var(--text-4xl);
+  font-weight: var(--font-bold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-primary);
+  margin: 0;
+}
+.form-subtitle {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  line-height: var(--leading-normal);
+}
+.alert-spacing { margin-bottom: var(--space-5); }
+
+.form-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: calc(var(--space-2) * -1);
+  margin-bottom: var(--space-5);
+}
+.link-forgot {
+  font-size: var(--text-md);
+  font-weight: var(--font-semibold);
+  color: var(--brand-700);
+  text-decoration: none;
+}
+.link-forgot:hover { color: var(--brand-800); text-decoration: underline; }
+
+.register-block {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-base);
+}
+.register-text { color: var(--text-secondary); }
+.link-register {
+  font-weight: var(--font-bold);
+  color: var(--brand-700);
+  text-decoration: none;
+}
+.link-register:hover { color: var(--brand-800); text-decoration: underline; }
+</style>

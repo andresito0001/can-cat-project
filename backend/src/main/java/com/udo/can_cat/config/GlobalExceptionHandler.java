@@ -9,9 +9,11 @@ import com.udo.can_cat.citas.domain.exception.MascotaNoPerteneceAlClienteExcepti
 import com.udo.can_cat.citas.domain.exception.OperacionNoPermitidaException;
 import com.udo.can_cat.mascotas.application.service.MascotaApplicationService;
 import com.udo.can_cat.shared.tasa.TasaCambioException;
+import com.udo.can_cat.usuarios.application.service.ContrasenaActualIncorrectaException;
 import com.udo.can_cat.usuarios.application.service.CredencialesInvalidasException;
 import com.udo.can_cat.usuarios.application.service.CuentaInactivaException;
 import com.udo.can_cat.usuarios.application.service.RegistroException;
+import com.udo.can_cat.usuarios.application.service.TokenRecuperacionInvalidoException;
 import com.udo.can_cat.almacen.domain.exception.EntradaInvalidaException;
 import com.udo.can_cat.almacen.domain.exception.ProductoNoEncontradoException;
 import com.udo.can_cat.almacen.domain.exception.ProveedorNoEncontradoException;
@@ -33,7 +35,8 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import com.udo.can_cat.citas.domain.exception.TransicionInvalidaException;
-
+import com.udo.can_cat.usuarios.application.service.TokenRecuperacionInvalidoException;
+import com.udo.can_cat.usuarios.application.service.ContrasenaActualIncorrectaException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -69,6 +72,16 @@ public class GlobalExceptionHandler {
         };
         return ResponseEntity.status(status).body(new ErrorResponse(
                 LocalDateTime.now(), status.value(), ex.getCodigo(), ex.getMessage()));
+    }
+
+    @ExceptionHandler(TokenRecuperacionInvalidoException.class)
+    public ResponseEntity<ErrorResponse> handleTokenRecuperacionInvalido(TokenRecuperacionInvalidoException ex) {
+        logger.warn("Token de recuperación inválido: {} - {}", ex.getCodigo(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                ex.getCodigo(),
+                ex.getMessage()));
     }
 
     // ================================================================
@@ -268,6 +281,27 @@ public class GlobalExceptionHandler {
                 "Transición no permitida", ex.getMessage()));
     }
     
+    /* ═══════════════════════════════════════════════════════════════
+    MÓDULO PERFIL
+    ═══════════════════════════════════════════════════════════════ */
+
+    @ExceptionHandler(ContrasenaActualIncorrectaException.class)
+    public ResponseEntity<ErrorResponse> handleContrasenaActualIncorrecta(
+            ContrasenaActualIncorrectaException ex) {
+        logger.warn("Contraseña actual incorrecta al cambiar contraseña");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(
+                LocalDateTime.now(), HttpStatus.BAD_REQUEST.value(),
+                "Contraseña incorrecta", ex.getMessage()));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
+        logger.warn("Argumento inválido: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(
+                LocalDateTime.now(), HttpStatus.BAD_REQUEST.value(),
+                "Solicitud inválida", ex.getMessage()));
+    }
+
     // ================================================================
     // CATCH-ALL — DEBE SER EL ÚLTIMO
     // ================================================================

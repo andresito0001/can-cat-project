@@ -187,4 +187,16 @@ public class CitaController {
             @Valid @RequestBody AgendarMostradorRequestDTO request) {
         return ResponseEntity.status(201).body(agendaMostradorService.agendarYFacturar(request));
     }
+
+    /**
+     * POST /api/citas/{id}/cancelar-expirada
+     * Cancela la cita SI Y SOLO SI:
+     *   - está en estado Pendiente_Pago
+     *   - su expiraEn ya pasó
+     * Idempotente: llamar varias veces tiene el mismo efecto.
+     */
+    @PostMapping("/{id}/cancelar-expirada")
+    public ResponseEntity<CitaEstadoResponseDTO> cancelarExpirada(@PathVariable Integer id) {
+        return ResponseEntity.ok(citaService.cancelarSiExpirada(id));
+    }
 }

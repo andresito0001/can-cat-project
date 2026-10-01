@@ -3,213 +3,217 @@
     <ToastContainer />
 
     <!-- ═══ HEADER ═══ -->
-    <header class="agenda-header">
-      <div class="header-info">
-        <p class="header-eyebrow">
+    <header class="page-top">
+      <div class="page-top-info">
+        <span class="page-top-eyebrow">
           <CalendarCheck2 :size="12" />
-          Veterinario · Agenda
-        </p>
-        <h1>{{ tituloRango }}</h1>
-        <p class="header-sub">{{ subtituloRango }}</p>
+          Mi agenda
+        </span>
+        <h1 class="page-top-title">{{ tituloRango }}</h1>
+        <p class="page-top-sub">{{ subtituloRango }}</p>
       </div>
-      <div class="header-actions">
-        <button class="btn-ghost" type="button" :disabled="cargando" @click="irAHoy">
-          <Calendar :size="14" /> Hoy
+      <div class="page-top-actions">
+        <button class="quick-action" type="button" @click="irAHoy">
+          <Calendar :size="14" />
+          Hoy
         </button>
-        <button class="btn-secondary" type="button" :disabled="cargando" @click="recargar">
+        <button class="quick-action" type="button" :disabled="cargando" @click="recargar">
           <Loader2 v-if="cargando" :size="14" class="spin" />
-          <Clock v-else :size="14" />
+          <RefreshCw v-else :size="14" />
           Actualizar
         </button>
       </div>
     </header>
 
-    <!-- ═══ CONTROLES: navegación + vista ═══ -->
+    <!-- ═══ WEEK STRIP ═══ -->
+    <nav class="week-strip" aria-label="Navegación semanal">
+      <button class="week-nav" type="button" :disabled="cargando" aria-label="Semana anterior" @click="moverSemana(-1)">
+        <ChevronLeft :size="16" />
+      </button>
+
+      <div class="week-days">
+        <button
+          v-for="d in diasSemana"
+          :key="d.iso"
+          type="button"
+          class="week-day"
+          :class="{
+            'is-selected': d.iso === fechaBase,
+            'is-today': d.iso === hoyISO(),
+            'is-weekend': d.isWeekend,
+          }"
+          @click="seleccionarDia(d.iso)"
+        >
+          <span class="week-day-name">{{ d.diaSemana }}</span>
+          <span class="week-day-num">{{ d.dia }}</span>
+          <span v-if="d.isToday" class="week-day-dot" />
+        </button>
+      </div>
+
+      <button class="week-nav" type="button" :disabled="cargando" aria-label="Semana siguiente" @click="moverSemana(1)">
+        <ChevronRight :size="16" />
+      </button>
+    </nav>
+
+    <!-- ═══ CONTROLES ═══ -->
     <section class="agenda-controls">
-      <div class="nav-group">
-        <button class="nav-btn" type="button" :disabled="cargando" @click="navegar(-1)" aria-label="Anterior">
-          <ChevronLeft :size="16" />
-        </button>
-        <button class="nav-btn nav-today" type="button" :disabled="cargando" @click="irAHoy">
-          Hoy
-        </button>
-        <button class="nav-btn" type="button" :disabled="cargando" @click="navegar(1)" aria-label="Siguiente">
-          <ChevronRight :size="16" />
-        </button>
-      </div>
-
-      <div class="view-toggle" role="tablist">
-        <button
-          type="button" role="tab"
-          class="view-btn" :class="{ active: vista === 'dia' }"
-          @click="cambiarVista('dia')"
-        >
-          <CalendarDays :size="14" /> Día
-        </button>
-        <button
-          type="button" role="tab"
-          class="view-btn" :class="{ active: vista === 'semana' }"
-          @click="cambiarVista('semana')"
-        >
-          <CalendarRange :size="14" /> Semana
-        </button>
-        <button
-          type="button" role="tab"
-          class="view-btn" :class="{ active: vista === 'mes' }"
-          @click="cambiarVista('mes')"
-        >
-          <Calendar :size="14" /> Mes
-        </button>
-      </div>
-    </section>
-
-    <!-- ═══ FILTROS ═══ -->
-    <section class="agenda-filters">
-      <div class="search-box">
-        <Search :size="16" class="search-icon" />
+      <div class="agenda-search">
+        <Search :size="15" class="agenda-search-icon" />
         <input
           v-model="buscando"
           type="text"
+          class="agenda-search-input"
           placeholder="Buscar por mascota, dueño, cédula o servicio…"
-          class="search-input"
         />
-        <button v-if="buscando" class="search-clear" type="button" @click="buscando = ''" aria-label="Limpiar">
-          <X :size="14" />
+        <button v-if="buscando" class="agenda-search-clear" type="button" aria-label="Limpiar" @click="buscando = ''">
+          <X :size="13" />
         </button>
       </div>
 
-      <div class="filter-chips">
+      <div class="agenda-filters">
         <button
-          v-for="f in FILTROS" :key="f.value"
+          v-for="f in FILTROS"
+          :key="f.value"
           type="button"
-          class="chip" :class="{ 'chip-active': filtroEstado === f.value }"
+          class="filter-chip"
+          :class="{ 'is-active': filtroEstado === f.value }"
           @click="filtroEstado = f.value"
         >
           {{ f.label }}
-          <span v-if="f.value === 'todas'" class="chip-count">{{ citasFiltradas.length }}</span>
-          <span v-else class="chip-count">{{ contarPorFiltro(f.value) }}</span>
+          <span class="filter-chip-count">{{ contarPorFiltro(f.value) }}</span>
         </button>
       </div>
     </section>
 
     <!-- ═══ KPIs ═══ -->
-    <section class="agenda-kpis">
-      <article class="kpi">
-        <div class="kpi-icon" style="--c: #0F766E; --b: #F0FDFA;"><CalendarDays :size="16" /></div>
-        <div>
-          <p class="kpi-value">{{ citasFiltradas.length }}</p>
-          <p class="kpi-label">{{ vista === 'dia' ? 'Citas del día' : `Citas del período` }}</p>
+    <section class="stats-strip">
+      <article class="stat stat-brand">
+        <div class="stat-icon"><CalendarDays :size="18" /></div>
+        <div class="stat-content">
+          <p class="stat-value">{{ citasFiltradas.length }}</p>
+          <p class="stat-label">{{ vista === 'dia' ? 'Citas del día' : 'Citas del período' }}</p>
         </div>
       </article>
-      <article class="kpi">
-        <div class="kpi-icon" style="--c: #D97706; --b: #FFFBEB;"><Clock :size="16" /></div>
-        <div>
-          <p class="kpi-value">{{ resumen.porAtender }}</p>
-          <p class="kpi-label">Por atender</p>
+      <article class="stat stat-warning">
+        <div class="stat-icon"><Clock3 :size="18" /></div>
+        <div class="stat-content">
+          <p class="stat-value">{{ resumen.porAtender }}</p>
+          <p class="stat-label">Por atender</p>
         </div>
       </article>
-      <article class="kpi">
-        <div class="kpi-icon" style="--c: #059669; --b: #ECFDF5;"><CheckCircle2 :size="16" /></div>
-        <div>
-          <p class="kpi-value">{{ resumen.atendidas }}</p>
-          <p class="kpi-label">Atendidas</p>
+      <article class="stat stat-success">
+        <div class="stat-icon"><CheckCircle2 :size="18" /></div>
+        <div class="stat-content">
+          <p class="stat-value">{{ resumen.atendidas }}</p>
+          <p class="stat-label">Atendidas</p>
         </div>
       </article>
-      <article class="kpi">
-        <div class="kpi-icon" style="--c: #64748B; --b: #F1F5F9;"><AlertCircle :size="16" /></div>
-        <div>
-          <p class="kpi-value">{{ resumen.canceladas }}</p>
-          <p class="kpi-label">Canceladas</p>
+      <article class="stat stat-neutral">
+        <div class="stat-icon"><AlertCircle :size="18" /></div>
+        <div class="stat-content">
+          <p class="stat-value">{{ resumen.canceladas }}</p>
+          <p class="stat-label">Canceladas</p>
         </div>
       </article>
     </section>
 
     <!-- ═══ CONTENIDO ═══ -->
-    <div v-if="cargando" class="loading-state">
-      <div class="spin-lg"></div>
+    <div v-if="cargando" class="loading-box">
+      <span class="spinner spinner-lg" />
       <p>Cargando agenda…</p>
     </div>
 
-    <div v-else-if="citasFiltradas.length === 0" class="empty-state">
-      <Inbox :size="44" />
-      <h3>{{ citas.length === 0 ? 'Sin citas en este período' : 'Sin resultados con esos filtros' }}</h3>
-      <p v-if="citas.length === 0">
-        Cuando se agenden citas contigo aparecerán en esta vista.
-      </p>
-      <p v-else>
-        Prueba con otro término de búsqueda o cambia el filtro de estado.
-      </p>
-      <button v-if="citas.length > 0" class="btn-secondary" type="button" @click="limpiarFiltros">
-        <X :size="14" /> Limpiar filtros
-      </button>
-    </div>
+    <AppEmptyState
+      v-else-if="!citasFiltradas.length"
+      :icon="citas.length === 0 ? Inbox : Search"
+      :title="citas.length === 0 ? 'Sin citas en este período' : 'Sin resultados con esos filtros'"
+      :description="citas.length === 0
+        ? 'Cuando se agenden citas contigo aparecerán en esta vista.'
+        : 'Prueba con otro término de búsqueda o cambia el filtro de estado.'"
+    >
+      <template #action>
+        <button v-if="citas.length > 0" class="agenda-clear-btn" type="button" @click="limpiarFiltros">
+          <X :size="14" /> Limpiar filtros
+        </button>
+      </template>
+    </AppEmptyState>
 
-    <!-- Vista DÍA: timeline -->
     <template v-else-if="vista === 'dia'">
-      <div class="timeline">
-        <div
+      <!-- ═══ TIMELINE DEL DÍA ═══ -->
+      <div class="day-timeline">
+        <article
           v-for="cita in citasFiltradas"
           :key="cita.idCita"
           class="timeline-item"
           :class="{ 'is-done': cita.atendida }"
         >
-          <div class="timeline-hora">
-            <span class="hora-inicio">{{ fmtHora(cita.horaInicio) }}</span>
-            <span class="hora-fin">{{ fmtHora(cita.horaFin) }}</span>
+          <div class="timeline-time">
+            <span class="time-start">{{ fmtHora(cita.horaInicio) }}</span>
+            <span class="time-end">{{ fmtHora(cita.horaFin) }}</span>
           </div>
 
-          <div class="timeline-dot" :style="{ background: colorEstado(cita) }"></div>
+          <div class="timeline-rail">
+            <span class="rail-dot" :style="{ background: colorEstado(cita) }" />
+          </div>
 
-          <article class="cita-card">
-            <header class="cita-head">
-              <div class="cita-title">
-                <h3>
+          <div class="timeline-card">
+            <header class="card-head">
+              <div class="card-head-main">
+                <h3 class="card-pet">
                   <PawPrint :size="15" />
-                  {{ cita.mascotaNombre }}
+                  <span>{{ cita.mascotaNombre }}</span>
                 </h3>
-                <span class="cita-species">{{ cita.especie }}<template v-if="cita.raza"> · {{ cita.raza }}</template></span>
+                <p class="card-pet-meta">
+                  {{ cita.especie }}
+                  <template v-if="cita.raza"> · {{ cita.raza }}</template>
+                </p>
               </div>
-              <div class="cita-pills">
+
+              <div class="card-head-side">
                 <span class="status-pill" :style="estiloEstado(cita.estado)">
                   {{ formatEstado(cita.estado) }}
                 </span>
-                <span v-if="cita.atendida" class="pill-done">
-                  <CheckCircle2 :size="11" /> Atendida
+                <span v-if="cita.atendida" class="status-done">
+                  <CheckCircle2 :size="11" />
+                  Atendida
                 </span>
               </div>
             </header>
 
-            <div class="cita-body">
-              <div class="cita-field">
+            <div class="card-grid">
+              <div class="field">
                 <span class="field-label"><User :size="11" /> Dueño</span>
                 <span class="field-value">{{ cita.clienteNombre }}</span>
               </div>
-              <div class="cita-field">
+              <div class="field">
                 <span class="field-label"><FileText :size="11" /> Motivo</span>
                 <span class="field-value">{{ cita.motivoConsulta }}</span>
               </div>
-              <div class="cita-field">
+              <div class="field">
                 <span class="field-label"><Stethoscope :size="11" /> Servicio</span>
                 <span class="field-value">{{ cita.servicioNombre }}</span>
               </div>
-              <div class="cita-field">
+              <div class="field">
                 <span class="field-label"><Phone :size="11" /> Contacto</span>
                 <span class="field-value">{{ cita.clienteTelefono || '—' }}</span>
               </div>
             </div>
 
-            <footer class="cita-actions">
+            <footer class="card-foot">
               <button
                 v-if="!cita.atendida"
                 class="btn-atender"
                 type="button"
                 @click="irAAtender(cita)"
               >
-                <Stethoscope :size="14" /> Atender
+                <Stethoscope :size="14" />
+                Iniciar atención
+                <ArrowRight :size="14" />
               </button>
               <span v-else class="badge-completada">
                 <CheckCircle2 :size="13" /> Consulta completada
               </span>
+
               <button
                 class="btn-link"
                 type="button"
@@ -217,68 +221,65 @@
                 @click="verHistorial(cita)"
               >
                 <History :size="13" />
-                {{ resolviendoHistorial === cita.idCita ? 'Buscando…' : 'Historial' }}
+                {{ resolviendoHistorial === cita.idCita ? 'Buscando…' : 'Ver historial' }}
               </button>
             </footer>
-          </article>
-        </div>
+          </div>
+        </article>
       </div>
     </template>
 
-    <!-- Vista SEMANA / MES: agrupado por día -->
+    <!-- ═══ AGRUPADO POR DÍA (semana/mes) ═══ -->
     <template v-else>
-      <div class="grupos-dias">
+      <div class="day-groups">
         <section
           v-for="grupo in gruposPorDia"
           :key="grupo.fecha"
-          class="grupo-dia"
-          :class="{ 'grupo-hoy': grupo.fecha === hoyISO() }"
+          class="day-group"
+          :class="{ 'is-today': grupo.fecha === hoyISO() }"
         >
-          <header class="grupo-header">
-            <div class="grupo-fecha">
-              <span class="grupo-dia-nombre">{{ nombreDiaLargo(grupo.fecha) }}</span>
-              <span class="grupo-dia-fecha">{{ fmtFechaCorta(grupo.fecha) }}</span>
+          <header class="day-group-header">
+            <div class="day-group-date">
+              <span class="dg-name">{{ nombreDiaLargo(grupo.fecha) }}</span>
+              <span class="dg-full">{{ fmtFechaCorta(grupo.fecha) }}</span>
             </div>
-            <div class="grupo-meta">
-              <span class="grupo-count">{{ grupo.citas.length }} {{ grupo.citas.length === 1 ? 'cita' : 'citas' }}</span>
-              <span v-if="grupo.porAtender > 0" class="grupo-badge-warn">
+            <div class="day-group-meta">
+              <span class="dg-count">
+                {{ grupo.citas.length }} {{ grupo.citas.length === 1 ? 'cita' : 'citas' }}
+              </span>
+              <span v-if="grupo.porAtender > 0" class="dg-alert">
                 {{ grupo.porAtender }} por atender
               </span>
             </div>
           </header>
 
-          <div class="grupo-citas">
-            <article
+          <ul class="day-group-list">
+            <li
               v-for="cita in grupo.citas"
               :key="cita.idCita"
-              class="cita-row"
+              class="group-row"
               :class="{ 'is-done': cita.atendida }"
             >
-              <div class="row-hora">
-                <span>{{ fmtHora(cita.horaInicio) }}</span>
-              </div>
-
-              <div class="row-status" :style="{ background: colorEstado(cita) }"></div>
-
-              <div class="row-info">
-                <div class="row-title">
-                  <PawPrint :size="13" />
+              <div class="gr-time">{{ fmtHora(cita.horaInicio) }}</div>
+              <div class="gr-accent" :style="{ background: colorEstado(cita) }" />
+              <div class="gr-main">
+                <p class="gr-pet">
+                  <PawPrint :size="12" />
                   <strong>{{ cita.mascotaNombre }}</strong>
-                  <span class="row-especie">{{ cita.especie }}</span>
-                </div>
-                <div class="row-meta">
-                  <span><User :size="11" /> {{ cita.clienteNombre }}</span>
-                  <span><FileText :size="11" /> {{ cita.motivoConsulta }}</span>
-                </div>
+                  <span class="gr-species">{{ cita.especie }}</span>
+                </p>
+                <p class="gr-meta">
+                  <User :size="11" /> {{ cita.clienteNombre }}
+                  <span class="gr-sep">·</span>
+                  {{ cita.motivoConsulta }}
+                </p>
               </div>
-
-              <div class="row-pills">
+              <div class="gr-status">
                 <span class="status-pill-sm" :style="estiloEstado(cita.estado)">
                   {{ formatEstado(cita.estado) }}
                 </span>
               </div>
-
-              <div class="row-actions">
+              <div class="gr-actions">
                 <button
                   v-if="!cita.atendida"
                   class="btn-atender-sm"
@@ -288,17 +289,17 @@
                   Atender
                 </button>
                 <button
-                  class="btn-icon"
+                  class="btn-icon-sm"
                   type="button"
                   :disabled="resolviendoHistorial === cita.idCita"
                   title="Ver historial"
                   @click="verHistorial(cita)"
                 >
-                  <History :size="14" />
+                  <History :size="13" />
                 </button>
               </div>
-            </article>
-          </div>
+            </li>
+          </ul>
         </section>
       </div>
     </template>
@@ -309,12 +310,13 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  ChevronLeft, ChevronRight, Calendar, CalendarDays, CalendarRange,
-  CalendarCheck2, CheckCircle2, Clock, FileText, History, Inbox,
-  Loader2, PawPrint, Phone, Search, Stethoscope, User, X, AlertCircle,
+  ChevronLeft, ChevronRight, Calendar, CalendarDays, CalendarCheck2,
+  CheckCircle2, Clock3, FileText, History, Inbox, Loader2, PawPrint,
+  Phone, RefreshCw, Search, Stethoscope, User, X, AlertCircle, ArrowRight,
 } from 'lucide-vue-next'
 import { useToast } from '@/composables/useToast'
 import ToastContainer from '@/components/ui/ToastContainer.vue'
+import AppEmptyState from '@/components/ui/AppEmptyState.vue'
 import { getAgendaVet, getCitaContexto } from '@/api/atenciones.api'
 import { getApiErrorMessage } from '@/utils/apiError'
 import { ESTADO_COLOR } from '@/utils/constants/estadosCita'
@@ -323,53 +325,50 @@ import { hoyISO } from '@/utils/fecha'
 const router = useRouter()
 const { toastError } = useToast()
 
-// ═════════════════════════════════════════════════════════════
-// ESTADO
-// ═════════════════════════════════════════════════════════════
-const vista = ref('dia')                 // 'dia' | 'semana' | 'mes'
-const fechaBase = ref(hoyISO())          // ISO YYYY-MM-DD
+/* ═══════════════════════════════════════════════════════════════
+   CONSTANTES
+   ═══════════════════════════════════════════════════════════════ */
+const DIAS_CORTOS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
+const DIAS_LARGOS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
+const MESES_CORTOS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+
+const FILTROS = [
+  { value: 'todas',       label: 'Todas' },
+  { value: 'por_atender', label: 'Por atender' },
+  { value: 'atendidas',   label: 'Atendidas' },
+  { value: 'canceladas',  label: 'Canceladas' },
+]
+
+/* ═══════════════════════════════════════════════════════════════
+   ESTADO
+   ═══════════════════════════════════════════════════════════════ */
+const vista = ref('dia')
+const fechaBase = ref(hoyISO())
 const citas = ref([])
 const cargando = ref(false)
 const buscando = ref('')
 const filtroEstado = ref('todas')
 const resolviendoHistorial = ref(null)
 
-// Cache por fecha para no re-consultar días ya cargados
 const cacheFecha = new Map()
 
-const FILTROS = [
-  { value: 'todas',      label: 'Todas' },
-  { value: 'por_atender', label: 'Por atender' },
-  { value: 'atendidas',  label: 'Atendidas' },
-  { value: 'canceladas', label: 'Canceladas' },
-]
-
-// ═════════════════════════════════════════════════════════════
-// FECHAS
-// ═════════════════════════════════════════════════════════════
-const DIAS_CORTOS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
-const DIAS_LARGOS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
-const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
-const MESES_CORTOS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
-
+/* ═══════════════════════════════════════════════════════════════
+   FECHAS — helpers puros
+   ═══════════════════════════════════════════════════════════════ */
 function isoDe(d) {
   const y = d.getFullYear()
-  const m = String(d.getMonth()+1).padStart(2,'0')
-  const dd = String(d.getDate()).padStart(2,'0')
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${dd}`
 }
 function parseISO(iso) {
-  const [y,m,d] = iso.split('-').map(Number)
-  return new Date(y, m-1, d)
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(y, m - 1, d)
 }
 function addDays(iso, n) {
   const d = parseISO(iso)
   d.setDate(d.getDate() + n)
-  return isoDe(d)
-}
-function addMonths(iso, n) {
-  const d = parseISO(iso)
-  d.setMonth(d.getMonth() + n)
   return isoDe(d)
 }
 function inicioSemana(iso) {
@@ -381,62 +380,58 @@ function inicioSemana(iso) {
 function finSemana(iso) {
   return addDays(inicioSemana(iso), 6)
 }
-function inicioMes(iso) {
-  const d = parseISO(iso)
-  return isoDe(new Date(d.getFullYear(), d.getMonth(), 1))
-}
-function finMes(iso) {
-  const d = parseISO(iso)
-  return isoDe(new Date(d.getFullYear(), d.getMonth()+1, 0))
+
+/* ═══════════════════════════════════════════════════════════════
+   WEEK STRIP
+   ═══════════════════════════════════════════════════════════════ */
+const diasSemana = computed(() => {
+  const inicio = inicioSemana(fechaBase.value)
+  return Array.from({ length: 7 }, (_, i) => {
+    const iso = addDays(inicio, i)
+    const d = parseISO(iso)
+    return {
+      iso,
+      dia: d.getDate(),
+      diaSemana: DIAS_CORTOS[d.getDay()],
+      isToday: iso === hoyISO(),
+      isWeekend: d.getDay() === 0 || d.getDay() === 6,
+    }
+  })
+})
+
+function seleccionarDia(iso) {
+  fechaBase.value = iso
+  if (vista.value !== 'dia') vista.value = 'dia'
 }
 
-// Rango actual según la vista
+function moverSemana(delta) {
+  fechaBase.value = addDays(fechaBase.value, delta * 7)
+  cargar()
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RANGO
+   ═══════════════════════════════════════════════════════════════ */
 const rango = computed(() => {
   const base = fechaBase.value
-  if (vista.value === 'dia') {
-    return { dias: [base] }
-  }
-  if (vista.value === 'semana') {
-    const ini = inicioSemana(base)
-    const dias = Array.from({ length: 7 }, (_, i) => addDays(ini, i))
-    return { dias, inicio: dias[0], fin: dias[6] }
-  }
-  const ini = inicioMes(base)
-  const fin = finMes(base)
-  const dias = []
-  let cur = ini
-  while (cur <= fin) {
-    dias.push(cur)
-    cur = addDays(cur, 1)
-  }
-  return { dias, mes: parseISO(base).getMonth(), anio: parseISO(base).getFullYear() }
+  return { dias: [base] }
 })
 
 const tituloRango = computed(() => {
-  if (vista.value === 'dia') {
-    const d = parseISO(fechaBase.value)
-    return `${DIAS_LARGOS[d.getDay()]}, ${d.getDate()} de ${MESES[d.getMonth()]}`
-  }
-  if (vista.value === 'semana') {
-    const ini = parseISO(inicioSemana(fechaBase.value))
-    const fin = parseISO(finSemana(fechaBase.value))
-    if (ini.getMonth() === fin.getMonth()) {
-      return `${ini.getDate()} – ${fin.getDate()} de ${MESES[ini.getMonth()]} ${ini.getFullYear()}`
-    }
-    return `${ini.getDate()} ${MESES_CORTOS[ini.getMonth()]} – ${fin.getDate()} ${MESES_CORTOS[fin.getMonth()]} ${fin.getFullYear()}`
-  }
   const d = parseISO(fechaBase.value)
-  return `${MESES[d.getMonth()][0].toUpperCase()}${MESES[d.getMonth()].slice(1)} ${d.getFullYear()}`
+  return `${DIAS_LARGOS[d.getDay()]}, ${d.getDate()} de ${MESES[d.getMonth()]}`
 })
 
 const subtituloRango = computed(() => {
-  if (vista.value === 'dia') return fechaBase.value === hoyISO() ? 'Hoy' : ''
-  return `${rango.value.dias.length} días`
+  const total = citas.value.length
+  const atendidas = citas.value.filter((c) => c.atendida).length
+  if (total === 0) return 'Sin citas agendadas'
+  return `${total} ${total === 1 ? 'cita' : 'citas'} · ${atendidas} ${atendidas === 1 ? 'atendida' : 'atendidas'}`
 })
 
-// ═════════════════════════════════════════════════════════════
-// CARGA DE DATOS (cache + paralelo)
-// ═════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════
+   CARGA
+   ═══════════════════════════════════════════════════════════════ */
 async function cargarFecha(iso, forzar = false) {
   if (!forzar && cacheFecha.has(iso)) return cacheFecha.get(iso)
   const data = await getAgendaVet(iso)
@@ -447,8 +442,7 @@ async function cargarFecha(iso, forzar = false) {
 async function cargar() {
   cargando.value = true
   try {
-    const dias = rango.value.dias
-    const resultados = await Promise.all(dias.map(d => cargarFecha(d)))
+    const resultados = await Promise.all(rango.value.dias.map((d) => cargarFecha(d)))
     citas.value = resultados.flat()
   } catch (err) {
     toastError(getApiErrorMessage(err) || 'No se pudo cargar la agenda')
@@ -463,26 +457,14 @@ async function recargar() {
   await cargar()
 }
 
-// ═════════════════════════════════════════════════════════════
-// NAVEGACIÓN
-// ═════════════════════════════════════════════════════════════
-function navegar(delta) {
-  if (vista.value === 'dia') fechaBase.value = addDays(fechaBase.value, delta)
-  else if (vista.value === 'semana') fechaBase.value = addDays(fechaBase.value, delta * 7)
-  else fechaBase.value = addMonths(fechaBase.value, delta)
-}
-
 function irAHoy() {
   fechaBase.value = hoyISO()
+  cargar()
 }
 
-function cambiarVista(v) {
-  vista.value = v
-}
-
-// ═════════════════════════════════════════════════════════════
-// FILTROS + AGRUPACIÓN
-// ═════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════
+   FILTROS
+   ═══════════════════════════════════════════════════════════════ */
 function normalizar(s) {
   return String(s || '').trim().toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -491,44 +473,35 @@ function normalizar(s) {
 const citasFiltradas = computed(() => {
   const q = normalizar(buscando.value)
   return citas.value
-    .filter(c => {
+    .filter((c) => {
       if (filtroEstado.value === 'todas') return true
-      if (filtroEstado.value === 'por_atender') return !c.atendida && !['Cancelada','Completada'].includes(c.estado)
-      if (filtroEstado.value === 'atendidas') return c.atendida || c.estado === 'Completada'
+      if (filtroEstado.value === 'por_atender') {
+        return !c.atendida && !['Cancelada', 'Completada'].includes(c.estado)
+      }
+      if (filtroEstado.value === 'atendidas') {
+        return c.atendida || c.estado === 'Completada'
+      }
       if (filtroEstado.value === 'canceladas') return c.estado === 'Cancelada'
       return true
     })
-    .filter(c => {
+    .filter((c) => {
       if (!q) return true
       return [c.mascotaNombre, c.clienteNombre, c.clienteDocumento, c.servicioNombre, c.motivoConsulta]
-        .some(v => normalizar(v).includes(q))
+        .some((v) => normalizar(v).includes(q))
     })
-    .sort((a,b) => {
+    .sort((a, b) => {
       const k = `${a.fechaCita} ${a.horaInicio}`
       const k2 = `${b.fechaCita} ${b.horaInicio}`
       return k.localeCompare(k2)
     })
 })
 
-const gruposPorDia = computed(() => {
-  const map = new Map()
-  for (const c of citasFiltradas.value) {
-    const f = String(c.fechaCita).slice(0,10)
-    if (!map.has(f)) map.set(f, [])
-    map.get(f).push(c)
-  }
-  return [...map.entries()]
-    .sort(([a],[b]) => a.localeCompare(b))
-    .map(([fecha, lista]) => ({
-      fecha,
-      citas: lista.sort((a,b) => a.horaInicio.localeCompare(b.horaInicio)),
-      porAtender: lista.filter(c => !c.atendida && c.estado !== 'Cancelada').length,
-    }))
-})
-
 function contarPorFiltro(tipo) {
-  return citas.value.filter(c => {
-    if (tipo === 'por_atender') return !c.atendida && !['Cancelada','Completada'].includes(c.estado)
+  return citas.value.filter((c) => {
+    if (tipo === 'todas') return true
+    if (tipo === 'por_atender') {
+      return !c.atendida && !['Cancelada', 'Completada'].includes(c.estado)
+    }
     if (tipo === 'atendidas') return c.atendida || c.estado === 'Completada'
     if (tipo === 'canceladas') return c.estado === 'Cancelada'
     return true
@@ -536,9 +509,9 @@ function contarPorFiltro(tipo) {
 }
 
 const resumen = computed(() => ({
-  porAtender: citasFiltradas.value.filter(c => !c.atendida && !['Cancelada','Completada'].includes(c.estado)).length,
-  atendidas: citasFiltradas.value.filter(c => c.atendida || c.estado === 'Completada').length,
-  canceladas: citasFiltradas.value.filter(c => c.estado === 'Cancelada').length,
+  porAtender: citas.value.filter((c) => !c.atendida && !['Cancelada', 'Completada'].includes(c.estado)).length,
+  atendidas: citas.value.filter((c) => c.atendida || c.estado === 'Completada').length,
+  canceladas: citas.value.filter((c) => c.estado === 'Cancelada').length,
 }))
 
 function limpiarFiltros() {
@@ -546,9 +519,28 @@ function limpiarFiltros() {
   filtroEstado.value = 'todas'
 }
 
-// ═════════════════════════════════════════════════════════════
-// ACCIONES
-// ═════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════
+   AGRUPACIÓN POR DÍA (semana/mes)
+   ═══════════════════════════════════════════════════════════════ */
+const gruposPorDia = computed(() => {
+  const map = new Map()
+  for (const c of citasFiltradas.value) {
+    const f = String(c.fechaCita).slice(0, 10)
+    if (!map.has(f)) map.set(f, [])
+    map.get(f).push(c)
+  }
+  return [...map.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([fecha, lista]) => ({
+      fecha,
+      citas: lista.sort((a, b) => a.horaInicio.localeCompare(b.horaInicio)),
+      porAtender: lista.filter((c) => !c.atendida && c.estado !== 'Cancelada').length,
+    }))
+})
+
+/* ═══════════════════════════════════════════════════════════════
+   ACCIONES
+   ═══════════════════════════════════════════════════════════════ */
 function irAAtender(cita) {
   router.push(`/veterinario/atencion/${cita.idCita}`)
 }
@@ -568,9 +560,9 @@ async function verHistorial(cita) {
   }
 }
 
-// ═════════════════════════════════════════════════════════════
-// HELPERS DE FORMATO
-// ═════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════
+   HELPERS DE FORMATO
+   ═══════════════════════════════════════════════════════════════ */
 function fmtHora(t) {
   if (!t) return ''
   const [h, m] = String(t).split(':')
@@ -584,8 +576,7 @@ function fmtFechaCorta(iso) {
 }
 
 function nombreDiaLargo(iso) {
-  const d = parseISO(iso)
-  return DIAS_LARGOS[d.getDay()]
+  return DIAS_LARGOS[parseISO(iso).getDay()]
 }
 
 function formatEstado(estado) {
@@ -593,612 +584,760 @@ function formatEstado(estado) {
 }
 
 function colorEstado(cita) {
-  return cita.estadoColor || ESTADO_COLOR[cita.estado] || '#64748B'
+  return cita.estadoColor || ESTADO_COLOR[cita.estado] || 'var(--neutral-500)'
 }
 
 function estiloEstado(estado) {
-  const color = ESTADO_COLOR[estado] || '#64748B'
-  return { color, borderColor: color, backgroundColor: `${color}1A` }
+  const color = ESTADO_COLOR[estado] || 'var(--neutral-500)'
+  return { color, borderColor: color }
 }
 
-// ═════════════════════════════════════════════════════════════
-// CICLO DE VIDA
-// ═════════════════════════════════════════════════════════════
-watch([vista, fechaBase], cargar)
+/* ═══════════════════════════════════════════════════════════════
+   CICLO DE VIDA
+   ═══════════════════════════════════════════════════════════════ */
+watch(fechaBase, cargar)
 onMounted(cargar)
 </script>
 
 <style scoped>
 .agenda-view {
-  max-width: 1400px;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 24px 24px 48px;
-  font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  color: #1E293B;
+  padding: var(--space-8) var(--space-6) var(--space-12);
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: var(--space-5);
 }
-button { font-family: inherit; }
 
 /* ═══ HEADER ═══ */
-.agenda-header {
+.page-top {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 20px;
-  padding: 22px 26px;
-  background: linear-gradient(135deg, #F0FDFA 0%, #FFFFFF 55%);
-  border: 1px solid #CCFBF1;
-  border-radius: 16px;
+  gap: var(--space-6);
   flex-wrap: wrap;
 }
-.header-info { min-width: 0; }
-.header-eyebrow {
-  display: inline-flex; align-items: center; gap: 6px;
-  margin: 0 0 8px;
-  font-size: 11px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .7px;
-  color: #0F766E;
-  background: #fff;
-  padding: 4px 10px;
-  border-radius: 20px;
-  border: 1px solid #CCFBF1;
+.page-top-info { min-width: 0; }
+.page-top-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--brand-700);
 }
-.agenda-header h1 {
-  margin: 0 0 4px;
-  font-size: 24px; font-weight: 700;
-  color: #0F172A;
-  letter-spacing: -0.02em;
+.page-top-title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-5xl);
+  font-weight: var(--font-bold);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.1;
+  color: var(--text-primary);
   text-transform: capitalize;
-  line-height: 1.2;
 }
-.header-sub {
+.page-top-sub {
   margin: 0;
-  font-size: 13.5px; color: #64748B;
+  font-size: var(--text-md);
+  color: var(--text-secondary);
 }
-.header-actions {
-  display: flex; gap: 8px;
+.page-top-actions {
+  display: flex;
+  gap: var(--space-2);
   align-items: center;
 }
+.quick-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--neutral-700);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-md);
+  font-weight: var(--font-semibold);
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.quick-action:hover:not(:disabled) {
+  border-color: var(--brand-200);
+  background: var(--brand-50);
+  color: var(--brand-700);
+}
+.quick-action:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ═══ WEEK STRIP ═══ */
+.week-strip {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-xs);
+}
+.week-nav {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.week-nav:hover:not(:disabled) {
+  border-color: var(--brand-200);
+  background: var(--brand-50);
+  color: var(--brand-700);
+}
+.week-nav:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.week-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--space-1);
+}
+.week-day {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-3) var(--space-2);
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.week-day:hover { background: var(--bg-surface-alt); }
+.week-day.is-selected {
+  background: var(--brand-700);
+  color: var(--text-inverse);
+  box-shadow: 0 4px 12px -4px rgba(15, 118, 110, 0.4);
+}
+.week-day.is-selected .week-day-name,
+.week-day.is-selected .week-day-num { color: var(--text-inverse); }
+.week-day.is-weekend:not(.is-selected) .week-day-name { color: var(--text-tertiary); }
+
+.week-day-name {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  transition: color var(--duration-fast);
+}
+.week-day-num {
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  line-height: 1;
+  transition: color var(--duration-fast);
+}
+.week-day.is-today:not(.is-selected) .week-day-num { color: var(--brand-700); }
+.week-day-dot {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--brand-500);
+}
+.week-day.is-selected .week-day-dot { background: rgba(255, 255, 255, 0.8); }
 
 /* ═══ CONTROLES ═══ */
 .agenda-controls {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 16px; flex-wrap: wrap;
-}
-.nav-group {
-  display: inline-flex;
-  border: 1px solid #E2E8F0;
-  border-radius: 10px;
-  overflow: hidden;
-  background: #fff;
-}
-.nav-btn {
-  border: none; background: #fff;
-  padding: 8px 12px;
-  color: #475569;
-  cursor: pointer;
-  display: inline-flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 600;
-  font-family: inherit;
-  transition: background .15s, color .15s;
-  border-right: 1px solid #E2E8F0;
-}
-.nav-btn:last-child { border-right: none; }
-.nav-btn:hover:not(:disabled) { background: #F0FDFA; color: #0F766E; }
-.nav-btn:disabled { opacity: .5; cursor: not-allowed; }
-.nav-today { padding: 8px 16px; }
-
-.view-toggle {
-  display: inline-flex;
-  background: #F1F5F9;
-  border-radius: 10px;
-  padding: 4px;
-  gap: 4px;
-}
-.view-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 14px;
-  border-radius: 7px;
-  border: none;
-  background: transparent;
-  color: #64748B;
-  font-size: 12.5px; font-weight: 700;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all .15s;
-}
-.view-btn:hover { color: #0F766E; }
-.view-btn.active {
-  background: #fff;
-  color: #0F766E;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, .08);
-}
-
-/* ═══ FILTROS ═══ */
-.agenda-filters {
-  display: flex; flex-direction: column; gap: 12px;
-}
-.search-box {
-  position: relative;
-  max-width: 100%;
-}
-.search-icon {
-  position: absolute;
-  left: 14px; top: 50%; transform: translateY(-50%);
-  color: #94A3B8;
-  pointer-events: none;
-}
-.search-input {
-  width: 100%;
-  padding: 11px 42px;
-  border: 1.5px solid #E2E8F0;
-  border-radius: 12px;
-  font-size: 14px; color: #1E293B;
-  background: #fff;
-  font-family: inherit;
-  transition: border-color .15s, box-shadow .15s;
-  box-sizing: border-box;
-}
-.search-input::placeholder { color: #94A3B8; }
-.search-input:focus {
-  outline: none;
-  border-color: #0F766E;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, .1);
-}
-.search-clear {
-  position: absolute;
-  right: 12px; top: 50%; transform: translateY(-50%);
-  background: none; border: none;
-  color: #94A3B8;
-  cursor: pointer;
-  padding: 6px;
-  border-radius: 6px;
-  display: flex; align-items: center;
-}
-.search-clear:hover { color: #475569; background: #F1F5F9; }
-
-.filter-chips {
   display: flex;
-  gap: 8px;
+  gap: var(--space-4);
+  align-items: center;
   flex-wrap: wrap;
 }
-.chip {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 14px;
-  border-radius: 20px;
-  border: 1.5px solid #E2E8F0;
-  background: #fff;
-  color: #64748B;
-  font-size: 12.5px; font-weight: 600;
+.agenda-search {
+  position: relative;
+  flex: 1 1 320px;
+  max-width: 480px;
+}
+.agenda-search-icon {
+  position: absolute;
+  left: var(--space-4);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+.agenda-search-input {
+  width: 100%;
+  padding: var(--space-3) var(--space-10) var(--space-3) 42px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  border-radius: var(--radius-xl);
+  font-size: var(--text-md);
   font-family: inherit;
+  color: var(--text-primary);
+  outline: none;
+  box-sizing: border-box;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.agenda-search-input::placeholder { color: var(--text-tertiary); }
+.agenda-search-input:focus {
+  border-color: var(--brand-700);
+  box-shadow: 0 0 0 4px var(--brand-100);
+}
+.agenda-search-clear {
+  position: absolute;
+  right: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
   cursor: pointer;
-  transition: all .15s;
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
 }
-.chip:hover { border-color: #CBD5E1; color: #334155; }
-.chip-active {
-  background: #0F766E;
-  border-color: #0F766E;
-  color: #fff;
+.agenda-search-clear:hover { color: var(--neutral-600); background: var(--neutral-100); }
+
+.agenda-filters {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
-.chip-count {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 18px; height: 18px;
-  padding: 0 5px;
-  border-radius: 20px;
-  background: #F1F5F9;
-  color: #64748B;
-  font-size: 10.5px; font-weight: 700;
-  font-variant-numeric: tabular-nums;
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--neutral-600);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all var(--duration-fast) var(--ease-out);
 }
-.chip-active .chip-count {
-  background: rgba(255,255,255,.25);
-  color: #fff;
+.filter-chip:hover { border-color: var(--brand-200); color: var(--brand-700); }
+.filter-chip.is-active {
+  background: var(--brand-700);
+  color: var(--text-inverse);
+  border-color: var(--brand-700);
+  box-shadow: 0 2px 8px rgba(15, 118, 110, 0.25);
+}
+.filter-chip-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--neutral-100);
+  color: var(--text-secondary);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-bold);
+}
+.filter-chip.is-active .filter-chip-count {
+  background: rgba(255, 255, 255, 0.22);
+  color: var(--text-inverse);
 }
 
-/* ═══ KPIs ═══ */
-.agenda-kpis {
+/* ═══ STATS STRIP ═══ */
+.stats-strip {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
 }
-.kpi {
-  display: flex; align-items: center; gap: 12px;
-  padding: 14px 16px;
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
+.stat {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+  border-right: 1px solid var(--border-subtle);
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
-.kpi-icon {
-  width: 38px; height: 38px;
-  border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--b); color: var(--c);
+.stat:last-child { border-right: none; }
+.stat:hover { background: var(--bg-surface-alt); }
+.stat-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
-.kpi-value {
+.stat-brand .stat-icon   { background: var(--brand-50);   color: var(--brand-700); }
+.stat-warning .stat-icon { background: var(--warning-50); color: var(--warning-600); }
+.stat-success .stat-icon { background: var(--success-50); color: var(--success-600); }
+.stat-neutral .stat-icon { background: var(--neutral-100); color: var(--text-secondary); }
+.stat-content { min-width: 0; }
+.stat-value {
   margin: 0;
-  font-size: 20px; font-weight: 700;
-  color: #0F172A;
-  line-height: 1.1;
-  letter-spacing: -0.01em;
+  font-size: var(--text-4xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  line-height: 1;
+  letter-spacing: var(--tracking-tight);
+  font-variant-numeric: tabular-nums;
 }
-.kpi-label {
-  margin: 3px 0 0;
-  font-size: 11.5px; color: #64748B; font-weight: 500;
+.stat-label {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: var(--font-medium);
 }
 
-/* ═══ ESTADOS ═══ */
-.loading-state, .empty-state {
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 12px;
-  padding: 72px 24px;
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 14px;
-  color: #94A3B8;
-  text-align: center;
-}
-.empty-state h3 {
-  margin: 0;
-  font-size: 17px; font-weight: 700; color: #1E293B;
-}
-.empty-state p {
-  margin: 0 0 6px;
-  font-size: 13.5px; color: #64748B;
-  max-width: 420px; line-height: 1.55;
-}
-.spin { animation: spin 1s linear infinite; }
-.spin-lg {
-  width: 34px; height: 34px;
-  border: 3px solid #E2E8F0; border-top-color: #0F766E;
-  border-radius: 50%;
-  animation: spin .8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ═══ VISTA DÍA — timeline ═══ */
-.timeline {
-  display: flex; flex-direction: column;
-  gap: 12px;
-  position: relative;
+/* ═══ TIMELINE DEL DÍA ═══ */
+.day-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 .timeline-item {
   display: grid;
-  grid-template-columns: 76px 20px 1fr;
-  gap: 14px;
+  grid-template-columns: 80px 24px 1fr;
+  gap: var(--space-3);
   align-items: stretch;
 }
-.timeline-hora {
-  display: flex; flex-direction: column;
+.timeline-time {
+  display: flex;
+  flex-direction: column;
   align-items: flex-end;
-  padding-top: 14px;
-  gap: 2px;
+  padding-top: var(--space-4);
+  gap: 3px;
 }
-.hora-inicio {
-  font-size: 14px; font-weight: 700; color: #0F766E;
+.time-start {
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
+  color: var(--brand-700);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  line-height: 1;
 }
-.hora-fin {
-  font-size: 11px; font-weight: 600; color: #94A3B8;
+.time-end {
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  line-height: 1;
 }
-.timeline-dot {
+.timeline-rail {
   position: relative;
-  width: 12px; height: 12px;
-  border-radius: 50%;
-  margin-top: 18px;
-  justify-self: center;
-  box-shadow: 0 0 0 3px #fff, 0 0 0 4px #E2E8F0;
+  display: flex;
+  justify-content: center;
 }
-.timeline-dot::before,
-.timeline-dot::after {
+.timeline-rail::before {
   content: '';
   position: absolute;
   left: 50%;
-  transform: translateX(-50%);
+  top: 0;
+  bottom: 0;
   width: 2px;
-  background: #E2E8F0;
+  background: var(--border-subtle);
+  transform: translateX(-50%);
 }
-.timeline-dot::before { bottom: 100%; height: 30px; margin-bottom: 6px; }
-.timeline-dot::after { top: 100%; height: 200px; margin-top: 6px; }
-.timeline-item:first-child .timeline-dot::before { display: none; }
-.timeline-item:last-child .timeline-dot::after { display: none; }
+.timeline-item:first-child .timeline-rail::before { top: 20px; }
+.timeline-item:last-child .timeline-rail::before { bottom: calc(100% - 20px); }
+.rail-dot {
+  position: relative;
+  z-index: 1;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-top: 20px;
+  box-shadow: 0 0 0 3px var(--bg-page);
+}
 
-/* ═══ CARD de cita (día) ═══ */
-.cita-card {
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  padding: 14px 16px;
-  display: flex; flex-direction: column; gap: 12px;
-  transition: border-color .2s, box-shadow .2s, transform .2s;
+.timeline-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  transition: all var(--duration-base) var(--ease-out);
+  box-shadow: var(--shadow-xs);
 }
-.cita-card:hover {
-  border-color: #CBD5E1;
-  transform: translateY(-1px);
-  box-shadow: 0 8px 20px -10px rgba(15, 23, 42, .12);
+.timeline-card:hover {
+  border-color: var(--brand-200);
+  box-shadow: var(--shadow-md);
 }
-.timeline-item.is-done .cita-card {
-  background: #F8FAFC;
-  opacity: .85;
+.timeline-item.is-done .timeline-card {
+  background: var(--bg-surface-alt);
+  opacity: 0.85;
 }
-.cita-head {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap;
+
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
 }
-.cita-title h3 {
-  margin: 0 0 2px;
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 15.5px; font-weight: 700; color: #0F172A;
+.card-head-main { min-width: 0; }
+.card-pet {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
   letter-spacing: -0.01em;
+  line-height: 1.2;
 }
-.cita-title h3 svg { color: #0F766E; }
-.cita-species {
-  font-size: 12px; color: #64748B; font-weight: 500;
+.card-pet svg { color: var(--brand-700); }
+.card-pet-meta {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: var(--font-medium);
 }
-.cita-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.card-head-side {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
 .status-pill {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 11.5px; font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
   border: 1px solid;
   white-space: nowrap;
+  background: transparent;
 }
-.pill-done {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 11.5px; font-weight: 700;
-  background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0;
+.status-done {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  background: var(--success-50);
+  color: var(--success-700);
+  border: 1px solid var(--success-200);
 }
 
-.cita-body {
+.card-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 10px 20px;
+  gap: var(--space-3) var(--space-5);
 }
-.cita-field {
-  display: flex; flex-direction: column; gap: 2px;
-  min-width: 0;
-}
+.field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .field-label {
-  display: inline-flex; align-items: center; gap: 5px;
-  font-size: 10.5px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .4px;
-  color: #94A3B8;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
 }
 .field-value {
-  font-size: 13px; font-weight: 600; color: #334155;
-  overflow: hidden; text-overflow: ellipsis;
+  font-size: var(--text-md);
+  font-weight: var(--font-semibold);
+  color: var(--neutral-700);
+  line-height: var(--leading-snug);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.cita-actions {
-  display: flex; justify-content: space-between; align-items: center;
-  gap: 10px;
-  padding-top: 10px;
-  border-top: 1px dashed #E2E8F0;
+.card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
 }
 .btn-atender {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 16px;
-  background: #0F766E; color: #fff;
-  border: none; border-radius: 9px;
-  font-size: 13px; font-weight: 700;
-  font-family: inherit; cursor: pointer;
-  transition: all .15s;
-}
-.btn-atender:hover {
-  background: #115E59;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px -4px rgba(15,118,110,.4);
-}
-.badge-completada {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 12.5px; font-weight: 700;
-  color: #059669;
-}
-.btn-link {
-  display: inline-flex; align-items: center; gap: 6px;
-  background: none; border: none;
-  color: #0F766E;
-  font-size: 12.5px; font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background: var(--brand-700);
+  color: var(--text-inverse);
+  border: none;
+  border-radius: var(--radius-lg);
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
   font-family: inherit;
   cursor: pointer;
-  padding: 6px 8px;
-  border-radius: 6px;
-  transition: background .15s;
+  transition: all var(--duration-fast) var(--ease-out);
 }
-.btn-link:hover:not(:disabled) { background: #F0FDFA; }
-.btn-link:disabled { color: #94A3B8; cursor: not-allowed; }
+.btn-atender:hover {
+  background: var(--brand-800);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -4px rgba(15, 118, 110, 0.4);
+}
+.badge-completada {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
+  color: var(--success-600);
+}
+.btn-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: none;
+  border: none;
+  color: var(--brand-700);
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  font-family: inherit;
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  transition: background-color var(--duration-fast) var(--ease-out);
+  margin-left: auto;
+}
+.btn-link:hover:not(:disabled) { background: var(--brand-50); }
+.btn-link:disabled { color: var(--text-tertiary); cursor: not-allowed; }
 
-/* ═══ VISTA SEMANA/MES — grupos por día ═══ */
-.grupos-dias { display: flex; flex-direction: column; gap: 16px; }
-.grupo-dia {
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
+/* ═══ GRUPOS POR DÍA ═══ */
+.day-groups { display: flex; flex-direction: column; gap: var(--space-5); }
+.day-group {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2xl);
   overflow: hidden;
+  box-shadow: var(--shadow-xs);
 }
-.grupo-dia.grupo-hoy {
-  border-color: #99F6E4;
-  box-shadow: 0 0 0 3px rgba(15,118,110,.06);
+.day-group.is-today {
+  border-color: var(--brand-200);
+  box-shadow: 0 0 0 3px var(--brand-100);
 }
-.grupo-header {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap;
-  padding: 12px 18px;
-  background: #F8FAFC;
-  border-bottom: 1px solid #E2E8F0;
+.day-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  background: var(--bg-surface-alt);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
 }
-.grupo-hoy .grupo-header {
-  background: linear-gradient(90deg, #F0FDFA 0%, #F8FAFC 100%);
+.day-group.is-today .day-group-header {
+  background: linear-gradient(90deg, var(--brand-50) 0%, var(--bg-surface-alt) 100%);
 }
-.grupo-fecha { display: flex; align-items: baseline; gap: 10px; }
-.grupo-dia-nombre {
-  font-size: 14px; font-weight: 700; color: #0F172A;
+.day-group-date { display: flex; align-items: baseline; gap: var(--space-3); }
+.dg-name {
+  font-size: var(--text-base);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
   text-transform: capitalize;
 }
-.grupo-dia-fecha {
-  font-size: 12px; font-weight: 600; color: #64748B;
+.dg-full {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
 }
-.grupo-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.grupo-count {
-  font-size: 12px; font-weight: 600; color: #64748B;
-}
-.grupo-badge-warn {
-  display: inline-flex; align-items: center;
-  padding: 3px 10px;
-  border-radius: 20px;
-  background: #FFFBEB; color: #B45309;
-  border: 1px solid #FDE68A;
-  font-size: 11px; font-weight: 700;
-}
-
-.grupo-citas {
-  display: flex; flex-direction: column;
-}
-.cita-row {
-  display: grid;
-  grid-template-columns: 76px 4px 1fr auto auto;
-  gap: 14px;
+.day-group-meta { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
+.dg-count { font-size: var(--text-sm); color: var(--text-secondary); font-weight: var(--font-semibold); }
+.dg-alert {
+  display: inline-flex;
   align-items: center;
-  padding: 12px 18px;
-  border-bottom: 1px solid #F1F5F9;
-  transition: background .15s;
+  padding: 3px var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--warning-50);
+  color: var(--warning-700);
+  border: 1px solid var(--warning-200);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
 }
-.cita-row:last-child { border-bottom: none; }
-.cita-row:hover { background: #FAFBFC; }
-.cita-row.is-done { opacity: .72; }
 
-.row-hora {
-  font-size: 13px; font-weight: 700; color: #0F766E;
+.day-group-list { list-style: none; margin: 0; padding: 0; }
+.group-row {
+  display: grid;
+  grid-template-columns: 80px 4px 1fr auto auto;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--neutral-100);
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+.group-row:last-child { border-bottom: none; }
+.group-row:hover { background: var(--bg-surface-alt); }
+.group-row.is-done { opacity: 0.72; }
+.gr-time {
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
+  color: var(--brand-700);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.row-status {
-  width: 4px; height: 34px;
-  border-radius: 4px;
+.gr-accent { width: 4px; height: 36px; border-radius: var(--radius-sm); }
+.gr-main { min-width: 0; }
+.gr-pet {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-md);
+  color: var(--text-primary);
+  margin: 0 0 2px;
 }
-.row-info { min-width: 0; }
-.row-title {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 13.5px;
-  color: #0F172A;
-  margin-bottom: 2px;
+.gr-pet svg { color: var(--brand-700); flex-shrink: 0; }
+.gr-pet strong { font-weight: var(--font-bold); }
+.gr-species { font-size: var(--text-sm); color: var(--text-secondary); font-weight: var(--font-medium); }
+.gr-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.row-title svg { color: #0F766E; flex-shrink: 0; }
-.row-title strong { font-weight: 700; }
-.row-especie {
-  font-size: 11.5px; color: #64748B; font-weight: 500;
-}
-.row-meta {
-  display: flex; flex-wrap: wrap; gap: 12px;
-  font-size: 12px; color: #64748B;
-}
-.row-meta span {
-  display: inline-flex; align-items: center; gap: 4px;
-  min-width: 0;
-}
-.row-meta svg { color: #94A3B8; }
-
-.row-pills { display: flex; }
+.gr-sep { color: var(--text-tertiary); margin: 0 var(--space-1); }
+.gr-status { display: flex; }
 .status-pill-sm {
-  display: inline-flex; align-items: center;
-  padding: 3px 9px;
-  border-radius: 20px;
-  font-size: 11px; font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
   border: 1px solid;
+  background: transparent;
   white-space: nowrap;
 }
-.row-actions { display: flex; align-items: center; gap: 6px; }
+.gr-actions { display: flex; gap: var(--space-2); align-items: center; }
 .btn-atender-sm {
-  display: inline-flex; align-items: center;
-  padding: 6px 12px;
-  background: #0F766E; color: #fff;
-  border: none; border-radius: 7px;
-  font-size: 12px; font-weight: 700;
-  font-family: inherit; cursor: pointer;
-  transition: background .15s;
-}
-.btn-atender-sm:hover { background: #115E59; }
-.btn-icon {
-  width: 30px; height: 30px;
-  border-radius: 7px;
-  border: 1px solid #E2E8F0;
-  background: #fff;
-  color: #64748B;
-  display: inline-flex; align-items: center; justify-content: center;
+  padding: var(--space-2) var(--space-4);
+  background: var(--brand-700);
+  color: var(--text-inverse);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  font-family: inherit;
   cursor: pointer;
-  transition: all .15s;
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
-.btn-icon:hover:not(:disabled) {
-  border-color: #0F766E; color: #0F766E; background: #F0FDFA;
+.btn-atender-sm:hover { background: var(--brand-800); }
+.btn-icon-sm {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
 }
-.btn-icon:disabled { opacity: .5; cursor: not-allowed; }
+.btn-icon-sm:hover:not(:disabled) { border-color: var(--brand-700); color: var(--brand-700); background: var(--brand-50); }
+.btn-icon-sm:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* ═══ BOTONES GENERALES ═══ */
-.btn-primary, .btn-secondary, .btn-ghost {
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 9px 16px;
-  border-radius: 10px;
-  font-size: 13px; font-weight: 700;
-  font-family: inherit; cursor: pointer;
-  transition: all .15s;
-  border: 1px solid #E2E8F0;
-  white-space: nowrap;
+/* ═══ EMPTY / LOADING ═══ */
+.loading-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-12);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2xl);
+  color: var(--text-secondary);
+  font-size: var(--text-md);
 }
-.btn-secondary {
-  background: #fff; color: #475569;
+.spin { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.agenda-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background: var(--bg-surface);
+  color: var(--neutral-600);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
 }
-.btn-secondary:hover:not(:disabled) {
-  border-color: #CBD5E1; color: #0F766E; background: #F8FAFC;
-}
-.btn-secondary:disabled { opacity: .55; cursor: not-allowed; }
-.btn-ghost {
-  background: #fff; color: #0F766E;
-  border-color: #99F6E4;
-}
-.btn-ghost:hover { background: #F0FDFA; }
+.agenda-clear-btn:hover { border-color: var(--brand-700); color: var(--brand-700); background: var(--brand-50); }
 
 /* ═══ RESPONSIVE ═══ */
 @media (max-width: 1024px) {
-  .agenda-kpis { grid-template-columns: repeat(2, 1fr); }
-  .cita-body { grid-template-columns: 1fr; }
+  .stats-strip { grid-template-columns: repeat(2, 1fr); }
+  .stat { border-right: none; border-bottom: 1px solid var(--border-subtle); }
+  .stat:nth-child(odd) { border-right: 1px solid var(--border-subtle); }
+  .stat:nth-last-child(-n+2) { border-bottom: none; }
 }
 @media (max-width: 768px) {
-  .agenda-view { padding: 16px 14px 40px; }
-  .agenda-header { padding: 18px 20px; border-radius: 14px; }
-  .agenda-header h1 { font-size: 20px; }
-  .header-actions { width: 100%; }
-  .header-actions button { flex: 1; }
+  .agenda-view { padding: var(--space-5) var(--space-4) var(--space-10); }
+  .page-top-title { font-size: var(--text-4xl); }
+  .page-top-actions { width: 100%; }
+  .quick-action { flex: 1; justify-content: center; }
 
-  .timeline-item { grid-template-columns: 60px 16px 1fr; gap: 10px; }
-  .timeline-dot::after { height: 300px; }
-  .hora-inicio, .hora-fin { font-size: 12px; }
+  .week-strip { padding: var(--space-2); gap: var(--space-2); }
+  .week-day { padding: var(--space-2) var(--space-1); }
+  .week-day-num { font-size: var(--text-lg); }
 
-  .cita-row {
+  .stats-strip { grid-template-columns: 1fr; }
+  .stat { border-right: none; border-bottom: 1px solid var(--border-subtle); padding: var(--space-4); }
+  .stat:nth-child(odd) { border-right: none; }
+  .stat:last-child { border-bottom: none; }
+  .stat-value { font-size: var(--text-3xl); }
+
+  .timeline-item { grid-template-columns: 60px 20px 1fr; gap: var(--space-2); }
+  .time-start { font-size: var(--text-sm); }
+  .card-grid { grid-template-columns: 1fr; }
+  .card-foot { flex-direction: column; align-items: stretch; }
+  .btn-atender { justify-content: center; }
+  .btn-link { margin-left: 0; justify-content: center; }
+
+  .group-row {
     grid-template-columns: 1fr auto;
-    gap: 8px 12px;
-    padding: 12px 14px;
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-3) var(--space-4);
   }
-  .row-hora { grid-column: 1; grid-row: 1; }
-  .row-status { display: none; }
-  .row-info { grid-column: 1 / -1; }
-  .row-pills { grid-column: 1; grid-row: 3; }
-  .row-actions { grid-column: 2; grid-row: 1 / span 3; align-self: start; }
-}
-@media (max-width: 480px) {
-  .agenda-kpis { grid-template-columns: 1fr 1fr; gap: 8px; }
-  .kpi { padding: 12px; }
-  .kpi-value { font-size: 18px; }
-  .filter-chips { gap: 6px; }
-  .chip { padding: 6px 10px; font-size: 11.5px; }
-  .view-btn { padding: 6px 10px; font-size: 11.5px; }
+  .gr-time { grid-row: 1; grid-column: 1; }
+  .gr-accent { display: none; }
+  .gr-main { grid-column: 1 / -1; }
+  .gr-status { grid-column: 1; }
+  .gr-actions { grid-column: 2; grid-row: 1; }
 }
 </style>

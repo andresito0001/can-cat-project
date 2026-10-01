@@ -50,7 +50,8 @@ public class DisponibilidadApplicationService {
                 .map(p -> new VeterinarioDTO(
                         p.getPersonalId().value(),
                         p.getNombreCompleto(),
-                        p.getEspecialidad() != null ? p.getEspecialidad().value().trim() : ""
+                        p.getEspecialidad() != null ? p.getEspecialidad().value().trim() : "",
+                        p.getHorarioAtencion() != null ? p.getHorarioAtencion().value() : Map.of()
                 ))
                 .toList();
     }

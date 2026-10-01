@@ -1,6 +1,5 @@
 <template>
   <div class="auth-page">
-    <!-- ═══ Fondo: imagen + tratamiento editorial ═══ -->
     <div
       class="page-bg"
       :style="{ backgroundImage: `url(${imagenFondo})` }"
@@ -12,7 +11,6 @@
     <div class="page-grain" />
 
     <div class="page-content" :class="{ 'is-wide': wide }">
-      <!-- ═══ Columna izquierda: marca + mensaje ═══ -->
       <aside class="hero-side">
         <div class="brand">
           <div class="brand-mark"><PawPrint :size="18" /></div>
@@ -58,10 +56,8 @@
         </p>
       </aside>
 
-      <!-- ═══ Columna derecha: card ═══ -->
       <main class="form-side">
         <div class="form-card">
-          <!-- Marca mobile (oculta en desktop) -->
           <div class="mobile-brand">
             <div class="brand-mark brand-mark-sm"><PawPrint :size="16" /></div>
             <span class="brand-name-sm">Can &amp; Cat</span>
@@ -82,31 +78,26 @@
 
 <script setup>
 import { computed } from 'vue'
-import {
-  PawPrint, Heart, Stethoscope, HeartHandshake, ShieldCheck,
-} from 'lucide-vue-next'
+import { PawPrint, Heart, Stethoscope, HeartHandshake, ShieldCheck } from 'lucide-vue-next'
 
-
-import './styles/auth-form.css'
 defineProps({
   wide: { type: Boolean, default: false },
 })
 
-// Coloca la imagen en frontend/public/tsunami-login.webp
 const imagenFondo = '/tsunami-login.webp'
 const añoActual = computed(() => new Date().getFullYear())
 </script>
 
 <style scoped>
+/* ═══ LAYOUT ═══ */
 .auth-page {
   position: relative;
   min-height: 100vh;
   overflow: hidden;
-  font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  background: #042F2E; /* respaldo armonioso mientras carga la imagen */
+  font-family: var(--font-sans);
+  background: var(--brand-900);
 }
 
-/* ── Fondo ── */
 .page-bg {
   position: absolute;
   inset: 0;
@@ -114,9 +105,6 @@ const añoActual = computed(() => new Date().getFullYear())
   background-position: center;
   background-repeat: no-repeat;
 }
-
-/* Scrim lateral en teal profundo: oscuro donde va el texto,
-   más abierto a la derecha para que la foto respire */
 .page-overlay {
   position: absolute;
   inset: 0;
@@ -129,8 +117,6 @@ const añoActual = computed(() => new Date().getFullYear())
     rgba(19, 78, 74, 0.24) 100%
   );
 }
-
-/* Viñeta suave que enfoca el centro y oscurece bordes */
 .page-vignette {
   position: absolute;
   inset: 0;
@@ -141,8 +127,6 @@ const añoActual = computed(() => new Date().getFullYear())
     rgba(2, 20, 18, 0.55) 100%
   );
 }
-
-/* Grano sutil: elimina el look de gradiente plano */
 .page-grain {
   position: absolute;
   inset: 0;
@@ -151,16 +135,15 @@ const añoActual = computed(() => new Date().getFullYear())
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* ── Layout ── */
 .page-content {
   position: relative;
   z-index: 1;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: center;
-  gap: 48px;
+  gap: var(--space-12);
   min-height: 100vh;
-  padding: 48px 56px;
+  padding: var(--space-12);
   max-width: 1440px;
   margin: 0 auto;
 }
@@ -168,163 +151,143 @@ const añoActual = computed(() => new Date().getFullYear())
   grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
 }
 
-/* ═══ Columna izquierda ═══ */
+/* ═══ HERO ═══ */
 .hero-side {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 32px;
+  gap: var(--space-8);
   max-width: 520px;
   min-height: 70vh;
-  color: #FFFFFF;
+  color: var(--text-inverse);
 }
-
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-}
+.brand { display: inline-flex; align-items: center; gap: var(--space-3); }
 .brand-mark {
   width: 42px;
   height: 42px;
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   background: rgba(255, 255, 255, 0.16);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.24);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #FFFFFF;
+  color: var(--text-inverse);
   flex-shrink: 0;
 }
 .brand-mark-sm {
   width: 34px;
   height: 34px;
-  border-radius: 10px;
-  background: #0F766E;
+  border-radius: var(--radius-lg);
+  background: var(--brand-700);
   border: none;
-  color: #FFFFFF;
   backdrop-filter: none;
 }
-.brand-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.15;
-}
+.brand-text { display: flex; flex-direction: column; line-height: 1.15; }
 .brand-name {
-  font-size: 16px;
-  font-weight: 700;
-  color: #FFFFFF;
-  letter-spacing: -0.01em;
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  color: var(--text-inverse);
+  letter-spacing: var(--tracking-tight);
 }
 .brand-name-sm {
-  color: #0F172A;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
 }
 .brand-sub {
-  font-size: 11.5px;
-  font-weight: 500;
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
   color: rgba(255, 255, 255, 0.78);
-  letter-spacing: 0.3px;
 }
 
-.hero-message {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
+.hero-message { display: flex; flex-direction: column; gap: var(--space-3); }
 .hero-eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1);
   align-self: flex-start;
-  padding: 5px 12px;
+  padding: var(--space-1) var(--space-3);
   background: rgba(255, 255, 255, 0.14);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 20px;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.7px;
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-bold);
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: #FFFFFF;
+  color: var(--text-inverse);
 }
-.hero-eyebrow svg { color: #5EEAD4; }
+.hero-eyebrow svg { color: var(--brand-300); }
 
 .hero-title {
   margin: 0;
   font-size: 36px;
-  font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: -0.025em;
-  color: #FFFFFF;
+  font-weight: var(--font-bold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-inverse);
   text-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
   text-wrap: balance;
 }
 .hero-paragraph {
   margin: 0;
-  font-size: 14.5px;
-  line-height: 1.65;
-  color: rgba(255, 255, 255, 0.9);
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+  color: rgba(255, 255, 255, 0.90);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.30);
   max-width: 46ch;
 }
-
 .hero-features {
   list-style: none;
-  margin: 8px 0 0;
+  margin: var(--space-2) 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
 }
 .hero-features li {
   display: flex;
   align-items: center;
-  gap: 11px;
-  font-size: 13.5px;
-  font-weight: 500;
+  gap: var(--space-3);
+  font-size: var(--text-md);
+  font-weight: var(--font-medium);
   color: rgba(255, 255, 255, 0.94);
 }
 .hf-icon {
   width: 30px;
   height: 30px;
   flex-shrink: 0;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.18);
   backdrop-filter: blur(8px);
-  color: #5EEAD4;
+  color: var(--brand-300);
   display: flex;
   align-items: center;
   justify-content: center;
 }
-
 .hero-credit {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1);
   margin: 0;
-  font-size: 11.5px;
-  font-weight: 500;
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
   color: rgba(255, 255, 255, 0.72);
-  letter-spacing: 0.2px;
 }
 
-/* ═══ Columna derecha ═══ */
+/* ═══ FORM SIDE ═══ */
 .form-side {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: var(--space-5);
   width: 100%;
 }
-
 .form-card {
-  background: #FFFFFF;
-  border-radius: 20px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-4xl);
   padding: 40px 36px 34px;
   width: 100%;
   max-width: 440px;
@@ -335,48 +298,48 @@ const añoActual = computed(() => new Date().getFullYear())
     0 12px 36px -12px rgba(2, 20, 18, 0.25),
     0 40px 90px -32px rgba(2, 20, 18, 0.42);
 }
-.is-wide .form-card {
+.page-content.is-wide .form-card {
   max-width: 560px;
-  padding: 36px 36px 32px;
+  padding: var(--space-10);
 }
 
 .mobile-brand {
   display: none;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  margin-bottom: 24px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
 }
 
 .form-footer {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  font-size: 11.5px;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
   color: rgba(255, 255, 255, 0.75);
   flex-wrap: wrap;
 }
-.footer-sep { color: rgba(255, 255, 255, 0.4); }
+.footer-sep { color: rgba(255, 255, 255, 0.40); }
 
-/* ═══ Responsive ═══ */
+/* ═══ RESPONSIVE ═══ */
 @media (max-width: 1024px) {
-  .page-content { gap: 32px; padding: 40px 32px; }
+  .page-content { gap: var(--space-8); padding: var(--space-10) var(--space-8); }
   .hero-title { font-size: 30px; }
-  .hero-side { min-height: auto; gap: 24px; }
-  .form-card { padding: 32px 28px 28px; }
-  .is-wide .form-card { max-width: 520px; }
+  .hero-side { min-height: auto; gap: var(--space-6); }
+  .form-card { padding: var(--space-8) var(--space-7) var(--space-7); }
+  .page-content.is-wide .form-card { max-width: 520px; }
 }
 
 @media (max-width: 768px) {
   .page-content {
     grid-template-columns: 1fr;
-    gap: 24px;
-    padding: 32px 24px 40px;
+    gap: var(--space-6);
+    padding: var(--space-8) var(--space-6) var(--space-10);
     align-items: flex-start;
   }
   .hero-side {
-    gap: 18px;
+    gap: var(--space-5);
     min-height: auto;
     max-width: 100%;
     text-align: center;
@@ -386,17 +349,17 @@ const añoActual = computed(() => new Date().getFullYear())
   .hero-credit { display: none; }
   .brand { align-self: center; }
 
-  .form-side { gap: 16px; }
+  .form-side { gap: var(--space-4); }
   .form-card {
-    padding: 32px 24px 28px;
-    border-radius: 18px;
+    padding: var(--space-8) var(--space-6) var(--space-7);
+    border-radius: var(--radius-3xl);
     max-width: 100%;
   }
   .mobile-brand { display: inline-flex; }
 }
 
 @media (max-width: 480px) {
-  .page-content { padding: 24px 16px 32px; }
-  .form-card { padding: 28px 20px 24px; }
+  .page-content { padding: var(--space-6) var(--space-4) var(--space-8); }
+  .form-card { padding: var(--space-7) var(--space-5) var(--space-6); }
 }
 </style>

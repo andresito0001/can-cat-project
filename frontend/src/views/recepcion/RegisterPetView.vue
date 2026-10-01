@@ -1,6 +1,8 @@
 <template>
   <div class="registrar-mascota">
-    <!-- ═══ BREADCRUMB ═══ -->
+    <ToastContainer />
+
+    <!-- Breadcrumb -->
     <nav class="breadcrumb" aria-label="Migas de pan">
       <button class="bc-back" type="button" @click="volver">
         <ArrowLeft :size="15" />
@@ -12,22 +14,23 @@
       <span class="bc-item bc-current">Registrar Mascota</span>
     </nav>
 
-    <!-- ═══ HERO ═══ -->
-    <header class="hero">
-      <p class="hero-eyebrow">
-        <Sparkles :size="12" />
-        Recepción · Registro asistido
-      </p>
-      <h1>Registrar Mascota</h1>
-      <p class="hero-sub">
-        Asocia un nuevo paciente a un cliente existente para agendar consultas.
-      </p>
+    <!-- Hero -->
+    <header class="page-header">
+      <div>
+        <span class="page-header-eyebrow">
+          <Sparkles :size="12" /> Recepción · Registro asistido
+        </span>
+        <h1>Registrar Mascota</h1>
+        <p class="page-header-sub">
+          Asocia un nuevo paciente a un cliente existente para agendar consultas.
+        </p>
+      </div>
     </header>
 
-    <!-- ═══ LAYOUT ═══ -->
-    <div class="wizard-layout" :class="{ 'is-success': exito }">
+    <!-- Layout -->
+    <div class="wizard-layout" :class="{ 'is-success': !!exito }">
       <main class="wizard-main">
-        <!-- ══════ ESTADO ÉXITO ══════ -->
+        <!-- ÉXITO -->
         <section v-if="exito" class="success-container">
           <div class="success-icon">
             <CheckCircle2 :size="40" />
@@ -60,298 +63,259 @@
           </div>
 
           <div class="success-actions">
-            <button class="btn-primary" type="button" @click="irAgendarCita">
-              <CalendarPlus :size="15" /> Agendar cita ahora
-            </button>
-            <button class="btn-secondary" type="button" @click="volver">
-              <ArrowLeft :size="15" /> Volver al panel
-            </button>
+            <AppButton variant="primary" size="lg" block @click="irAgendarCita">
+              <template #icon-left><CalendarPlus :size="15" /></template>
+              Agendar cita ahora
+            </AppButton>
+            <AppButton variant="secondary" size="lg" block @click="volver">
+              <template #icon-left><ArrowLeft :size="15" /></template>
+              Volver al panel
+            </AppButton>
           </div>
         </section>
 
-        <!-- ══════ FORMULARIO ══════ -->
-        <template v-else>
-          <form @submit.prevent="guardar" novalidate>
-            <!-- Card: Cliente dueño -->
-            <section class="card">
-              <header class="card-header">
-                <div class="card-header-left">
-                  <div class="card-icon"><User :size="16" /></div>
-                  <div>
-                    <h3>Cliente dueño</h3>
-                    <p class="card-header-sub">
-                      {{ clienteDocumento ? 'Cliente seleccionado' : 'Busca por nombre o documento' }}
-                    </p>
-                  </div>
+        <!-- FORMULARIO -->
+        <form v-else @submit.prevent="guardar" novalidate>
+          <!-- Cliente -->
+          <AppCard>
+            <template #header>
+              <div class="card-header-left">
+                <div class="card-icon"><User :size="16" /></div>
+                <div>
+                  <h3>Cliente dueño</h3>
+                  <p class="card-header-sub">
+                    {{ clienteDocumento ? 'Cliente seleccionado' : 'Busca por nombre o documento' }}
+                  </p>
                 </div>
-              </header>
-              <div class="card-body">
-                <!-- Cliente seleccionado -->
-                <div v-if="clienteDocumento" class="cliente-chip">
-                  <EntityAvatar :nombre="clienteNombre" tipo="cliente" size="md" />
-                  <div class="cliente-chip-info">
-                    <p class="cliente-chip-name">{{ clienteNombre }}</p>
-                    <p class="cliente-chip-doc">{{ clienteDocumento }}</p>
-                  </div>
-                  <button type="button" class="btn-chip" @click="cambiarCliente">
-                    <X :size="13" /> Cambiar
-                  </button>
-                </div>
-
-                <!-- Búsqueda -->
-                <template v-else>
-                  <div class="search-box">
-                    <Search :size="15" class="search-icon" />
-                    <input
-                      v-model="clienteFiltro"
-                      type="text"
-                      class="search-input"
-                      placeholder="Ej: María González o V-12345678…"
-                      autocomplete="off"
-                    />
-                    <Loader2 v-if="buscando" :size="14" class="search-spinner spin" />
-                    <button
-                      v-else-if="clienteFiltro"
-                      type="button"
-                      class="search-clear"
-                      aria-label="Limpiar"
-                      @click="clienteFiltro = ''"
-                    >
-                      <X :size="13" />
-                    </button>
-                  </div>
-
-                  <div
-                    v-if="clienteFiltro.length >= 2 && !buscando && resultados.length === 0"
-                    class="empty-inline"
-                  >
-                    <AlertTriangle :size="24" />
-                    <p>
-                      No se encontraron resultados. Verifica los datos o
-                      <router-link to="/recepcion/clientes/nuevo" class="link-teal">
-                        registra previamente al cliente
-                      </router-link>.
-                    </p>
-                  </div>
-
-                  <div v-if="resultados.length > 0" class="results-list">
-                    <button
-                      v-for="c in resultados"
-                      :key="c.id"
-                      type="button"
-                      class="result-row"
-                      @click="seleccionarCliente(c)"
-                    >
-                      <EntityAvatar :nombre="c.nombreCompleto" tipo="cliente" size="sm" />
-                      <div class="result-info">
-                        <p class="result-name">{{ c.nombreCompleto }}</p>
-                        <p class="result-meta">{{ c.documentoIdentidad }}</p>
-                      </div>
-                      <ChevronRight :size="16" class="result-arrow" />
-                    </button>
-                  </div>
-                </template>
               </div>
-            </section>
+            </template>
 
-            <!-- Card: Datos de la mascota -->
-            <section class="card">
-              <header class="card-header">
-                <div class="card-header-left">
-                  <div class="card-icon"><PawPrint :size="16" /></div>
-                  <div>
-                    <h3>Datos de la mascota</h3>
-                    <p class="card-header-sub">Información básica del paciente</p>
-                  </div>
-                </div>
-              </header>
-              <div class="card-body">
-                <!-- Error general -->
-                <Transition name="slide-fade">
-                  <div v-if="error" class="alert alert-error">
-                    <AlertTriangle :size="16" />
-                    <span>{{ error }}</span>
-                  </div>
-                </Transition>
-
-                <!-- Nombre -->
-                <div class="form-group">
-                  <label class="form-label" for="nombre">
-                    Nombre <span class="required">*</span>
-                  </label>
-                  <input
-                    id="nombre"
-                    v-model="form.nombre"
-                    type="text"
-                    maxlength="50"
-                    class="form-input"
-                    placeholder="Ej: Rocky"
-                  />
-                </div>
-
-                <!-- Sexo: 2 pick cards -->
-                <div class="form-group">
-                  <label class="form-label">
-                    Sexo <span class="required">*</span>
-                  </label>
-                  <div class="sex-picks">
-                    <button
-                      type="button"
-                      class="sex-pick"
-                      :class="{ selected: form.sexo === 'M' }"
-                      @click="form.sexo = 'M'"
-                    >
-                      <span class="sex-icon sex-m">
-                        <Mars :size="16" />
-                      </span>
-                      <span class="sex-info">
-                        <span class="sex-name">Macho</span>
-                        <span class="sex-hint">♂</span>
-                      </span>
-                      <span v-if="form.sexo === 'M'" class="pick-check">
-                        <CheckCircle2 :size="14" />
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      class="sex-pick"
-                      :class="{ selected: form.sexo === 'H' }"
-                      @click="form.sexo = 'H'"
-                    >
-                      <span class="sex-icon sex-h">
-                        <Venus :size="16" />
-                      </span>
-                      <span class="sex-info">
-                        <span class="sex-name">Hembra</span>
-                        <span class="sex-hint">♀</span>
-                      </span>
-                      <span v-if="form.sexo === 'H'" class="pick-check">
-                        <CheckCircle2 :size="14" />
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Especie: pick cards -->
-                <div class="form-group">
-                  <label class="form-label">
-                    Especie <span class="required">*</span>
-                  </label>
-                  <div class="species-picks">
-                    <button
-                      v-for="e in especies"
-                      :key="e.id"
-                      type="button"
-                      class="species-pick"
-                      :class="{ selected: form.idEspecie === e.id }"
-                      @click="form.idEspecie = e.id"
-                    >
-                      <span class="species-inicial">
-                        {{ e.nombre.charAt(0).toUpperCase() }}
-                      </span>
-                      <span class="species-name">{{ e.nombre }}</span>
-                      <span v-if="form.idEspecie === e.id" class="pick-check">
-                        <CheckCircle2 :size="14" />
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Raza -->
-                <div class="form-group">
-                  <label class="form-label" for="raza">
-                    Raza <span class="optional">(opcional)</span>
-                  </label>
-                  <select
-                    id="raza"
-                    v-model="form.idRaza"
-                    class="form-select"
-                    :disabled="!form.idEspecie || cargandoRazas"
-                  >
-                    <option value="">
-                      {{ !form.idEspecie
-                        ? 'Selecciona primero una especie'
-                        : (cargandoRazas ? 'Cargando razas…' : 'Seleccione una raza') }}
-                    </option>
-                    <option v-for="r in razas" :key="r.id" :value="r.id">{{ r.nombre }}</option>
-                  </select>
-                </div>
-
-                <!-- Fecha y peso -->
-                <div class="form-grid-2">
-                  <div class="form-group">
-                    <label class="form-label" for="nacimiento">
-                      Fecha de nacimiento <span class="optional">(opcional)</span>
-                    </label>
-                    <input
-                      id="nacimiento"
-                      v-model="form.fechaNacimiento"
-                      type="date"
-                      :max="hoy"
-                      class="form-input"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label" for="peso">
-                      Peso actual (kg) <span class="optional">(opcional)</span>
-                    </label>
-                    <input
-                      id="peso"
-                      v-model="form.pesoActual"
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      max="999.99"
-                      class="form-input"
-                      placeholder="Ej: 12.50"
-                    />
-                  </div>
-                </div>
-
-                <!-- Color -->
-                <div class="form-group">
-                  <label class="form-label" for="color">
-                    Color <span class="optional">(opcional)</span>
-                  </label>
-                  <input
-                    id="color"
-                    v-model="form.color"
-                    type="text"
-                    maxlength="30"
-                    class="form-input"
-                    placeholder="Ej: Marrón con manchas blancas"
-                  />
-                </div>
-
-                <!-- Esterilizado -->
-                <label class="check-row">
-                  <input v-model="form.esterilizado" type="checkbox" class="checkbox-input" />
-                  <span class="checkbox-box">
-                    <Check v-if="form.esterilizado" :size="12" />
-                  </span>
-                  <span class="checkbox-label">
-                    ¿La mascota está esterilizada?
-                  </span>
-                </label>
+            <div v-if="clienteDocumento" class="cliente-chip">
+              <EntityAvatar :nombre="clienteNombre" tipo="cliente" size="md" />
+              <div class="cliente-chip-info">
+                <p class="cliente-chip-name">{{ clienteNombre }}</p>
+                <p class="cliente-chip-doc">{{ clienteDocumento }}</p>
               </div>
-            </section>
-
-            <!-- Acciones -->
-            <div class="form-actions">
-              <button type="button" class="btn-cancel" :disabled="guardando" @click="volver">
-                <X :size="15" /> Cancelar
-              </button>
-              <button type="submit" class="btn-next" :disabled="guardando">
-                <Loader2 v-if="guardando" :size="15" class="spin" />
-                <Save v-else :size="15" />
-                {{ guardando ? 'Guardando…' : 'Guardar mascota' }}
+              <button type="button" class="btn-chip" @click="cambiarCliente">
+                <X :size="13" /> Cambiar
               </button>
             </div>
-          </form>
-        </template>
+
+            <template v-else>
+              <div class="search-bar">
+                <Search :size="15" class="search-icon" />
+                <input
+                  v-model="clienteFiltro"
+                  type="text"
+                  class="form-input search-input"
+                  placeholder="Ej: María González o V-12345678…"
+                  autocomplete="off"
+                />
+                <span v-if="buscando" class="search-spinner">
+                  <span class="spinner spinner-sm" />
+                </span>
+                <button
+                  v-else-if="clienteFiltro"
+                  type="button"
+                  class="search-clear"
+                  aria-label="Limpiar"
+                  @click="clienteFiltro = ''"
+                >
+                  <X :size="13" />
+                </button>
+              </div>
+
+              <div v-if="clienteFiltro.length >= 2 && !buscando && !resultados.length" class="empty-inline">
+                <AlertTriangle :size="24" />
+                <p>
+                  No se encontraron resultados. Verifica los datos o
+                  <router-link to="/recepcion/clientes/nuevo" class="link-teal">
+                    registra previamente al cliente
+                  </router-link>.
+                </p>
+              </div>
+
+              <div v-if="resultados.length" class="results-list">
+                <button
+                  v-for="c in resultados"
+                  :key="c.id"
+                  type="button"
+                  class="result-row"
+                  @click="seleccionarCliente(c)"
+                >
+                  <EntityAvatar :nombre="c.nombreCompleto" tipo="cliente" size="sm" />
+                  <div class="result-info">
+                    <p class="result-name">{{ c.nombreCompleto }}</p>
+                    <p class="result-meta">{{ c.documentoIdentidad }}</p>
+                  </div>
+                  <ChevronRight :size="16" class="result-arrow" />
+                </button>
+              </div>
+            </template>
+          </AppCard>
+
+          <!-- Datos de la mascota -->
+          <AppCard>
+            <template #header>
+              <div class="card-header-left">
+                <div class="card-icon"><PawPrint :size="16" /></div>
+                <div>
+                  <h3>Datos de la mascota</h3>
+                  <p class="card-header-sub">Información básica del paciente</p>
+                </div>
+              </div>
+            </template>
+
+            <Transition name="slide-down">
+              <AppAlert v-if="error" variant="error">{{ error }}</AppAlert>
+            </Transition>
+
+            <AppFormField label="Nombre" required>
+              <template #default="{ id }">
+                <AppInput
+                  :id="id"
+                  v-model="form.nombre"
+                  placeholder="Ej: Rocky"
+                  maxlength="50"
+                />
+              </template>
+            </AppFormField>
+
+            <AppFormField label="Sexo" required>
+              <div class="sex-picks">
+                <button
+                  type="button"
+                  class="sex-pick"
+                  :class="{ selected: form.sexo === 'M' }"
+                  @click="form.sexo = 'M'"
+                >
+                  <span class="sex-icon sex-m"><Mars :size="16" /></span>
+                  <span class="sex-info">
+                    <span class="sex-name">Macho</span>
+                  </span>
+                  <span v-if="form.sexo === 'M'" class="pick-check">
+                    <CheckCircle2 :size="14" />
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  class="sex-pick"
+                  :class="{ selected: form.sexo === 'H' }"
+                  @click="form.sexo = 'H'"
+                >
+                  <span class="sex-icon sex-h"><Venus :size="16" /></span>
+                  <span class="sex-info">
+                    <span class="sex-name">Hembra</span>
+                  </span>
+                  <span v-if="form.sexo === 'H'" class="pick-check">
+                    <CheckCircle2 :size="14" />
+                  </span>
+                </button>
+              </div>
+            </AppFormField>
+
+            <AppFormField label="Especie" required>
+              <div class="species-picks">
+                <button
+                  v-for="e in especies"
+                  :key="e.id"
+                  type="button"
+                  class="species-pick"
+                  :class="{ selected: form.idEspecie === e.id }"
+                  @click="form.idEspecie = e.id"
+                >
+                  <span class="species-inicial">
+                    {{ e.nombre.charAt(0).toUpperCase() }}
+                  </span>
+                  <span class="species-name">{{ e.nombre }}</span>
+                  <span v-if="form.idEspecie === e.id" class="pick-check">
+                    <CheckCircle2 :size="14" />
+                  </span>
+                </button>
+              </div>
+            </AppFormField>
+
+            <AppFormField label="Raza" optional>
+              <template #default="{ id }">
+                <AppSelect
+                  :id="id"
+                  v-model="form.idRaza"
+                  :disabled="!form.idEspecie || cargandoRazas"
+                >
+                  <option value="">
+                    {{ !form.idEspecie
+                      ? 'Selecciona primero una especie'
+                      : (cargandoRazas ? 'Cargando razas…' : 'Seleccione una raza') }}
+                  </option>
+                  <option v-for="r in razas" :key="r.id" :value="r.id">{{ r.nombre }}</option>
+                </AppSelect>
+              </template>
+            </AppFormField>
+
+            <div class="form-grid-2">
+              <AppFormField label="Fecha de nacimiento" optional>
+                <template #default="{ id }">
+                  <AppInput
+                    :id="id"
+                    v-model="form.fechaNacimiento"
+                    type="date"
+                    :max="hoy"
+                  />
+                </template>
+              </AppFormField>
+
+              <AppFormField label="Peso actual" optional hint="En kilogramos">
+                <template #default="{ id }">
+                  <AppInput
+                    :id="id"
+                    v-model="form.pesoActual"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max="999.99"
+                    placeholder="Ej: 12.50"
+                  />
+                </template>
+              </AppFormField>
+            </div>
+
+            <AppFormField label="Color" optional>
+              <template #default="{ id }">
+                <AppInput
+                  :id="id"
+                  v-model="form.color"
+                  placeholder="Ej: Marrón con manchas blancas"
+                  maxlength="30"
+                />
+              </template>
+            </AppFormField>
+
+            <label class="check-row">
+              <input v-model="form.esterilizado" type="checkbox" class="checkbox-input" />
+              <span class="checkbox-box">
+                <Check v-if="form.esterilizado" :size="12" />
+              </span>
+              <span class="checkbox-label">
+                ¿La mascota está esterilizada?
+              </span>
+            </label>
+          </AppCard>
+
+          <!-- Acciones -->
+          <div class="form-actions">
+            <AppButton variant="ghost" :disabled="guardando" @click="volver">
+              <template #icon-left><X :size="15" /></template>
+              Cancelar
+            </AppButton>
+            <AppButton type="submit" variant="primary" size="lg" :loading="guardando">
+              <template #icon-left><Save :size="15" /></template>
+              {{ guardando ? 'Guardando…' : 'Guardar mascota' }}
+            </AppButton>
+          </div>
+        </form>
       </main>
 
-      <!-- ═══ SIDEBAR VISTA PREVIA ═══ -->
+      <!-- Sidebar preview -->
       <aside v-if="!exito" class="wizard-sidebar">
         <div class="preview-card">
           <header class="preview-header">
@@ -367,47 +331,28 @@
             </p>
 
             <div class="preview-badges">
-              <span
-                v-if="especieSeleccionada"
-                class="preview-badge"
-              >
+              <span v-if="especieSeleccionada" class="preview-badge">
                 {{ especieSeleccionada.nombre }}
               </span>
-              <span
-                v-if="form.sexo"
-                class="preview-badge"
-                :class="form.sexo === 'M' ? 'badge-m' : 'badge-h'"
-              >
+              <span v-if="form.sexo" class="preview-badge" :class="form.sexo === 'M' ? 'badge-m' : 'badge-h'">
                 {{ form.sexo === 'M' ? 'Macho' : 'Hembra' }}
               </span>
             </div>
 
             <div class="preview-meta">
-              <div
-                v-if="clienteNombre"
-                class="preview-line"
-              >
+              <div v-if="clienteNombre" class="preview-line">
                 <User :size="13" />
                 <span>{{ clienteNombre }}</span>
               </div>
-              <div
-                v-if="form.pesoActual"
-                class="preview-line"
-              >
+              <div v-if="form.pesoActual" class="preview-line">
                 <Weight :size="13" />
                 <span>{{ form.pesoActual }} kg</span>
               </div>
-              <div
-                v-if="form.fechaNacimiento"
-                class="preview-line"
-              >
+              <div v-if="form.fechaNacimiento" class="preview-line">
                 <CalendarDays :size="13" />
                 <span>{{ fmtFechaCorta(form.fechaNacimiento) }}</span>
               </div>
-              <div
-                v-if="form.esterilizado"
-                class="preview-line line-success"
-              >
+              <div v-if="form.esterilizado" class="preview-line line-success">
                 <CheckCircle2 :size="13" />
                 <span>Esterilizada</span>
               </div>
@@ -457,19 +402,25 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
-  PawPrint, Search, AlertTriangle, CheckCircle2, Loader2, CalendarPlus,
-  ArrowLeft, ChevronRight, X, User, CreditCard, Sparkles, Info, Save,
-  Dog, Weight, CalendarDays, Mars, Venus, Check
+  PawPrint, Search, AlertTriangle, CheckCircle2,
+  CalendarPlus, ArrowLeft, ChevronRight, X, User, CreditCard, Sparkles, Info, Save,
+  Dog, Weight, CalendarDays, Mars, Venus, Check,
 } from 'lucide-vue-next'
 import PetAvatar from '@/components/ui/PetAvatar.vue'
 import EntityAvatar from '@/components/ui/EntityAvatar.vue'
+import ToastContainer from '@/components/ui/ToastContainer.vue'
+import AppButton from '@/components/ui/AppButton.vue'
+import AppCard from '@/components/ui/AppCard.vue'
+import AppAlert from '@/components/ui/AppAlert.vue'
+import AppFormField from '@/components/ui/AppFormField.vue'
+import AppInput from '@/components/ui/AppInput.vue'
+import AppSelect from '@/components/ui/AppSelect.vue'
 import * as clientesApi from '@/api/clientes.api'
 import { registrarMascota, getEspecies, getRazasPorEspecie } from '@/api/mascotas.api'
 
 const router = useRouter()
 const route = useRoute()
 
-// ─── Cliente ───
 const clienteDocumento = ref(route.query.clienteDocumento || '')
 const clienteNombre = ref(route.query.clienteNombre || '')
 const clienteFiltro = ref('')
@@ -509,7 +460,6 @@ function cambiarCliente() {
   clienteNombre.value = ''
 }
 
-// ─── Formulario mascota ───
 const especies = ref([])
 const razas = ref([])
 const cargandoRazas = ref(false)
@@ -530,9 +480,8 @@ const form = ref({
 
 const hoy = new Date().toISOString().split('T')[0]
 
-// ─── Computeds ───
 const especieSeleccionada = computed(() =>
-  especies.value.find(e => e.id === form.value.idEspecie) || null
+  especies.value.find((e) => e.id === form.value.idEspecie) || null
 )
 
 const totalObligatorios = 3
@@ -549,7 +498,6 @@ const progresoObligatorio = computed(() =>
   Math.round((completadosObligatorios.value / totalObligatorios) * 100)
 )
 
-// ─── Watch especie → razas ───
 watch(() => form.value.idEspecie, async (id) => {
   form.value.idRaza = ''
   razas.value = []
@@ -558,14 +506,10 @@ watch(() => form.value.idEspecie, async (id) => {
   try {
     const { data } = await getRazasPorEspecie(id)
     razas.value = data
-  } catch {
-    /* vacío */
-  } finally {
-    cargandoRazas.value = false
-  }
+  } catch { /* vacío */ }
+  finally { cargandoRazas.value = false }
 })
 
-// ─── Helpers visuales ───
 function fmtFechaCorta(iso) {
   if (!iso) return ''
   const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
@@ -573,7 +517,6 @@ function fmtFechaCorta(iso) {
   return `${d.getDate()} ${MESES[d.getMonth()]} ${d.getFullYear()}`
 }
 
-// ─── Acciones ───
 function volver() {
   router.push('/recepcion/dashboard')
 }
@@ -623,9 +566,7 @@ onMounted(async () => {
   try {
     const { data } = await getEspecies()
     especies.value = data
-  } catch {
-    /* vacío */
-  }
+  } catch { /* vacío */ }
 })
 </script>
 
@@ -633,93 +574,54 @@ onMounted(async () => {
 .registrar-mascota {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 24px 24px 48px;
-  font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  color: #1E293B;
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
 }
-button { font-family: inherit; }
 
-/* ═══ BREADCRUMB ═══ */
+/* BREADCRUMB */
 .breadcrumb {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
-  font-size: 13px;
-  color: #64748B;
+  gap: var(--space-2);
+  font-size: var(--text-md);
+  color: var(--text-secondary);
 }
 .bc-back {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
-  border: 1px solid #E2E8F0;
-  background: #fff;
-  color: #475569;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--neutral-600);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all .15s ease;
+  transition: all var(--duration-fast) var(--ease-out);
   margin-right: 2px;
 }
-.bc-back:hover { background: #F1F5F9; color: #0F766E; border-color: #CBD5E1; }
-.bc-item { font-weight: 500; }
+.bc-back:hover { background: var(--neutral-100); color: var(--brand-700); border-color: var(--border-strong); }
+.bc-item { font-weight: var(--font-medium); }
 .bc-link {
   background: none;
   border: none;
-  color: #64748B;
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 0;
-  font-size: 13px;
+  font-size: var(--text-md);
+  font-family: inherit;
 }
-.bc-link:hover { color: #0F766E; text-decoration: underline; }
-.bc-current { color: #1E293B; font-weight: 700; }
-.bc-sep { color: #CBD5E1; }
+.bc-link:hover { color: var(--brand-700); text-decoration: underline; }
+.bc-current { color: var(--text-primary); font-weight: var(--font-bold); }
+.bc-sep { color: var(--neutral-300); }
 
-/* ═══ HERO ═══ */
-.hero {
-  padding: 24px 28px;
-  margin-bottom: 20px;
-  background: linear-gradient(135deg, #F0FDFA 0%, #FFFFFF 55%);
-  border: 1px solid #CCFBF1;
-  border-radius: 16px;
-}
-.hero-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 0 8px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .7px;
-  color: #0F766E;
-  background: #fff;
-  padding: 4px 10px;
-  border-radius: 20px;
-  border: 1px solid #CCFBF1;
-}
-.hero h1 {
-  margin: 0 0 4px;
-  font-size: 26px;
-  font-weight: 700;
-  color: #0F172A;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-.hero-sub {
-  margin: 0;
-  font-size: 14px;
-  color: #64748B;
-  max-width: 620px;
-  line-height: 1.5;
-}
-
-/* ═══ LAYOUT ═══ */
+/* LAYOUT */
 .wizard-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 20px;
+  gap: var(--space-5);
   align-items: start;
 }
 .wizard-layout.is-success { grid-template-columns: 1fr; }
@@ -727,160 +629,99 @@ button { font-family: inherit; }
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }
+
+/* SIDEBAR */
 .wizard-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--space-4);
   position: sticky;
-  top: 24px;
+  top: var(--space-6);
 }
 
-/* ═══ CARDS ═══ */
-.card {
-  background: #fff;
-  border-radius: 14px;
-  border: 1px solid #E2E8F0;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .03), 0 10px 15px -3px rgba(0, 0, 0, .04);
-  overflow: hidden;
-}
-.card-header {
-  padding: 16px 22px;
-  border-bottom: 1px solid #E2E8F0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.card-header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.card-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: #F0FDFA;
-  color: #0F766E;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.card-header h3 {
-  margin: 0;
-  font-size: 14.5px;
-  font-weight: 700;
-  color: #0F172A;
-  line-height: 1.2;
-}
-.card-header-sub {
-  margin: 2px 0 0;
-  font-size: 12px;
-  color: #64748B;
-}
-.card-body { padding: 20px 22px 22px; }
-
-/* ═══ CLIENTE CHIP ═══ */
+/* CLIENTE CHIP */
 .cliente-chip {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  background: #F0FDFA;
-  border: 1px solid #99F6E4;
-  border-radius: 12px;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--brand-50);
+  border: 1px solid var(--brand-200);
+  border-radius: var(--radius-xl);
 }
 .cliente-chip-info { flex: 1; min-width: 0; }
 .cliente-chip-name {
   margin: 0;
-  font-size: 14.5px;
-  font-weight: 700;
-  color: #0F172A;
+  font-size: var(--text-base);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .cliente-chip-doc {
   margin: 2px 0 0;
-  font-size: 12.5px;
-  color: #0F766E;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--brand-700);
+  font-weight: var(--font-semibold);
 }
 .btn-chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  background: #fff;
-  border: 1px solid #99F6E4;
-  color: #0F766E;
-  border-radius: 8px;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 700;
+  gap: var(--space-1);
+  background: var(--bg-surface);
+  border: 1px solid var(--brand-200);
+  color: var(--brand-700);
+  border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
   cursor: pointer;
   font-family: inherit;
-  transition: all .2s ease;
+  transition: all var(--duration-fast) var(--ease-out);
   flex-shrink: 0;
 }
-.btn-chip:hover { background: #CCFBF1; border-color: #0F766E; }
+.btn-chip:hover { background: var(--brand-100); border-color: var(--brand-700); }
 
-/* ═══ SEARCH BOX ═══ */
-.search-box { position: relative; }
+/* SEARCH */
+.search-bar { position: relative; }
 .search-icon {
   position: absolute;
-  left: 14px;
+  left: var(--space-4);
   top: 50%;
   transform: translateY(-50%);
-  color: #94A3B8;
+  color: var(--text-tertiary);
   pointer-events: none;
 }
-.search-input {
-  width: 100%;
-  padding: 11px 40px 11px 40px;
-  border: 1.5px solid #E2E8F0;
-  border-radius: 10px;
-  font-size: 13.5px;
-  color: #1E293B;
-  background: #fff;
-  font-family: inherit;
-  outline: none;
-  box-sizing: border-box;
-  transition: all .2s;
-}
-.search-input::placeholder { color: #94A3B8; }
-.search-input:focus {
-  border-color: #0F766E;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, .1);
-}
-.search-spinner {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #0F766E;
-}
+.search-input { padding-left: 40px; padding-right: 40px; }
+.search-spinner,
 .search-clear {
   position: absolute;
-  right: 10px;
+  right: var(--space-3);
   top: 50%;
   transform: translateY(-50%);
+  color: var(--brand-700);
+}
+.search-clear {
   background: none;
   border: none;
-  color: #94A3B8;
   cursor: pointer;
+  color: var(--text-tertiary);
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 5px;
-  border-radius: 6px;
-  transition: all .15s;
 }
-.search-clear:hover { color: #475569; background: #F1F5F9; }
+.search-clear:hover { color: var(--neutral-600); background: var(--neutral-100); }
 
-/* ═══ RESULTS LIST ═══ */
+/* RESULTS */
 .results-list {
-  margin-top: 10px;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
+  margin-top: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
   overflow: hidden;
   max-height: 300px;
   overflow-y: auto;
@@ -888,224 +729,130 @@ button { font-family: inherit; }
 .result-row {
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 12px;
+  gap: var(--space-3);
   align-items: center;
   width: 100%;
   text-align: left;
-  padding: 12px 14px;
-  background: #fff;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-surface);
   border: none;
-  border-bottom: 1px solid #F1F5F9;
+  border-bottom: 1px solid var(--neutral-100);
   cursor: pointer;
   font-family: inherit;
-  transition: background-color .15s;
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
 .result-row:last-child { border-bottom: none; }
-.result-row:hover { background: #F0FDFA; }
+.result-row:hover { background: var(--brand-50); }
 .result-info { min-width: 0; }
 .result-name {
   margin: 0;
-  font-size: 14px;
-  font-weight: 700;
-  color: #0F172A;
+  font-size: var(--text-base);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .result-meta {
   margin: 2px 0 0;
-  font-size: 12px;
-  color: #64748B;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
 }
-.result-arrow { color: #CBD5E1; flex-shrink: 0; transition: color .2s ease; }
-.result-row:hover .result-arrow { color: #0F766E; }
+.result-arrow { color: var(--neutral-300); flex-shrink: 0; }
+.result-row:hover .result-arrow { color: var(--brand-700); }
 
-/* ═══ FORM ═══ */
-.form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
-.form-group:last-child { margin-bottom: 0; }
-.form-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #374151;
-}
-.required { color: #EF4444; }
-.optional {
-  color: #94A3B8;
-  font-weight: 500;
-  font-size: 11.5px;
-  margin-left: 2px;
-}
-.form-input,
-.form-select {
-  width: 100%;
-  padding: 11px 14px;
-  border: 1px solid #D1D5DB;
-  border-radius: 10px;
-  font-size: 14px;
-  color: #1E293B;
-  background: #fff;
-  font-family: inherit;
-  transition: border-color .2s, box-shadow .2s;
-  box-sizing: border-box;
-  appearance: none;
-  -webkit-appearance: none;
-}
-.form-select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 14px center;
-  padding-right: 40px;
-  cursor: pointer;
-}
-.form-select:disabled {
-  background: #F8FAFC;
-  color: #94A3B8;
-  cursor: not-allowed;
-}
-.form-input::placeholder { color: #94A3B8; }
-.form-input:focus,
-.form-select:focus {
-  outline: none;
-  border-color: #0F766E;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, .1);
-}
-
-.form-grid-2 {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-/* ═══ SEX PICKS ═══ */
+/* SEX PICKS */
 .sex-picks {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: var(--space-3);
 }
 .sex-pick {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  background: #fff;
-  border: 1.5px solid #E2E8F0;
-  border-radius: 12px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
   cursor: pointer;
   font-family: inherit;
   text-align: left;
-  transition: all .2s ease;
+  transition: all var(--duration-base) var(--ease-out);
 }
-.sex-pick:hover {
-  border-color: #99F6E4;
-  background: #F0FDFA;
-}
-.sex-pick.selected {
-  border-color: #0F766E;
-  background: #F0FDFA;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, .1);
-}
+.sex-pick:hover { border-color: var(--brand-200); background: var(--brand-50); }
+.sex-pick.selected { border-color: var(--brand-700); background: var(--brand-50); box-shadow: 0 0 0 3px var(--brand-100); }
 .sex-icon {
   width: 38px;
   height: 38px;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: #fff;
+  color: var(--text-inverse);
 }
-.sex-m { background: #3B82F6; }
-.sex-h { background: #EC4899; }
-.sex-info {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  flex: 1;
-  min-width: 0;
-}
-.sex-name {
-  font-size: 14px;
-  font-weight: 700;
-  color: #0F172A;
-  line-height: 1.2;
-}
-.sex-hint {
-  font-size: 11.5px;
-  color: #64748B;
-  font-weight: 500;
-}
+.sex-m { background: var(--info-500); }
+.sex-h { background: var(--purple-500); }
+.sex-info { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.sex-name { font-size: var(--text-base); font-weight: var(--font-bold); color: var(--text-primary); }
 .pick-check {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #0F766E;
-  color: #fff;
+  background: var(--brand-700);
+  color: var(--text-inverse);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  animation: checkPop .25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: checkPop 0.25s var(--ease-spring);
 }
-@keyframes checkPop {
-  0% { transform: scale(0); }
-  100% { transform: scale(1); }
-}
+@keyframes checkPop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
 
-/* ═══ SPECIES PICKS ═══ */
+/* SPECIES PICKS */
 .species-picks {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 8px;
+  gap: var(--space-2);
 }
 .species-pick {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  background: #fff;
-  border: 1.5px solid #E2E8F0;
-  border-radius: 10px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   font-family: inherit;
   text-align: left;
-  transition: all .2s ease;
+  transition: all var(--duration-base) var(--ease-out);
 }
-.species-pick:hover {
-  border-color: #99F6E4;
-  background: #F0FDFA;
-}
-.species-pick.selected {
-  border-color: #0F766E;
-  background: #F0FDFA;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, .1);
-}
+.species-pick:hover { border-color: var(--brand-200); background: var(--brand-50); }
+.species-pick.selected { border-color: var(--brand-700); background: var(--brand-50); box-shadow: 0 0 0 3px var(--brand-100); }
 .species-inicial {
   width: 30px;
   height: 30px;
-  border-radius: 8px;
-  background: #F0FDFA;
-  color: #0F766E;
+  border-radius: var(--radius-md);
+  background: var(--brand-50);
+  color: var(--brand-700);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
   flex-shrink: 0;
-  transition: background-color .2s ease, color .2s ease;
+  transition: background-color var(--duration-base) var(--ease-out),
+              color var(--duration-base) var(--ease-out);
 }
-.species-pick.selected .species-inicial {
-  background: #0F766E;
-  color: #fff;
-}
+.species-pick.selected .species-inicial { background: var(--brand-700); color: var(--text-inverse); }
 .species-name {
-  font-size: 13px;
-  font-weight: 700;
-  color: #0F172A;
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
   flex: 1;
   min-width: 0;
   white-space: nowrap;
@@ -1113,341 +860,288 @@ button { font-family: inherit; }
   text-overflow: ellipsis;
 }
 
-/* ═══ CHECKBOX ═══ */
+/* GRID 2 */
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.form-grid-2 :deep(.form-group) { margin-bottom: 0; }
+
+/* CHECKBOX */
 .check-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  margin-top: 18px;
-  background: #F8FAFC;
-  border: 1.5px solid #E2E8F0;
-  border-radius: 10px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin-top: var(--space-4);
+  background: var(--bg-surface-alt);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   font-family: inherit;
-  transition: all .2s ease;
+  transition: all var(--duration-fast) var(--ease-out);
 }
-.check-row:hover { border-color: #99F6E4; background: #F0FDFA; }
+.check-row:hover { border-color: var(--brand-200); background: var(--brand-50); }
 .checkbox-input { display: none; }
 .checkbox-box {
   width: 20px;
   height: 20px;
-  border-radius: 6px;
-  border: 2px solid #CBD5E1;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--neutral-300);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fff;
+  background: var(--bg-surface);
   flex-shrink: 0;
-  transition: all .2s ease;
-  color: #fff;
+  transition: all var(--duration-fast) var(--ease-out);
+  color: var(--text-inverse);
 }
 .check-row .checkbox-input:checked + .checkbox-box {
-  background: #0F766E;
-  border-color: #0F766E;
+  background: var(--brand-700);
+  border-color: var(--brand-700);
 }
 .checkbox-label {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: #1E293B;
+  font-size: var(--text-md);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
 }
 
-/* ═══ ALERTA ═══ */
-.alert {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px 16px;
-  border-radius: 10px;
-  font-size: 13px;
-  line-height: 1.5;
-  font-weight: 500;
-  margin-bottom: 16px;
-}
-.alert-error { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
-
-/* ═══ EMPTY INLINE ═══ */
-.empty-inline {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 20px;
-  margin-top: 10px;
-  color: #94A3B8;
-  text-align: center;
-  font-size: 13px;
-  background: #F8FAFC;
-  border: 1px dashed #E2E8F0;
-  border-radius: 10px;
-}
-.empty-inline p { margin: 0; max-width: 380px; line-height: 1.5; }
-.link-teal {
-  color: #0F766E;
-  font-weight: 700;
-  text-decoration: none;
-}
-.link-teal:hover { text-decoration: underline; }
-
-/* ═══ FORM ACTIONS ═══ */
+/* FORM ACTIONS */
 .form-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 16px 22px;
-  border-radius: 14px;
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .03);
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-2xl);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
 }
-.btn-cancel,
-.btn-next {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 11px 22px;
-  border-radius: 10px;
-  font-size: 13.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all .2s ease;
-  font-family: inherit;
-  white-space: nowrap;
-}
-.btn-cancel {
-  background: none;
-  border: 1px solid #E2E8F0;
-  color: #64748B;
-}
-.btn-cancel:hover:not(:disabled) {
-  background: #FEF2F2;
-  border-color: #FECACA;
-  color: #EF4444;
-}
-.btn-next {
-  background: #0F766E;
-  border: none;
-  color: #fff;
-}
-.btn-next:hover:not(:disabled) {
-  background: #115E59;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px -4px rgba(15, 118, 110, .4);
-}
-.btn-next:disabled,
-.btn-cancel:disabled { opacity: .55; cursor: not-allowed; }
 
-/* ═══ PREVIEW CARD ═══ */
+/* PREVIEW CARD */
 .preview-card {
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 14px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .03), 0 10px 15px -3px rgba(0, 0, 0, .04);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2xl);
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 .preview-header {
-  padding: 14px 18px 10px;
-  border-bottom: 1px solid #F1F5F9;
+  padding: var(--space-4) var(--space-5) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
 }
 .preview-header h4 {
   margin: 0;
-  font-size: 13px;
-  font-weight: 700;
-  color: #0F172A;
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
   text-transform: uppercase;
-  letter-spacing: .5px;
+  letter-spacing: 0.05em;
 }
-.preview-hint {
-  display: block;
-  margin-top: 2px;
-  font-size: 11px;
-  color: #94A3B8;
-}
+.preview-hint { display: block; margin-top: 2px; font-size: var(--text-xs); color: var(--text-tertiary); }
 .preview-body {
-  padding: 20px 18px;
+  padding: var(--space-5);
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 12px;
+  gap: var(--space-3);
 }
 .preview-nombre {
   margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-  color: #0F172A;
-  letter-spacing: -0.01em;
-  line-height: 1.3;
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  line-height: var(--leading-snug);
   word-break: break-word;
 }
-.preview-nombre.is-empty {
-  color: #94A3B8;
-  font-weight: 500;
-  font-style: italic;
-}
-
+.preview-nombre.is-empty { color: var(--text-tertiary); font-weight: var(--font-medium); font-style: italic; }
 .preview-badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-1);
   justify-content: center;
   min-height: 22px;
 }
 .preview-badge {
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
-  border-radius: 20px;
-  background: #F0FDFA;
-  border: 1px solid #CCFBF1;
-  color: #0F766E;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: .1px;
+  padding: 3px var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--brand-50);
+  border: 1px solid var(--brand-200);
+  color: var(--brand-700);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
 }
-.preview-badge.badge-m { background: #EFF6FF; border-color: #BFDBFE; color: #2563EB; }
-.preview-badge.badge-h { background: #FDF2F8; border-color: #FBCFE8; color: #DB2777; }
+.preview-badge.badge-m { background: var(--info-50); border-color: var(--info-200); color: var(--info-700); }
+.preview-badge.badge-h { background: var(--purple-50); border-color: var(--purple-100); color: var(--purple-600); }
 
 .preview-meta {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 4px;
-  padding-top: 14px;
-  border-top: 1px solid #F1F5F9;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
 }
 .preview-line {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12.5px;
-  color: #334155;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--neutral-700);
   text-align: left;
-  line-height: 1.4;
+  line-height: var(--leading-snug);
 }
-.preview-line svg { color: #94A3B8; flex-shrink: 0; }
+.preview-line svg { color: var(--text-tertiary); flex-shrink: 0; }
 .preview-line span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.preview-line.line-success { color: #059669; }
-.preview-line.line-success svg { color: #059669; }
+.preview-line.line-success { color: var(--success-600); }
+.preview-line.line-success svg { color: var(--success-500); }
 
 .preview-footer {
-  padding: 14px 18px 18px;
-  background: linear-gradient(180deg, #F8FAFC 0%, #F0FDFA 100%);
-  border-top: 1px solid #E2E8F0;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  background: linear-gradient(180deg, var(--neutral-50) 0%, var(--brand-50) 100%);
+  border-top: 1px solid var(--border-subtle);
 }
 .progress-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
 }
 .progress-label {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
   text-transform: uppercase;
-  letter-spacing: .5px;
-  color: #64748B;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
 }
 .progress-count {
-  font-size: 12px;
-  font-weight: 700;
-  color: #0F766E;
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  color: var(--brand-700);
   font-variant-numeric: tabular-nums;
 }
 .progress-bar {
   height: 6px;
-  background: #E2E8F0;
-  border-radius: 999px;
+  background: var(--neutral-200);
+  border-radius: var(--radius-full);
   overflow: hidden;
 }
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #0F766E, #14B8A6);
-  border-radius: 999px;
-  transition: width .35s cubic-bezier(0.16, 1, 0.3, 1);
+  background: linear-gradient(90deg, var(--brand-700), var(--brand-500));
+  border-radius: var(--radius-full);
+  transition: width var(--duration-slow) var(--ease-out);
 }
-.progress-fill.is-complete {
-  background: linear-gradient(90deg, #059669, #10B981);
-}
+.progress-fill.is-complete { background: linear-gradient(90deg, var(--success-600), var(--success-500)); }
 .progress-note {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin: 10px 0 0;
-  font-size: 11.5px;
-  color: #64748B;
-  line-height: 1.4;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: var(--leading-snug);
 }
-.progress-note svg { color: #0F766E; flex-shrink: 0; }
+.progress-note svg { color: var(--brand-700); flex-shrink: 0; }
 
-/* ═══ PROCESS NOTE ═══ */
+/* PROCESS NOTE */
 .process-note {
   display: flex;
-  gap: 12px;
-  padding: 14px 16px;
-  background: #F0FDFA;
-  border: 1px solid #CCFBF1;
-  border-radius: 12px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--brand-50);
+  border: 1px solid var(--brand-200);
+  border-radius: var(--radius-xl);
 }
 .process-icon {
   width: 32px;
   height: 32px;
-  border-radius: 9px;
-  background: #fff;
-  color: #0F766E;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--brand-700);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
-.process-title {
-  margin: 0 0 2px;
-  font-size: 12.5px;
-  font-weight: 700;
-  color: #0F766E;
+.process-title { margin: 0 0 2px; font-size: var(--text-sm); font-weight: var(--font-bold); color: var(--brand-700); }
+.process-desc { margin: 0; font-size: var(--text-sm); color: var(--neutral-700); line-height: var(--leading-snug); }
+
+/* EMPTY INLINE */
+.empty-inline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  margin-top: var(--space-3);
+  color: var(--text-tertiary);
+  text-align: center;
+  font-size: var(--text-md);
+  background: var(--bg-surface-alt);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-lg);
 }
-.process-desc {
-  margin: 0;
-  font-size: 11.5px;
-  color: #334155;
-  line-height: 1.5;
+.empty-inline p { margin: 0; max-width: 380px; line-height: var(--leading-normal); }
+.link-teal {
+  color: var(--brand-700);
+  font-weight: var(--font-bold);
+  text-decoration: none;
+}
+.link-teal:hover { text-decoration: underline; }
+
+/* CARD HEADER LEFT */
+.card-header-left { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-lg);
+  background: var(--brand-50);
+  color: var(--brand-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-/* ═══ ÉXITO ═══ */
+/* SUCCESS */
 .success-container {
-  background: #fff;
-  border-radius: 16px;
-  border: 1px solid #E2E8F0;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .03), 0 10px 15px -3px rgba(0, 0, 0, .04);
-  padding: 44px 32px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-3xl);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-12) var(--space-8);
   max-width: 640px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 12px;
+  gap: var(--space-3);
 }
 .success-icon {
-  width: 84px;
-  height: 84px;
+  width: 88px;
+  height: 88px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #ECFDF5 0%, #F0FDFA 100%);
-  border: 3px solid #10B981;
+  background: linear-gradient(135deg, var(--success-50) 0%, var(--brand-50) 100%);
+  border: 3px solid var(--success-500);
+  color: var(--success-600);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #059669;
-  margin-bottom: 6px;
-  animation: successPop .5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  margin-bottom: var(--space-2);
+  animation: successPop 0.5s var(--ease-spring);
 }
 @keyframes successPop {
   0% { transform: scale(0); opacity: 0; }
@@ -1455,153 +1149,81 @@ button { font-family: inherit; }
   100% { transform: scale(1); opacity: 1; }
 }
 .success-title {
+  font-size: var(--text-4xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
   margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  color: #0F172A;
-  letter-spacing: -0.01em;
+  letter-spacing: var(--tracking-tight);
 }
 .success-message {
-  margin: 0 0 8px;
-  font-size: 13.5px;
-  color: #64748B;
-  line-height: 1.6;
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-2);
+  line-height: var(--leading-relaxed);
   max-width: 460px;
 }
-.success-message strong { color: #0F172A; font-weight: 700; }
-
+.success-message strong { color: var(--text-primary); font-weight: var(--font-bold); }
 .success-resumen {
   width: 100%;
-  background: #F8FAFC;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  padding: 6px 16px;
-  margin: 8px 0;
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: var(--space-1) var(--space-4);
+  margin: var(--space-2) 0;
 }
 .resumen-fila {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid #E2E8F0;
-  font-size: 13px;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--text-md);
 }
 .resumen-fila:last-child { border-bottom: none; }
 .resumen-label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  color: #64748B;
-  font-weight: 600;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-weight: var(--font-semibold);
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
-.resumen-value {
-  color: #0F172A;
-  font-weight: 700;
-  text-align: right;
-  word-break: break-word;
-}
+.resumen-value { color: var(--text-primary); font-weight: var(--font-bold); text-align: right; word-break: break-word; }
 .mono {
-  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 12.5px;
-  background: #F1F5F9;
-  padding: 2px 8px;
-  border-radius: 5px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  background: var(--neutral-100);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
 }
-
 .success-actions {
   display: flex;
-  gap: 10px;
-  margin-top: 12px;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
   flex-wrap: wrap;
   justify-content: center;
   width: 100%;
-}
-.btn-primary,
-.btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 11px 20px;
-  border-radius: 10px;
-  font-size: 13.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all .2s ease;
-  font-family: inherit;
-  white-space: nowrap;
-  flex: 1;
-  min-width: 180px;
-}
-.btn-primary {
-  background: #0F766E;
-  color: #fff;
-  border: none;
-}
-.btn-primary:hover {
-  background: #115E59;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px -4px rgba(15, 118, 110, .4);
-}
-.btn-secondary {
-  background: #fff;
-  color: #475569;
-  border: 1px solid #E2E8F0;
-}
-.btn-secondary:hover {
-  background: #F8FAFC;
-  border-color: #CBD5E1;
-  color: #0F766E;
+  max-width: 460px;
 }
 
-/* ═══ SPIN ═══ */
-.spin { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ═══ TRANSICIONES ═══ */
-.slide-fade-enter-active,
-.slide-fade-leave-active { transition: all .3s ease; }
-.slide-fade-enter-from,
-.slide-fade-leave-to { opacity: 0; transform: translateY(-6px); }
-
-/* ═══ RESPONSIVE ═══ */
+/* RESPONSIVE */
 @media (max-width: 1024px) {
   .wizard-layout { grid-template-columns: 1fr; }
   .wizard-sidebar { position: static; }
 }
-
 @media (max-width: 640px) {
-  .registrar-mascota { padding: 16px 16px 40px; }
-  .hero { padding: 20px; border-radius: 14px; }
-  .hero h1 { font-size: 22px; }
-  .card-header { padding: 14px 18px; }
-  .card-body { padding: 16px 18px 20px; }
-
+  .registrar-mascota { padding: var(--space-4); }
   .sex-picks { grid-template-columns: 1fr; }
-  .form-grid-2 { grid-template-columns: 1fr; gap: 14px; }
+  .form-grid-2 { grid-template-columns: 1fr; }
   .species-picks { grid-template-columns: repeat(2, 1fr); }
-
-  .form-actions {
-    flex-direction: column-reverse;
-    padding: 14px 16px;
-  }
-  .btn-cancel,
-  .btn-next { width: 100%; }
-
-  .success-container { padding: 32px 20px; }
+  .form-actions { flex-direction: column-reverse; }
+  .success-container { padding: var(--space-8) var(--space-5); }
   .success-icon { width: 72px; height: 72px; }
-  .success-title { font-size: 19px; }
+  .success-title { font-size: var(--text-3xl); }
   .success-actions { flex-direction: column; }
-  .btn-primary,
-  .btn-secondary { width: 100%; }
-  .resumen-fila {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-  }
+  .resumen-fila { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
   .resumen-value { text-align: left; }
 }
 </style>

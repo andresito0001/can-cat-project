@@ -1,7 +1,7 @@
 <template>
   <div
     class="avatar"
-    :class="[`avatar--${size}`, { 'avatar--muted': muted }]"
+    :class="[`avatar-${size}`, { 'avatar-muted': muted }]"
     :title="titulo"
   >
     <component v-if="icon" :is="icon" :size="iconSize" :stroke-width="1.75" />
@@ -11,7 +11,10 @@
 
 <script setup>
 import { computed } from 'vue'
-import { Truck, Package, Pill, ShoppingBasket, User, Stethoscope, Headset, Shield } from 'lucide-vue-next'
+import {
+  Truck, Package, Pill, ShoppingBasket, User, Stethoscope,
+  Headset, Shield,
+} from 'lucide-vue-next'
 
 const props = defineProps({
   nombre: { type: String, default: '' },
@@ -50,17 +53,27 @@ const titulo = computed(() => props.nombre || props.tipo)
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: #F1F5F9;
-  color: #0F766E;
-  border: 1px solid rgba(15, 23, 42, 0.04);
-  transition: background-color .15s ease, color .15s ease;
+  background: var(--brand-50);
+  color: var(--brand-700);
+  border: 1px solid var(--brand-100);
+  transition: background-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
 }
-.avatar--sm { width: 36px; height: 36px; border-radius: 10px; }
-.avatar--md { width: 44px; height: 44px; border-radius: 12px; }
-.avatar--lg { width: 52px; height: 52px; border-radius: 14px; }
-.avatar--muted { background: #F8FAFC; color: #94A3B8; opacity: .85; }
-.avatar-initials { font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
-.avatar--sm .avatar-initials { font-size: 12px; }
-.avatar--md .avatar-initials { font-size: 14px; }
-.avatar--lg .avatar-initials { font-size: 17px; }
+.avatar-sm { width: 36px; height: 36px; border-radius: var(--radius-lg); }
+.avatar-md { width: 44px; height: 44px; border-radius: var(--radius-xl); }
+.avatar-lg { width: 52px; height: 52px; border-radius: var(--radius-2xl); }
+.avatar-muted {
+  background: var(--neutral-100);
+  color: var(--text-tertiary);
+  border-color: var(--border-subtle);
+  opacity: 0.85;
+}
+.avatar-initials {
+  font-weight: var(--font-bold);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.avatar-sm .avatar-initials { font-size: var(--text-sm); }
+.avatar-md .avatar-initials { font-size: var(--text-base); }
+.avatar-lg .avatar-initials { font-size: var(--text-xl); }
 </style>

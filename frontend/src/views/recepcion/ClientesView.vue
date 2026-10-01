@@ -1,29 +1,30 @@
 <template>
   <div class="gestion-clientes">
-    <!-- ═══ HERO ═══ -->
-    <header class="hero">
-      <div class="hero-left">
-        <p class="hero-eyebrow">
-          <Users :size="12" />
-          Recepción · Clientes
-        </p>
+    <ToastContainer />
+
+    <!-- Hero -->
+    <header class="page-header">
+      <div>
+        <span class="page-header-eyebrow">
+          <Users :size="12" /> Recepción · Clientes
+        </span>
         <h1>Gestión de Clientes</h1>
-        <p class="hero-sub">Registro, búsqueda y administración de clientes de la clínica.</p>
+        <p class="page-header-sub">
+          Registro, búsqueda y administración de clientes de la clínica.
+        </p>
       </div>
-      <div class="hero-right">
-        <button class="btn-primary" type="button" @click="router.push('/recepcion/clientes/nuevo')">
-          <UserPlus :size="16" />
+      <div class="page-header-actions">
+        <AppButton variant="primary" @click="router.push('/recepcion/clientes/nuevo')">
+          <template #icon-left><UserPlus :size="16" /></template>
           Añadir nuevo cliente
-        </button>
+        </AppButton>
       </div>
     </header>
 
-    <!-- ═══ KPIs ═══ -->
+    <!-- KPIs -->
     <section v-if="!isLoading && clientes.length" class="kpis">
       <article class="kpi">
-        <div class="kpi-icon" style="--kpi-color: #0F766E; --kpi-bg: #F0FDFA;">
-          <Users :size="18" />
-        </div>
+        <div class="kpi-icon kpi-icon-brand"><Users :size="18" /></div>
         <div class="kpi-texto">
           <p class="kpi-value">{{ clientes.length }}</p>
           <p class="kpi-label">
@@ -32,27 +33,21 @@
         </div>
       </article>
       <article class="kpi">
-        <div class="kpi-icon" style="--kpi-color: #3B82F6; --kpi-bg: #EFF6FF;">
-          <MapPin :size="18" />
-        </div>
+        <div class="kpi-icon kpi-icon-info"><MapPin :size="18" /></div>
         <div class="kpi-texto">
           <p class="kpi-value">{{ conCiudad }}</p>
           <p class="kpi-label">Con ciudad</p>
         </div>
       </article>
       <article class="kpi">
-        <div class="kpi-icon" style="--kpi-color: #F59E0B; --kpi-bg: #FFFBEB;">
-          <MapPinOff :size="18" />
-        </div>
+        <div class="kpi-icon kpi-icon-warning"><MapPinOff :size="18" /></div>
         <div class="kpi-texto">
           <p class="kpi-value">{{ sinCiudad }}</p>
           <p class="kpi-label">Sin ciudad</p>
         </div>
       </article>
       <article class="kpi">
-        <div class="kpi-icon" style="--kpi-color: #8B5CF6; --kpi-bg: #F5F3FF;">
-          <CalendarPlus :size="18" />
-        </div>
+        <div class="kpi-icon kpi-icon-purple"><CalendarPlus :size="18" /></div>
         <div class="kpi-texto">
           <p class="kpi-value">{{ nuevosEsteMes }}</p>
           <p class="kpi-label">Nuevos este mes</p>
@@ -60,14 +55,14 @@
       </article>
     </section>
 
-    <!-- ═══ TOOLBAR ═══ -->
+    <!-- Toolbar -->
     <section class="toolbar">
       <div class="search-box">
         <Search :size="15" class="search-icon" />
         <input
           v-model="filtro"
           type="text"
-          class="search-input"
+          class="form-input search-input"
           placeholder="Buscar por nombre o documento de identidad…"
           aria-label="Buscar cliente"
         />
@@ -87,107 +82,110 @@
       </span>
     </section>
 
-    <!-- ═══ ALERTA ═══ -->
-    <div v-if="errorMessage" class="alert alert-error">
-      <AlertCircle :size="16" />
-      <span>{{ errorMessage }}</span>
-      <button type="button" class="alert-action" @click="cargarClientes">Reintentar</button>
-    </div>
+    <!-- Alerta -->
+    <AppAlert
+      v-if="errorMessage"
+      variant="error"
+      :action="'Reintentar'"
+      @action="cargarClientes"
+    >
+      {{ errorMessage }}
+    </AppAlert>
 
-    <!-- ═══ SKELETON ═══ -->
+    <!-- Loading skeleton -->
     <div v-if="isLoading" class="table-card">
       <div class="skeleton-head">
-        <div class="skeleton-col w-30" />
-        <div class="skeleton-col w-20" />
-        <div class="skeleton-col w-15" />
-        <div class="skeleton-col w-15" />
-        <div class="skeleton-col w-15" />
+        <div class="skeleton skeleton-col" />
+        <div class="skeleton skeleton-col skeleton-col-sm" />
+        <div class="skeleton skeleton-col skeleton-col-sm" />
+        <div class="skeleton skeleton-col skeleton-col-sm" />
       </div>
       <div v-for="i in 5" :key="i" class="skeleton-row">
-        <div class="skeleton-cell w-30" />
-        <div class="skeleton-cell w-20" />
-        <div class="skeleton-cell w-15" />
-        <div class="skeleton-cell w-15" />
-        <div class="skeleton-cell w-15" />
+        <div class="skeleton skeleton-cell" />
+        <div class="skeleton skeleton-cell skeleton-cell-sm" />
+        <div class="skeleton skeleton-cell skeleton-cell-sm" />
+        <div class="skeleton skeleton-cell skeleton-cell-sm" />
       </div>
     </div>
 
-    <!-- ═══ VACÍO ═══ -->
-    <div v-else-if="clientes.length === 0" class="empty-state">
-      <div class="empty-icon">
-        <component :is="filtro ? Search : Users" :size="32" />
-      </div>
-      <template v-if="filtro">
-        <h3>Sin resultados</h3>
-        <p>No hay clientes que coincidan con <strong>"{{ filtro }}"</strong>.</p>
-        <button type="button" class="btn-link" @click="limpiarFiltro">
+    <!-- Empty -->
+    <AppEmptyState
+      v-else-if="clientes.length === 0"
+      :icon="filtro ? Search : Users"
+      :title="filtro ? 'Sin resultados' : 'Aún no hay clientes registrados'"
+      :description="filtro
+        ? `No hay clientes que coincidan con &quot;${filtro}&quot;.`
+        : 'Comienza registrando al primer cliente para agendar citas y gestionar mascotas.'"
+    >
+      <template #action>
+        <AppButton v-if="filtro" variant="secondary" @click="limpiarFiltro">
           Limpiar búsqueda
-        </button>
+        </AppButton>
+        <AppButton v-else variant="primary" @click="router.push('/recepcion/clientes/nuevo')">
+          <template #icon-left><UserPlus :size="16" /></template>
+          Añadir nuevo cliente
+        </AppButton>
       </template>
-      <template v-else>
-        <h3>Aún no hay clientes registrados</h3>
-        <p>Comienza registrando al primer cliente para agendar citas y gestionar mascotas.</p>
-        <button class="btn-primary" type="button" @click="router.push('/recepcion/clientes/nuevo')">
-          <UserPlus :size="16" /> Añadir nuevo cliente
-        </button>
-      </template>
+    </AppEmptyState>
+
+    <!-- Tabla -->
+    <div v-else class="table-card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Documento</th>
+              <th>Teléfono</th>
+              <th>Ciudad</th>
+              <th>Registrado</th>
+              <th class="col-accion" aria-label="Acciones"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="cliente in clientes"
+              :key="cliente.id"
+              class="data-row"
+              @click="verCliente(cliente)"
+            >
+              <td class="cell-cliente">
+                <div class="cliente-cell">
+                  <EntityAvatar :nombre="cliente.nombreCompleto" tipo="cliente" size="md" />
+                  <div class="cliente-info">
+                    <p class="cliente-nombre">{{ cliente.nombreCompleto }}</p>
+                    <p class="cliente-id">ID #{{ cliente.id }}</p>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="cell-mono">{{ cliente.documentoIdentidad }}</span>
+              </td>
+              <td>
+                <span class="cell-icon">
+                  <Phone :size="13" />
+                  {{ cliente.telefonoPrincipal }}
+                </span>
+              </td>
+              <td>
+                <span v-if="cliente.ciudad" class="ciudad-pill">
+                  <MapPin :size="11" />
+                  {{ cliente.ciudad }}
+                </span>
+                <span v-else class="cell-empty">—</span>
+              </td>
+              <td>
+                <span class="cell-date">{{ formatearFecha(cliente.createdAt) }}</span>
+              </td>
+              <td class="cell-accion">
+                <ChevronRight :size="16" class="row-arrow" />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
-    <!-- ═══ TABLA ═══ -->
-    <div v-else class="table-card">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Cliente</th>
-            <th>Documento</th>
-            <th>Teléfono</th>
-            <th>Ciudad</th>
-            <th>Registrado</th>
-            <th class="col-accion" aria-label="Acciones"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="cliente in clientes"
-            :key="cliente.id"
-            class="data-row"
-            @click="verCliente(cliente)"
-          >
-            <td class="cell-cliente">
-              <div class="cliente-cell">
-                <EntityAvatar :nombre="cliente.nombreCompleto" tipo="cliente" size="md" />
-                <div class="cliente-info">
-                  <p class="cliente-nombre">{{ cliente.nombreCompleto }}</p>
-                  <p class="cliente-id">ID #{{ cliente.id }}</p>
-                </div>
-              </div>
-            </td>
-            <td>
-              <span class="cell-mono">{{ cliente.documentoIdentidad }}</span>
-            </td>
-            <td>
-              <span class="cell-icon">
-                <Phone :size="13" />
-                {{ cliente.telefonoPrincipal }}
-              </span>
-            </td>
-            <td>
-              <span v-if="cliente.ciudad" class="ciudad-pill">
-                <MapPin :size="11" />
-                {{ cliente.ciudad }}
-              </span>
-              <span v-else class="cell-empty">—</span>
-            </td>
-            <td>
-              <span class="cell-date">{{ formatearFecha(cliente.createdAt) }}</span>
-            </td>
-            <td class="cell-accion">
-              <ChevronRight :size="16" class="row-arrow" />
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
     <ClienteDetalleModal
       v-model="detalleModalVisible"
       :cliente="clienteSeleccionado"
@@ -200,11 +198,15 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import * as clientesApi from '@/api/clientes.api'
 import {
-  UserPlus, Users, Search, X, AlertCircle, ChevronRight,
-  Phone, MapPin, MapPinOff, CalendarPlus
+  UserPlus, Users, Search, X, ChevronRight,
+  Phone, MapPin, MapPinOff, CalendarPlus,
 } from 'lucide-vue-next'
 import ClienteDetalleModal from '@/components/recepcion/ClienteDetalleModal.vue'
 import EntityAvatar from '@/components/ui/EntityAvatar.vue'
+import ToastContainer from '@/components/ui/ToastContainer.vue'
+import AppButton from '@/components/ui/AppButton.vue'
+import AppAlert from '@/components/ui/AppAlert.vue'
+import AppEmptyState from '@/components/ui/AppEmptyState.vue'
 
 const router = useRouter()
 
@@ -217,21 +219,19 @@ const clienteSeleccionado = ref(null)
 
 let debounceTimer = null
 
-// ─── KPIs ───
-const conCiudad = computed(() => clientes.value.filter(c => c.ciudad?.trim()).length)
+const conCiudad = computed(() => clientes.value.filter((c) => c.ciudad?.trim()).length)
 const sinCiudad = computed(() => clientes.value.length - conCiudad.value)
 const nuevosEsteMes = computed(() => {
   const ahora = new Date()
   const y = ahora.getFullYear()
   const m = ahora.getMonth()
-  return clientes.value.filter(c => {
+  return clientes.value.filter((c) => {
     if (!c.createdAt) return false
     const d = new Date(c.createdAt)
     return d.getFullYear() === y && d.getMonth() === m
   }).length
 })
 
-// ─── Helpers ───
 function formatearFecha(fecha) {
   if (!fecha) return '—'
   return new Date(fecha).toLocaleDateString('es-VE', {
@@ -240,24 +240,16 @@ function formatearFecha(fecha) {
     year: 'numeric',
   })
 }
+
 function limpiarFiltro() {
   filtro.value = ''
 }
 
 function verCliente(cliente) {
-  // Acepta tanto el objeto cliente como un id (defensivo)
-  if (typeof cliente === 'object' && cliente !== null) {
-    clienteSeleccionado.value = cliente
-  } else {
-    // Fallback: buscar en la lista por id
-    const encontrado = clientes.value.find(c => c.id === cliente || c.idCliente === cliente)
-    if (!encontrado) return
-    clienteSeleccionado.value = encontrado
-  }
+  clienteSeleccionado.value = cliente
   detalleModalVisible.value = true
 }
 
-// ─── Carga ───
 async function cargarClientes() {
   isLoading.value = true
   errorMessage.value = null
@@ -285,118 +277,73 @@ onBeforeUnmount(() => clearTimeout(debounceTimer))
 .gestion-clientes {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 24px 24px 48px;
-  font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  color: #1E293B;
+  padding: var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }
-button { font-family: inherit; }
 
-/* ═══ HERO ═══ */
-.hero {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  flex-wrap: wrap;
-  padding: 24px 28px;
-  background: linear-gradient(135deg, #F0FDFA 0%, #FFFFFF 55%);
-  border: 1px solid #CCFBF1;
-  border-radius: 16px;
-}
-.hero-left { min-width: 0; }
-.hero-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 0 8px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .7px;
-  color: #0F766E;
-  background: #fff;
-  padding: 4px 10px;
-  border-radius: 20px;
-  border: 1px solid #CCFBF1;
-}
-.hero h1 {
-  margin: 0 0 4px;
-  font-size: 26px;
-  font-weight: 700;
-  color: #0F172A;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-.hero-sub {
-  margin: 0;
-  font-size: 14px;
-  color: #64748B;
-  max-width: 520px;
-}
-.hero-right { display: flex; align-items: center; }
-
-/* ═══ KPIs ═══ */
+/* KPIs */
 .kpis {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
+  gap: var(--space-4);
 }
 .kpi {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 16px 18px;
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  transition: all var(--duration-base) var(--ease-out);
 }
 .kpi:hover {
-  border-color: #CBD5E1;
+  border-color: var(--border-strong);
   transform: translateY(-2px);
-  box-shadow: 0 10px 20px -10px rgba(15, 23, 42, .08);
+  box-shadow: var(--shadow-md);
 }
 .kpi-icon {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: var(--kpi-bg);
-  color: var(--kpi-color);
 }
+.kpi-icon-brand   { background: var(--brand-50);   color: var(--brand-700); }
+.kpi-icon-info    { background: var(--info-50);    color: var(--info-600); }
+.kpi-icon-warning { background: var(--warning-50); color: var(--warning-600); }
+.kpi-icon-purple  { background: var(--purple-50);  color: var(--purple-600); }
 .kpi-texto { min-width: 0; }
 .kpi-value {
   margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  color: #0F172A;
+  font-size: var(--text-3xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
   line-height: 1.1;
-  letter-spacing: -0.01em;
+  letter-spacing: var(--tracking-tight);
 }
 .kpi-label {
-  margin: 3px 0 0;
-  font-size: 12px;
-  color: #64748B;
-  font-weight: 500;
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: var(--font-medium);
 }
 
-/* ═══ TOOLBAR ═══ */
+/* TOOLBAR */
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-4);
   flex-wrap: wrap;
-  padding: 14px 18px;
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 14px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .03);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-xs);
 }
 .search-box {
   position: relative;
@@ -405,219 +352,114 @@ button { font-family: inherit; }
 }
 .search-icon {
   position: absolute;
-  left: 14px;
+  left: var(--space-4);
   top: 50%;
   transform: translateY(-50%);
-  color: #94A3B8;
+  color: var(--text-tertiary);
   pointer-events: none;
 }
 .search-input {
-  width: 100%;
-  padding: 10px 40px 10px 40px;
-  border: 1.5px solid #E2E8F0;
-  border-radius: 10px;
-  font-size: 13.5px;
-  color: #1E293B;
-  background: #fff;
-  font-family: inherit;
-  outline: none;
-  box-sizing: border-box;
-  transition: all .2s;
-}
-.search-input::placeholder { color: #94A3B8; }
-.search-input:focus {
-  border-color: #0F766E;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, .1);
+  padding-left: 40px;
+  padding-right: 40px;
+  background: var(--bg-surface);
 }
 .search-clear {
   position: absolute;
-  right: 10px;
+  right: var(--space-2);
   top: 50%;
   transform: translateY(-50%);
   background: none;
   border: none;
-  color: #94A3B8;
+  color: var(--text-tertiary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 5px;
-  border-radius: 6px;
-  transition: all .15s;
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  transition: all var(--duration-fast) var(--ease-out);
 }
-.search-clear:hover { color: #475569; background: #F1F5F9; }
+.search-clear:hover { color: var(--neutral-600); background: var(--neutral-100); }
 .counter {
-  color: #64748B;
-  font-size: 12.5px;
-  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
   margin-left: auto;
   font-variant-numeric: tabular-nums;
 }
 
-/* ═══ ALERTA ═══ */
-.alert {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px 16px;
-  border-radius: 10px;
-  font-size: 13px;
-  line-height: 1.5;
-  font-weight: 500;
-}
-.alert-error {
-  background: #FEF2F2;
-  color: #991B1B;
-  border: 1px solid #FECACA;
-}
-.alert-action {
-  margin-left: auto;
-  background: none;
-  border: none;
-  color: inherit;
-  font-weight: 700;
-  font-size: 12px;
-  cursor: pointer;
-  text-decoration: underline;
-  white-space: nowrap;
-}
-
-/* ═══ SKELETON ═══ */
+/* SKELETON */
 .table-card {
-  background: #fff;
-  border-radius: 14px;
-  border: 1px solid #E2E8F0;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .03), 0 10px 15px -3px rgba(0, 0, 0, .04);
+  background: var(--bg-surface);
+  border-radius: var(--radius-2xl);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 .skeleton-head {
   display: grid;
   grid-template-columns: 2fr 1.2fr 1fr 1fr 1fr auto;
-  gap: 20px;
-  padding: 16px 20px;
-  background: #F8FAFC;
-  border-bottom: 1px solid #E2E8F0;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-surface-alt);
+  border-bottom: 1px solid var(--border-subtle);
 }
 .skeleton-row {
   display: grid;
   grid-template-columns: 2fr 1.2fr 1fr 1fr 1fr auto;
-  gap: 20px;
-  padding: 16px 20px;
-  border-bottom: 1px solid #F1F5F9;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--neutral-100);
 }
 .skeleton-row:last-child { border-bottom: none; }
 .skeleton-col,
 .skeleton-cell {
   height: 12px;
-  border-radius: 6px;
-  background: linear-gradient(90deg, #F1F5F9 25%, #E2E8F0 50%, #F1F5F9 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.4s infinite;
+  width: 60%;
 }
+.skeleton-col-sm,
+.skeleton-cell-sm { width: 50%; }
 .skeleton-cell { height: 16px; }
-.w-30 { width: 70%; }
-.w-20 { width: 55%; }
-.w-15 { width: 40%; }
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
 
-/* ═══ VACÍO ═══ */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 72px 24px;
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 14px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .03);
-  text-align: center;
-}
-.empty-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: #F0FDFA;
-  color: #0F766E;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 4px;
-}
-.empty-state h3 {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 700;
-  color: #0F172A;
-}
-.empty-state p {
-  margin: 0 0 8px;
-  font-size: 13.5px;
-  color: #64748B;
-  max-width: 420px;
-  line-height: 1.5;
-}
-.empty-state strong {
-  color: #1E293B;
-  font-weight: 700;
-}
-
-/* ═══ TABLA ═══ */
+/* TABLE */
+.table-wrap { overflow-x: auto; }
 .data-table {
   width: 100%;
   border-collapse: collapse;
 }
-.data-table thead {
-  background: #F8FAFC;
-}
+.data-table thead { background: var(--bg-surface-alt); }
 .data-table th {
   text-align: left;
-  padding: 12px 20px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #64748B;
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: .6px;
-  border-bottom: 1px solid #E2E8F0;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-subtle);
   white-space: nowrap;
 }
 .data-table td {
-  padding: 14px 20px;
-  font-size: 13.5px;
-  color: #1E293B;
-  border-bottom: 1px solid #F1F5F9;
+  padding: var(--space-4) var(--space-5);
+  font-size: var(--text-md);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--neutral-100);
   vertical-align: middle;
 }
 .data-table tr:last-child td { border-bottom: none; }
 
-.data-row {
-  cursor: pointer;
-  transition: background-color .15s ease;
-}
-.data-row:hover {
-  background: #FAFBFC;
-}
-.data-row:hover .row-arrow {
-  color: #0F766E;
-  transform: translateX(2px);
-}
+.data-row { cursor: pointer; transition: background-color var(--duration-fast) var(--ease-out); }
+.data-row:hover { background: var(--bg-surface-alt); }
+.data-row:hover .row-arrow { color: var(--brand-700); transform: translateX(2px); }
 
-/* ═══ CELDA CLIENTE ═══ */
 .cell-cliente { min-width: 220px; }
-.cliente-cell {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+.cliente-cell { display: flex; align-items: center; gap: var(--space-3); }
 .cliente-info { min-width: 0; }
 .cliente-nombre {
   margin: 0;
-  font-size: 14px;
-  font-weight: 700;
-  color: #0F172A;
+  font-size: var(--text-base);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
   letter-spacing: -0.01em;
   line-height: 1.2;
   white-space: nowrap;
@@ -626,114 +468,72 @@ button { font-family: inherit; }
 }
 .cliente-id {
   margin: 2px 0 0;
-  font-size: 11px;
-  font-weight: 600;
-  color: #94A3B8;
-  letter-spacing: .3px;
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
+  letter-spacing: 0.03em;
 }
 
-/* ═══ CELDAS SECUNDARIAS ═══ */
 .cell-mono {
-  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #334155;
-  background: #F1F5F9;
-  padding: 3px 10px;
-  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--neutral-700);
+  background: var(--neutral-100);
+  padding: 3px var(--space-3);
+  border-radius: var(--radius-sm);
   display: inline-block;
 }
 .cell-icon {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: #475569;
-  font-weight: 500;
+  gap: var(--space-2);
+  font-size: var(--text-md);
+  color: var(--neutral-700);
+  font-weight: var(--font-medium);
 }
-.cell-icon svg { color: #94A3B8; }
+.cell-icon svg { color: var(--text-tertiary); }
 .cell-date {
-  font-size: 13px;
-  color: #64748B;
+  font-size: var(--text-md);
+  color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
 }
-.cell-empty { color: #CBD5E1; }
+.cell-empty { color: var(--neutral-300); }
 
 .ciudad-pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #0F766E;
-  background: #F0FDFA;
-  padding: 3px 10px;
-  border-radius: 20px;
-  border: 1px solid #CCFBF1;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--brand-700);
+  background: var(--brand-50);
+  padding: 3px var(--space-3);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--brand-200);
   white-space: nowrap;
 }
 
-.cell-accion {
-  width: 40px;
-  text-align: right;
-  padding-right: 16px;
-}
+.cell-accion { width: 40px; text-align: right; padding-right: var(--space-4); }
 .row-arrow {
-  color: #CBD5E1;
-  transition: color .2s ease, transform .2s ease;
+  color: var(--neutral-300);
+  transition: color var(--duration-base) var(--ease-out),
+              transform var(--duration-base) var(--ease-out);
   vertical-align: middle;
 }
 
-/* ═══ BOTONES ═══ */
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  background: #0F766E;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  font-size: 13.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all .2s ease;
-  font-family: inherit;
-  white-space: nowrap;
-}
-.btn-primary:hover:not(:disabled) {
-  background: #115E59;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(15, 118, 110, .25);
-}
-.btn-link {
-  background: none;
-  border: none;
-  padding: 0;
-  color: #0F766E;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  font-family: inherit;
-}
-.btn-link:hover { text-decoration: underline; }
-
-/* ═══ RESPONSIVE ═══ */
+/* RESPONSIVE */
 @media (max-width: 1024px) {
   .kpis { grid-template-columns: repeat(2, 1fr); }
 }
-
 @media (max-width: 768px) {
-  .gestion-clientes { padding: 16px 16px 40px; }
-  .hero { padding: 20px; border-radius: 14px; }
-  .hero h1 { font-size: 22px; }
-  .kpis { grid-template-columns: 1fr; gap: 10px; }
-  .kpi { padding: 14px 16px; }
-
-  .toolbar { padding: 12px; gap: 10px; }
+  .gestion-clientes { padding: var(--space-4); }
+  .kpis { grid-template-columns: 1fr; gap: var(--space-3); }
+  .toolbar { padding: var(--space-3); gap: var(--space-3); }
   .search-box { max-width: 100%; }
   .counter { margin-left: 0; width: 100%; text-align: right; }
-
+}
+@media (max-width: 640px) {
   /* Tabla → tarjetas */
   .data-table thead { display: none; }
   .data-table,
@@ -744,54 +544,29 @@ button { font-family: inherit; }
     width: 100%;
   }
   .data-table tr {
-    padding: 14px 16px;
-    border-bottom: 1px solid #F1F5F9;
+    padding: var(--space-4);
+    border-bottom: 1px solid var(--neutral-100);
     position: relative;
   }
-  .data-table tr:last-child { border-bottom: none; }
   .data-table td {
     padding: 0;
     border-bottom: none;
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    margin-top: 6px;
+    gap: var(--space-2);
+    font-size: var(--text-md);
+    margin-top: var(--space-2);
   }
   .data-table td:first-child { margin-top: 0; }
-
-  .cell-cliente { margin-bottom: 4px; }
-  .cliente-nombre { font-size: 14px; }
-
-  /* Etiquetas antes de cada celda en móvil */
-  .data-table td::before {
-    content: attr(data-label);
-    font-size: 10.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    color: #94A3B8;
-    min-width: 70px;
-    flex-shrink: 0;
-  }
-  .data-table td.cell-cliente::before,
-  .data-table td.cell-accion::before { content: none; }
-
+  .cell-cliente { margin-bottom: var(--space-1); }
   .cell-accion {
     position: absolute;
-    top: 16px;
-    right: 12px;
+    top: var(--space-4);
+    right: var(--space-3);
     width: auto;
     padding-right: 0;
     margin: 0 !important;
   }
-
-  .row-arrow { color: #0F766E; }
-
-  .skeleton-head,
-  .skeleton-row {
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
+  .row-arrow { color: var(--brand-700); }
 }
 </style>

@@ -1,7 +1,7 @@
 <template>
   <div
     class="avatar"
-    :class="[`avatar--${size}`, { 'avatar--muted': muted }]"
+    :class="[`avatar-${size}`, { 'avatar-muted': muted }]"
     :title="nombreEspecie || 'Mascota'"
   >
     <component :is="icon" :size="iconSize" :stroke-width="1.75" />
@@ -40,13 +40,19 @@ const iconSize = computed(() => ({ sm: 16, md: 22, lg: 28 }[props.size] || 22))
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: #F1F5F9;
-  color: #0F766E;
-  border: 1px solid rgba(15, 23, 42, 0.04);
-  transition: background-color .15s ease, color .15s ease;
+  background: var(--brand-50);
+  color: var(--brand-700);
+  border: 1px solid var(--brand-100);
+  transition: background-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
 }
-.avatar--sm { width: 36px; height: 36px; border-radius: 10px; }
-.avatar--md { width: 44px; height: 44px; border-radius: 12px; }
-.avatar--lg { width: 52px; height: 52px; border-radius: 14px; }
-.avatar--muted { background: #F8FAFC; color: #94A3B8; opacity: .85; }
+.avatar-sm { width: 36px; height: 36px; border-radius: var(--radius-lg); }
+.avatar-md { width: 44px; height: 44px; border-radius: var(--radius-xl); }
+.avatar-lg { width: 52px; height: 52px; border-radius: var(--radius-2xl); }
+.avatar-muted {
+  background: var(--neutral-100);
+  color: var(--text-tertiary);
+  border-color: var(--border-subtle);
+  opacity: 0.85;
+}
 </style>

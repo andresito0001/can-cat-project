@@ -1,6 +1,8 @@
 <template>
   <div class="agendar-mostrador">
-    <!-- ═══ BREADCRUMB ═══ -->
+    <ToastContainer />
+
+    <!-- Breadcrumb -->
     <nav class="breadcrumb" aria-label="Migas de pan">
       <button class="bc-back" type="button" @click="volverAlCalendario">
         <ArrowLeft :size="15" />
@@ -12,17 +14,20 @@
       <span class="bc-item bc-current">Nueva Reserva</span>
     </nav>
 
-    <!-- ═══ HERO ═══ -->
-    <header class="wizard-hero">
-      <p class="hero-eyebrow">
-        <Sparkles :size="12" />
-        Recepción · Mostrador
-      </p>
-      <h1>Nueva Reserva</h1>
-      <p class="hero-sub">Agenda y cobra una cita presencial en un solo flujo.</p>
+    <!-- Hero -->
+    <header class="page-header">
+      <div>
+        <span class="page-header-eyebrow">
+          <Sparkles :size="12" /> Recepción · Mostrador
+        </span>
+        <h1>Nueva Reserva</h1>
+        <p class="page-header-sub">
+          Agenda y cobra una cita presencial en un solo flujo.
+        </p>
+      </div>
     </header>
 
-    <!-- ═══ STEPPER ═══ -->
+    <!-- Stepper -->
     <nav class="stepper" aria-label="Progreso">
       <div
         v-for="(s, i) in steps"
@@ -31,7 +36,7 @@
         :class="{ active: currentStep === s.num, completed: currentStep > s.num }"
       >
         <div class="stepper-circle">
-          <CheckCircle2 v-if="currentStep > s.num" :size="15" />
+          <Check v-if="currentStep > s.num" :size="15" />
           <span v-else>{{ s.num }}</span>
         </div>
         <div class="stepper-text">
@@ -42,15 +47,16 @@
       </div>
     </nav>
 
-    <!-- ═══ LAYOUT ═══ -->
+    <!-- Layout -->
     <div class="wizard-layout" :class="{ 'is-success': currentStep === 4 }">
       <main class="wizard-main">
         <Transition name="step-fade" mode="out-in">
+
           <!-- ══════ STEP 1: CLIENTE + MASCOTA + MOTIVO ══════ -->
           <section v-if="currentStep === 1" key="step1" class="step-panel">
-            <!-- Card: Cliente -->
-            <div class="card">
-              <div class="card-header">
+            <!-- Cliente -->
+            <AppCard>
+              <template #header>
                 <div class="card-header-left">
                   <div class="card-icon"><UserPlus :size="16" /></div>
                   <div>
@@ -58,82 +64,81 @@
                     <p class="card-header-sub">Busca por nombre o documento de identidad</p>
                   </div>
                 </div>
-              </div>
-              <div class="card-body">
-                <!-- Sin cliente seleccionado -->
-                <template v-if="!clienteSeleccionado">
-                  <div class="search-box">
-                    <Search :size="15" class="search-icon" />
-                    <input
-                      v-model="clienteFiltro"
-                      type="text"
-                      class="search-input"
-                      placeholder="Ej: María González o V-12345678…"
-                      autocomplete="off"
-                    />
-                    <Loader2 v-if="buscandoCliente" :size="14" class="search-spinner spin" />
-                    <button
-                      v-else-if="clienteFiltro"
-                      type="button"
-                      class="search-clear"
-                      aria-label="Limpiar"
-                      @click="clienteFiltro = ''"
-                    >
-                      <X :size="13" />
-                    </button>
-                  </div>
+              </template>
 
-                  <div
-                    v-if="clienteFiltro.length >= 2 && !buscandoCliente && resultadosClientes.length === 0"
-                    class="empty-inline"
+              <template v-if="!clienteSeleccionado">
+                <div class="search-bar">
+                  <Search :size="15" class="search-icon" />
+                  <input
+                    v-model="clienteFiltro"
+                    type="text"
+                    class="form-input search-input"
+                    placeholder="Ej: María González o V-12345678…"
+                    autocomplete="off"
+                  />
+                  <span v-if="buscandoCliente" class="search-spinner">
+                    <span class="spinner spinner-sm" />
+                  </span>
+                  <button
+                    v-else-if="clienteFiltro"
+                    type="button"
+                    class="search-clear"
+                    aria-label="Limpiar"
+                    @click="clienteFiltro = ''"
                   >
-                    <AlertTriangle :size="24" />
-                    <p>
-                      No se encontraron resultados. Verifica los datos o
-                      <router-link to="/recepcion/clientes/nuevo" class="link-teal">
-                        registra previamente al cliente
-                      </router-link>.
-                    </p>
-                  </div>
-
-                  <div v-if="resultadosClientes.length > 0" class="results-list">
-                    <button
-                      v-for="c in resultadosClientes"
-                      :key="c.id"
-                      type="button"
-                      class="result-row"
-                      @click="seleccionarCliente(c)"
-                    >
-                      <EntityAvatar :nombre="c.nombreCompleto" tipo="cliente" size="sm" />
-                      <div class="result-info">
-                        <p class="result-name">{{ c.nombreCompleto }}</p>
-                        <p class="result-meta">
-                          {{ c.documentoIdentidad }} · {{ c.telefonoPrincipal }}
-                        </p>
-                      </div>
-                      <ChevronRight :size="16" class="result-arrow" />
-                    </button>
-                  </div>
-                </template>
-
-                <!-- Cliente seleccionado -->
-                <div v-else class="cliente-chip">
-                  <EntityAvatar :nombre="clienteSeleccionado.nombreCompleto" tipo="cliente" size="md" />
-                  <div class="cliente-chip-info">
-                    <p class="cliente-chip-name">{{ clienteSeleccionado.nombreCompleto }}</p>
-                    <p class="cliente-chip-doc">{{ clienteSeleccionado.documentoIdentidad }}</p>
-                  </div>
-                  <button type="button" class="btn-chip" @click="cambiarCliente">
-                    <X :size="13" /> Cambiar
+                    <X :size="13" />
                   </button>
                 </div>
-                <span v-if="step1Errors.cliente" class="form-error">{{ step1Errors.cliente }}</span>
-              </div>
-            </div>
 
-            <!-- Card: Mascota -->
-            <div v-if="clienteSeleccionado" class="card">
-              <div class="card-header">
+                <div
+                  v-if="clienteFiltro.length >= 2 && !buscandoCliente && !resultadosClientes.length"
+                  class="empty-inline"
+                >
+                  <AlertTriangle :size="24" />
+                  <p>
+                    No se encontraron resultados. Verifica los datos o
+                    <router-link to="/recepcion/clientes/nuevo" class="link-teal">
+                      registra previamente al cliente
+                    </router-link>.
+                  </p>
+                </div>
+
+                <div v-if="resultadosClientes.length" class="results-list">
+                  <button
+                    v-for="c in resultadosClientes"
+                    :key="c.id"
+                    type="button"
+                    class="result-row"
+                    @click="seleccionarCliente(c)"
+                  >
+                    <EntityAvatar :nombre="c.nombreCompleto" tipo="cliente" size="sm" />
+                    <div class="result-info">
+                      <p class="result-name">{{ c.nombreCompleto }}</p>
+                      <p class="result-meta">
+                        {{ c.documentoIdentidad }} · {{ c.telefonoPrincipal }}
+                      </p>
+                    </div>
+                    <ChevronRight :size="16" class="result-arrow" />
+                  </button>
+                </div>
+              </template>
+
+              <div v-else class="cliente-chip">
+                <EntityAvatar :nombre="clienteSeleccionado.nombreCompleto" tipo="cliente" size="md" />
+                <div class="cliente-chip-info">
+                  <p class="cliente-chip-name">{{ clienteSeleccionado.nombreCompleto }}</p>
+                  <p class="cliente-chip-doc">{{ clienteSeleccionado.documentoIdentidad }}</p>
+                </div>
+                <button type="button" class="btn-chip" @click="cambiarCliente">
+                  <X :size="13" /> Cambiar
+                </button>
+              </div>
+              <span v-if="step1Errors.cliente" class="form-error mt-2">{{ step1Errors.cliente }}</span>
+            </AppCard>
+
+            <!-- Mascota -->
+            <AppCard v-if="clienteSeleccionado">
+              <template #header>
                 <div class="card-header-left">
                   <div class="card-icon"><PawPrint :size="16" /></div>
                   <div>
@@ -141,62 +146,61 @@
                     <p class="card-header-sub">¿Qué paciente vas a atender?</p>
                   </div>
                 </div>
-              </div>
-              <div class="card-body">
-                <div v-if="cargandoMascotas" class="mini-load">
-                  <Loader2 :size="14" class="spin" /> Cargando mascotas…
-                </div>
+              </template>
 
-                <template v-else-if="mascotas.length > 0">
-                  <div class="pick-grid" :class="{ 'with-error': step1Errors.mascota }">
-                    <button
-                      v-for="m in mascotas"
-                      :key="m.idMascota"
-                      type="button"
-                      class="pick-card"
-                      :class="{ selected: selectedMascota === m.idMascota }"
-                      @click="selectedMascota = m.idMascota; step1Errors.mascota = null"
-                    >
-                      <PetAvatar :nombre-especie="m.nombreEspecie" size="md" />
-                      <div class="pick-info">
-                        <span class="pick-name">{{ m.nombre }}</span>
-                        <span class="pick-meta">
-                          {{ m.nombreRaza || m.nombreEspecie || 'Mascota' }}
-                        </span>
-                      </div>
-                      <span v-if="selectedMascota === m.idMascota" class="pick-check">
-                        <CheckCircle2 :size="14" />
+              <div v-if="cargandoMascotas" class="mini-load">
+                <span class="spinner spinner-sm" /> Cargando mascotas…
+              </div>
+
+              <template v-else-if="mascotas.length > 0">
+                <div class="pick-grid" :class="{ 'with-error': step1Errors.mascota }">
+                  <button
+                    v-for="m in mascotas"
+                    :key="m.idMascota"
+                    type="button"
+                    class="pick-card"
+                    :class="{ selected: selectedMascota === m.idMascota }"
+                    @click="selectedMascota = m.idMascota; step1Errors.mascota = null"
+                  >
+                    <PetAvatar :nombre-especie="m.nombreEspecie" size="md" />
+                    <div class="pick-info">
+                      <span class="pick-name">{{ m.nombre }}</span>
+                      <span class="pick-meta">
+                        {{ m.nombreRaza || m.nombreEspecie || 'Mascota' }}
                       </span>
-                    </button>
-                  </div>
-                  <span v-if="step1Errors.mascota" class="form-error mt-8">{{ step1Errors.mascota }}</span>
-                </template>
-
-                <div v-else class="empty-inline">
-                  <AlertTriangle :size="24" />
-                  <p>
-                    No se encontraron mascotas para este cliente.
-                    <router-link
-                      :to="{
-                        path: '/recepcion/registrar-mascota',
-                        query: {
-                          clienteDocumento: clienteSeleccionado.documentoIdentidad,
-                          clienteNombre: clienteSeleccionado.nombreCompleto,
-                        },
-                      }"
-                      class="link-teal"
-                    >
-                      Registra una mascota
-                    </router-link>
-                    y regresa.
-                  </p>
+                    </div>
+                    <span v-if="selectedMascota === m.idMascota" class="pick-check">
+                      <CheckCircle2 :size="14" />
+                    </span>
+                  </button>
                 </div>
-              </div>
-            </div>
+                <span v-if="step1Errors.mascota" class="form-error mt-2">{{ step1Errors.mascota }}</span>
+              </template>
 
-            <!-- Card: Motivo -->
-            <div class="card">
-              <div class="card-header">
+              <div v-else class="empty-inline">
+                <AlertTriangle :size="24" />
+                <p>
+                  No se encontraron mascotas para este cliente.
+                  <router-link
+                    :to="{
+                      path: '/recepcion/registrar-mascota',
+                      query: {
+                        clienteDocumento: clienteSeleccionado.documentoIdentidad,
+                        clienteNombre: clienteSeleccionado.nombreCompleto,
+                      },
+                    }"
+                    class="link-teal"
+                  >
+                    Registra una mascota
+                  </router-link>
+                  y regresa.
+                </p>
+              </div>
+            </AppCard>
+
+            <!-- Motivo -->
+            <AppCard>
+              <template #header>
                 <div class="card-header-left">
                   <div class="card-icon"><MessageSquare :size="16" /></div>
                   <div>
@@ -204,29 +208,27 @@
                     <p class="card-header-sub">Descripción indicada por el cliente</p>
                   </div>
                 </div>
+              </template>
+
+              <AppTextarea
+                v-model="motivoConsulta"
+                :error="step1Errors.motivo"
+                :rows="3"
+                maxlength="1000"
+                placeholder="Ej: Control de vacunas anuales, decaimiento desde ayer…"
+              />
+              <div class="form-footer">
+                <span v-if="step1Errors.motivo" class="form-error">{{ step1Errors.motivo }}</span>
+                <span class="char-count">{{ motivoConsulta.length }}/1000</span>
               </div>
-              <div class="card-body">
-                <textarea
-                  v-model="motivoConsulta"
-                  rows="3"
-                  maxlength="1000"
-                  class="form-textarea"
-                  :class="{ 'is-invalid': step1Errors.motivo }"
-                  placeholder="Ej: Control de vacunas anuales, decaimiento desde ayer…"
-                />
-                <div class="form-footer">
-                  <span v-if="step1Errors.motivo" class="form-error">{{ step1Errors.motivo }}</span>
-                  <span class="char-count">{{ motivoConsulta.length }}/1000</span>
-                </div>
-              </div>
-            </div>
+            </AppCard>
           </section>
 
           <!-- ══════ STEP 2: HORARIO ══════ -->
           <section v-else-if="currentStep === 2" key="step2" class="step-panel">
             <!-- Veterinario -->
-            <div class="card">
-              <div class="card-header">
+            <AppCard>
+              <template #header>
                 <div class="card-header-left">
                   <div class="card-icon"><Stethoscope :size="16" /></div>
                   <div>
@@ -234,34 +236,50 @@
                     <p class="card-header-sub">Selecciona quién atenderá al paciente</p>
                   </div>
                 </div>
-              </div>
-              <div class="card-body">
-                <div class="pick-grid" :class="{ 'with-error': step2Errors.veterinario }">
-                  <button
-                    v-for="v in veterinarios"
-                    :key="v.id"
-                    type="button"
-                    class="pick-card"
-                    :class="{ selected: selectedVeterinario === v.id }"
-                    @click="selectedVeterinario = v.id; onVeterinarioChange(); step2Errors.veterinario = null"
-                  >
-                    <EntityAvatar :nombre="v.nombre" tipo="veterinario" size="md" />
-                    <div class="pick-info">
-                      <span class="pick-name">{{ v.nombre }}</span>
-                      <span class="pick-meta">{{ v.especialidad || 'Veterinario' }}</span>
-                    </div>
-                    <span v-if="selectedVeterinario === v.id" class="pick-check">
+              </template>
+
+              <div class="pick-grid" :class="{ 'with-error': step2Errors.veterinario }">
+                <button
+                  v-for="v in veterinarios"
+                  :key="v.id"
+                  type="button"
+                  class="pick-card"
+                  :class="{ selected: selectedVeterinario === v.id }"
+                  @click="selectedVeterinario = v.id; onVeterinarioChange(); step2Errors.veterinario = null"
+                >
+                  <EntityAvatar :nombre="v.nombre" tipo="veterinario" size="md" />
+                  <div class="pick-info">
+                    <span class="pick-name">{{ v.nombre }}</span>
+                    <span class="pick-meta">{{ v.especialidad || 'Veterinario' }}</span>
+                  </div>
+                  <span class="pick-actions">
+                    <span
+                      class="pick-icon-btn"
+                      role="button"
+                      tabindex="0"
+                      :aria-label="`Ver horario de ${v.nombre}`"
+                      title="Ver horario de atención"
+                      @click.stop="verHorario(v)"
+                      @keydown.enter.stop.prevent="verHorario(v)"
+                      @keydown.space.stop.prevent="verHorario(v)"
+                    >
+                      <CalendarClock :size="14" />
+                    </span>
+                    <span
+                      v-if="selectedVeterinario === v.id"
+                      class="pick-check"
+                    >
                       <CheckCircle2 :size="14" />
                     </span>
-                  </button>
-                </div>
-                <span v-if="step2Errors.veterinario" class="form-error mt-8">{{ step2Errors.veterinario }}</span>
+                  </span>
+                </button>
               </div>
-            </div>
+              <span v-if="step2Errors.veterinario" class="form-error mt-2">{{ step2Errors.veterinario }}</span>
+            </AppCard>
 
             <!-- Servicio -->
-            <div class="card">
-              <div class="card-header">
+            <AppCard>
+              <template #header>
                 <div class="card-header-left">
                   <div class="card-icon"><ClipboardList :size="16" /></div>
                   <div>
@@ -273,44 +291,45 @@
                     </p>
                   </div>
                 </div>
+              </template>
+
+              <div v-if="!selectedVeterinario" class="empty-inline">
+                <Stethoscope :size="24" />
+                <p>Selecciona un veterinario para ver los servicios disponibles.</p>
               </div>
-              <div class="card-body">
-                <div v-if="!selectedVeterinario" class="empty-inline">
-                  <Stethoscope :size="24" />
-                  <p>Selecciona un veterinario para ver los servicios disponibles.</p>
-                </div>
-                <div v-else-if="!servicios.length" class="empty-inline">
-                  <ClipboardList :size="24" />
-                  <p>Este veterinario aún no tiene servicios configurados.</p>
-                </div>
-                <div v-else class="service-list" :class="{ 'with-error': step2Errors.servicio }">
-                  <button
-                    v-for="s in servicios"
-                    :key="s.id"
-                    type="button"
-                    class="service-item"
-                    :class="{ selected: selectedServicio === s.id }"
-                    @click="selectedServicio = s.id; step2Errors.servicio = null"
-                  >
-                    <span class="service-item-radio">
-                      <span v-if="selectedServicio === s.id" class="service-item-radio-inner" />
-                    </span>
-                    <div class="service-item-body">
-                      <span class="service-item-name">{{ s.nombre }}</span>
-                      <div class="service-item-meta">
-                        <span class="meta-chip"><Clock :size="12" /> {{ s.duracionMinutos }} min</span>
-                        <span class="meta-chip meta-price"><DollarSign :size="12" /> {{ fmtUsd(s.precioUsd) }}</span>
-                      </div>
+              <div v-else-if="!servicios.length" class="empty-inline">
+                <ClipboardList :size="24" />
+                <p>Este veterinario aún no tiene servicios configurados.</p>
+              </div>
+              <div v-else class="service-list" :class="{ 'with-error': step2Errors.servicio }">
+                <button
+                  v-for="s in servicios"
+                  :key="s.id"
+                  type="button"
+                  class="service-item"
+                  :class="{ selected: selectedServicio === s.id }"
+                  @click="selectedServicio = s.id; step2Errors.servicio = null"
+                >
+                  <span class="service-item-radio">
+                    <span v-if="selectedServicio === s.id" class="service-item-radio-inner" />
+                  </span>
+                  <div class="service-item-body">
+                    <span class="service-item-name">{{ s.nombre }}</span>
+                    <div class="service-item-meta">
+                      <span class="meta-chip"><Clock :size="12" /> {{ s.duracionMinutos }} min</span>
+                      <span class="meta-chip meta-price">
+                        <DollarSign :size="12" /> {{ fmtUsd(s.precioUsd) }}
+                      </span>
                     </div>
-                  </button>
-                </div>
-                <span v-if="step2Errors.servicio" class="form-error mt-8">{{ step2Errors.servicio }}</span>
+                  </div>
+                </button>
               </div>
-            </div>
+              <span v-if="step2Errors.servicio" class="form-error mt-2">{{ step2Errors.servicio }}</span>
+            </AppCard>
 
             <!-- Fecha -->
-            <div class="card">
-              <div class="card-header">
+            <AppCard>
+              <template #header>
                 <div class="card-header-left">
                   <div class="card-icon"><CalendarDays :size="16" /></div>
                   <div>
@@ -318,25 +337,19 @@
                     <p class="card-header-sub">Selecciona el día de la cita</p>
                   </div>
                 </div>
-              </div>
-              <div class="card-body">
-                <input
-                  v-model="fecha"
-                  type="date"
-                  :min="hoy"
-                  class="form-input"
-                  :class="{ 'is-invalid': step2Errors.fecha }"
-                />
-                <span v-if="step2Errors.fecha" class="form-error mt-8">{{ step2Errors.fecha }}</span>
-              </div>
-            </div>
+              </template>
+
+              <AppInput
+                v-model="fecha"
+                type="date"
+                :min="hoy"
+                :error="step2Errors.fecha ? 'Selecciona una fecha' : ''"
+              />
+            </AppCard>
 
             <!-- Bloques horarios -->
-            <div
-              v-if="fecha && selectedServicio && selectedVeterinario"
-              class="card"
-            >
-              <div class="card-header">
+            <AppCard v-if="fecha && selectedServicio && selectedVeterinario">
+              <template #header>
                 <div class="card-header-left">
                   <div class="card-icon"><Clock :size="16" /></div>
                   <div>
@@ -344,54 +357,53 @@
                     <p class="card-header-sub">{{ fmtFecha(fecha) }}</p>
                   </div>
                 </div>
+              </template>
+
+              <div v-if="cargandoBloques" class="mini-load">
+                <span class="spinner spinner-sm" /> Consultando disponibilidad…
               </div>
-              <div class="card-body">
-                <div v-if="cargandoBloques" class="mini-load">
-                  <Loader2 :size="14" class="spin" /> Consultando disponibilidad…
-                </div>
 
-                <div v-else-if="bloques.length === 0" class="empty-inline">
-                  <AlertTriangle :size="24" />
-                  <p>No hay bloques libres para esta fecha. Prueba con otro día.</p>
-                </div>
-
-                <div v-else class="slots-grid">
-                  <button
-                    v-for="b in bloques"
-                    :key="b.horaInicio"
-                    type="button"
-                    class="slot-btn"
-                    :class="{
-                      'is-selected': selectedBloque?.horaInicio === b.horaInicio,
-                      'is-conflicto': bloqueConflicto === b.horaInicio,
-                    }"
-                    @click="selectedBloque = b; step2Errors.bloque = null; bloqueConflicto = null"
-                  >
-                    <span class="slot-time">{{ fmtHora(b.horaInicio) }}</span>
-                    <span class="slot-sep">a</span>
-                    <span class="slot-time slot-end">{{ fmtHora(b.horaFin) }}</span>
-                    <span v-if="selectedBloque?.horaInicio === b.horaInicio" class="slot-check">
-                      <CheckCircle2 :size="13" />
-                    </span>
-                  </button>
-                </div>
-
-                <div v-if="step2Errors.bloque" class="alert alert-warning mt-12">
-                  <AlertTriangle :size="16" />
-                  <span>{{ step2Errors.bloque }}</span>
-                </div>
-                <p class="hint-teal">
-                  <DollarSign :size="12" />
-                  El monto en bolívares se calcula con la tasa oficial al confirmar.
-                </p>
+              <div v-else-if="bloques.length === 0" class="empty-inline">
+                <AlertTriangle :size="24" />
+                <p>No hay bloques libres para esta fecha. Prueba con otro día.</p>
               </div>
-            </div>
+
+              <div v-else class="slots-grid">
+                <button
+                  v-for="b in bloques"
+                  :key="b.horaInicio"
+                  type="button"
+                  class="slot-btn"
+                  :class="{
+                    'is-selected': selectedBloque?.horaInicio === b.horaInicio,
+                    'is-conflicto': bloqueConflicto === b.horaInicio,
+                  }"
+                  @click="selectedBloque = b; step2Errors.bloque = null; bloqueConflicto = null"
+                >
+                  <span class="slot-time">{{ fmtHora(b.horaInicio) }}</span>
+                  <span class="slot-sep">a</span>
+                  <span class="slot-time slot-end">{{ fmtHora(b.horaFin) }}</span>
+                  <span v-if="selectedBloque?.horaInicio === b.horaInicio" class="slot-check">
+                    <CheckCircle2 :size="13" />
+                  </span>
+                </button>
+              </div>
+
+              <AppAlert v-if="step2Errors.bloque" variant="warning" class="mt-4">
+                {{ step2Errors.bloque }}
+              </AppAlert>
+
+              <p class="hint-teal">
+                <DollarSign :size="12" />
+                El monto en bolívares se calcula con la tasa oficial al confirmar.
+              </p>
+            </AppCard>
           </section>
 
           <!-- ══════ STEP 3: COBRO ══════ -->
           <section v-else-if="currentStep === 3" key="step3" class="step-panel">
-            <div class="card">
-              <div class="card-header">
+            <AppCard>
+              <template #header>
                 <div class="card-header-left">
                   <div class="card-icon"><CreditCard :size="16" /></div>
                   <div>
@@ -399,103 +411,99 @@
                     <p class="card-header-sub">Selecciona cómo está pagando el cliente</p>
                   </div>
                 </div>
-              </div>
-              <div class="card-body">
-                <div v-if="pagoError" class="alert alert-error" style="margin-top: 0; margin-bottom: 16px;">
-                  <AlertTriangle :size="16" />
-                  <span>{{ pagoError }}</span>
-                </div>
+              </template>
 
-                <!-- Métodos -->
-                <div class="methods-list">
-                  <button
-                    v-for="m in metodos"
-                    :key="m.id"
-                    type="button"
-                    class="method-option"
-                    :class="{ active: selectedMetodo === m.id }"
-                    @click="selectedMetodo = m.id; datosPago = {}; referencia = ''; step3Errors = {}; pagoError = ''"
-                  >
-                    <div class="method-radio">
-                      <div class="radio-outer" :class="{ checked: selectedMetodo === m.id }">
-                        <div v-if="selectedMetodo === m.id" class="radio-inner" />
-                      </div>
-                    </div>
-                    <div class="method-info">
-                      <span class="method-name">{{ METODO_LABEL[m.nombre] || m.nombre }}</span>
-                      <span class="method-desc">{{ m.descripcion }}</span>
-                    </div>
-                  </button>
-                </div>
-                <span v-if="step3Errors.metodo" class="form-error mt-8">{{ step3Errors.metodo }}</span>
+              <AppAlert v-if="pagoError" variant="error" class="mb-4">{{ pagoError }}</AppAlert>
 
-                <!-- Campos dinámicos -->
-                <Transition name="expand">
-                  <div v-if="metodoSeleccionado" class="dynamic-fields">
-                    <div v-if="'referencia' in (metodoSeleccionado.camposRequeridos || {})" class="form-group">
-                      <label class="form-label">
-                        Número de referencia <span class="required">*</span>
-                      </label>
-                      <input
-                        v-model="referencia"
-                        type="text"
-                        class="form-input"
-                        :class="{ 'is-invalid': step3Errors.referencia }"
-                        placeholder="Ej: 0000123456789"
-                      />
-                      <span v-if="step3Errors.referencia" class="form-error">{{ step3Errors.referencia }}</span>
-                    </div>
-
-                    <div v-for="campo in camposDinamicos" :key="campo.key" class="form-group">
-                      <label class="form-label">
-                        {{ fmtFieldLabel(campo.key) }} <span class="required">*</span>
-                      </label>
-                      <select
-                        v-if="campo.key === 'banco'"
-                        v-model="datosPago[campo.key]"
-                        class="form-select"
-                        :class="{ 'is-invalid': step3Errors[campo.key] }"
-                      >
-                        <option value="" disabled>Seleccione el banco</option>
-                        <option v-for="b in BANCOS_VENEZUELA" :key="b.codigo" :value="b.nombre">
-                          {{ b.codigo }} - {{ b.nombre }}
-                        </option>
-                      </select>
-                      <input
-                        v-else
-                        v-model="datosPago[campo.key]"
-                        type="text"
-                        class="form-input"
-                        :class="{ 'is-invalid': step3Errors[campo.key] }"
-                      />
-                      <span v-if="step3Errors[campo.key]" class="form-error">{{ step3Errors[campo.key] }}</span>
+              <div class="methods-list">
+                <button
+                  v-for="m in metodos"
+                  :key="m.id"
+                  type="button"
+                  class="method-option"
+                  :class="{ active: selectedMetodo === m.id }"
+                  @click="selectedMetodo = m.id; datosPago = {}; referencia = ''; step3Errors = {}; pagoError = ''"
+                >
+                  <div class="method-radio">
+                    <div class="radio-outer" :class="{ checked: selectedMetodo === m.id }">
+                      <div v-if="selectedMetodo === m.id" class="radio-inner" />
                     </div>
                   </div>
-                </Transition>
-
-                <!-- Confirmación de fondos -->
-                <label class="check-row" :class="{ 'is-invalid': step3Errors.fondos }">
-                  <input v-model="fondosConfirmados" type="checkbox" class="checkbox-input" />
-                  <span class="checkbox-box">
-                    <Check v-if="fondosConfirmados" :size="12" />
-                  </span>
-                  <span class="checkbox-label">
-                    Confirmo la recepción de los fondos del cliente
-                  </span>
-                </label>
-                <span v-if="step3Errors.fondos" class="form-error">{{ step3Errors.fondos }}</span>
-
-                <!-- Botón cobrar -->
-                <button class="btn-pay-main" :disabled="procesando" @click="confirmarYFacturar">
-                  <Loader2 v-if="procesando" :size="18" class="spin" />
-                  <CreditCard v-else :size="18" />
-                  {{ procesando ? 'Procesando…' : 'Confirmar y Facturar' }}
+                  <div class="method-info">
+                    <span class="method-name">{{ METODO_LABEL[m.nombre] || m.nombre }}</span>
+                    <span class="method-desc">{{ m.descripcion }}</span>
+                  </div>
                 </button>
               </div>
-            </div>
+              <span v-if="step3Errors.metodo" class="form-error mt-2">{{ step3Errors.metodo }}</span>
+
+              <Transition name="expand">
+                <div v-if="metodoSeleccionado" class="dynamic-fields">
+                  <div
+                    v-if="'referencia' in (metodoSeleccionado.camposRequeridos || {})"
+                    class="form-group"
+                  >
+                    <label class="form-label">
+                      Número de referencia <span class="required">*</span>
+                    </label>
+                    <AppInput
+                      v-model="referencia"
+                      placeholder="Ej: 0000123456789"
+                      :error="step3Errors.referencia"
+                    />
+                    <span v-if="step3Errors.referencia" class="form-error">{{ step3Errors.referencia }}</span>
+                  </div>
+
+                  <div v-for="campo in camposDinamicos" :key="campo.key" class="form-group">
+                    <label class="form-label">
+                      {{ fmtFieldLabel(campo.key) }} <span class="required">*</span>
+                    </label>
+                    <AppSelect
+                      v-if="campo.key === 'banco'"
+                      v-model="datosPago[campo.key]"
+                      :error="step3Errors[campo.key]"
+                    >
+                      <option value="" disabled>Seleccione el banco</option>
+                      <option v-for="b in BANCOS_VENEZUELA" :key="b.codigo" :value="b.nombre">
+                        {{ b.codigo }} - {{ b.nombre }}
+                      </option>
+                    </AppSelect>
+                    <AppInput
+                      v-else
+                      v-model="datosPago[campo.key]"
+                      :error="step3Errors[campo.key]"
+                    />
+                    <span v-if="step3Errors[campo.key]" class="form-error">{{ step3Errors[campo.key] }}</span>
+                  </div>
+                </div>
+              </Transition>
+
+              <label class="check-row" :class="{ 'is-invalid': step3Errors.fondos }">
+                <input v-model="fondosConfirmados" type="checkbox" class="checkbox-input" />
+                <span class="checkbox-box">
+                  <Check v-if="fondosConfirmados" :size="12" />
+                </span>
+                <span class="checkbox-label">
+                  Confirmo la recepción de los fondos del cliente
+                </span>
+              </label>
+              <span v-if="step3Errors.fondos" class="form-error">{{ step3Errors.fondos }}</span>
+
+              <AppButton
+                variant="primary"
+                size="lg"
+                block
+                class="mt-5"
+                :loading="procesando"
+                @click="confirmarYFacturar"
+              >
+                <template #icon-left><CreditCard :size="18" /></template>
+                {{ procesando ? 'Procesando…' : 'Confirmar y Facturar' }}
+              </AppButton>
+            </AppCard>
           </section>
 
-          <!-- ══════ STEP 4: COMPROBANTE ══════ -->
+          <!-- ══════ STEP 4: ÉXITO ══════ -->
           <section v-else-if="currentStep === 4 && resultado" key="step4" class="step-panel step-success">
             <div class="success-container">
               <div class="success-icon">
@@ -550,34 +558,33 @@
                 </div>
               </div>
 
-              <div v-if="envio" class="alert" :class="envio.enviado ? 'alert-success' : 'alert-warning'">
-                <CheckCircle2 v-if="envio.enviado" :size="16" />
-                <AlertTriangle v-else :size="16" />
-                <span>{{ envio.mensaje }}</span>
-              </div>
+              <AppAlert
+                v-if="envio"
+                :variant="envio.enviado ? 'success' : 'warning'"
+              >
+                {{ envio.mensaje }}
+              </AppAlert>
 
               <div class="success-actions">
-                <button class="btn-secondary" :disabled="imprimiendo" @click="imprimirComprobante">
-                  <Loader2 v-if="imprimiendo" :size="15" class="spin" />
-                  <Printer v-else :size="15" />
-                  Imprimir
-                </button>
-                <button class="btn-secondary" :disabled="enviando" @click="enviarPorCorreo">
-                  <Loader2 v-if="enviando" :size="15" class="spin" />
-                  <Mail v-else :size="15" />
-                  Enviar por correo
-                </button>
-                <button class="btn-primary" @click="volverAlCalendario">
-                  <ArrowLeft :size="15" />
+                <AppButton variant="secondary" :loading="imprimiendo" @click="imprimirComprobante">
+                  <template #icon-left><Printer :size="15" /></template>
+                  {{ imprimiendo ? 'Imprimiendo…' : 'Imprimir' }}
+                </AppButton>
+                <AppButton variant="secondary" :loading="enviando" @click="enviarPorCorreo">
+                  <template #icon-left><Mail :size="15" /></template>
+                  {{ enviando ? 'Enviando…' : 'Enviar por correo' }}
+                </AppButton>
+                <AppButton variant="primary" @click="volverAlCalendario">
+                  <template #icon-left><ArrowLeft :size="15" /></template>
                   Volver al calendario
-                </button>
+                </AppButton>
               </div>
             </div>
           </section>
         </Transition>
       </main>
 
-      <!-- ═══ SIDEBAR RESUMEN ═══ -->
+      <!-- Sidebar resumen -->
       <aside v-if="currentStep < 4" class="wizard-sidebar">
         <div class="summary-card">
           <header class="summary-card-header">
@@ -615,48 +622,65 @@
               <span class="total-label">Total estimado</span>
               <span class="total-value">{{ resumenActual.total || '—' }}</span>
             </div>
+            <div v-if="resumenActual.totalBs" class="total-bs">
+              {{ resumenActual.totalBs }}
+            </div>
             <p class="summary-note">
               <Lock :size="11" />
-              El monto en Bs. se calcula con la tasa oficial al confirmar.
+              {{ resumenActual.totalBs
+                ? 'Monto calculado con la tasa oficial actual.'
+                : 'El monto en Bs. se calcula con la tasa oficial.' }}
             </p>
           </footer>
         </div>
       </aside>
     </div>
 
-    <!-- ═══ STEP ACTIONS ═══ -->
+    <!-- Step actions -->
     <div v-if="currentStep < 4" class="step-actions">
-      <button class="btn-cancel" type="button" @click="cancelar">
-        <X :size="15" /> Cancelar
-      </button>
+      <AppButton variant="ghost" @click="cancelar">
+        <template #icon-left><X :size="15" /></template>
+        Cancelar
+      </AppButton>
       <div class="step-actions-right">
-        <button
+        <AppButton
           v-if="currentStep > 1"
-          class="btn-back"
-          type="button"
+          variant="secondary"
           @click="currentStep--; pagoError = ''"
         >
-          <ArrowLeft :size="15" /> Atrás
-        </button>
-        <button
+          <template #icon-left><ArrowLeft :size="15" /></template>
+          Atrás
+        </AppButton>
+        <AppButton
           v-if="currentStep === 1"
-          class="btn-next"
-          type="button"
+          variant="primary"
           @click="validarStep1() && (currentStep = 2)"
         >
-          Siguiente <ArrowRight :size="15" />
-        </button>
-        <button
+          Siguiente
+          <template #icon-right><ArrowRight :size="15" /></template>
+        </AppButton>
+        <AppButton
           v-if="currentStep === 2"
-          class="btn-next"
-          type="button"
+          variant="primary"
           :disabled="!selectedBloque"
           @click="validarStep2() && (currentStep = 3)"
         >
-          Ir al cobro <ArrowRight :size="15" />
-        </button>
+          Ir al cobro
+          <template #icon-right><ArrowRight :size="15" /></template>
+        </AppButton>
       </div>
     </div>
+
+    <!-- ═══ MODAL: Horario del veterinario ═══ -->
+    <AppModal
+      :model-value="horarioModalVisible"
+      :title="vetHorario?.nombre || 'Horario de atención'"
+      :subtitle="vetHorario?.especialidad || 'Veterinario'"
+      size="md"
+      @update:model-value="cerrarHorarioModal"
+    >
+      <HorarioSemanalCard :horario="vetHorario?.horarioAtencion" />
+    </AppModal>
   </div>
 </template>
 
@@ -666,15 +690,25 @@ import { useRouter, useRoute } from 'vue-router'
 import {
   Search, X, UserPlus, PawPrint, Stethoscope, CalendarDays, Clock,
   CreditCard, Printer, Mail, CheckCircle2, AlertTriangle, ArrowLeft,
-  ArrowRight, Loader2, ChevronRight, ClipboardList, MessageSquare,
-  DollarSign, Check, Sparkles, Lock
+  ArrowRight, ChevronRight, ClipboardList, MessageSquare,
+  DollarSign, Check, Sparkles, Lock, CalendarClock,
 } from 'lucide-vue-next'
 import * as clientesApi from '@/api/clientes.api'
 import { getServicios, getVeterinarios, getDisponibilidad, agendarMostrador } from '@/api/citas.api'
-import { getMetodosPresenciales, enviarFactura, descargarFactura } from '@/api/pagos.api'
+import { getMetodosPresenciales, enviarFactura, descargarFactura, getTasaCambio } from '@/api/pagos.api'
 import { getMascotasPorCliente } from '@/api/mascotas.api'
+import ToastContainer from '@/components/ui/ToastContainer.vue'
+import AppButton from '@/components/ui/AppButton.vue'
+import AppCard from '@/components/ui/AppCard.vue'
+import AppAlert from '@/components/ui/AppAlert.vue'
+import AppInput from '@/components/ui/AppInput.vue'
+import AppSelect from '@/components/ui/AppSelect.vue'
+import AppTextarea from '@/components/ui/AppTextarea.vue'
 import PetAvatar from '@/components/ui/PetAvatar.vue'
 import EntityAvatar from '@/components/ui/EntityAvatar.vue'
+
+import HorarioSemanalCard from '@/components/ui/HorarioSemanalCard.vue'
+import AppModal from '@/components/ui/AppModal.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -691,6 +725,7 @@ const BANCOS_VENEZUELA = [
   { codigo: '0177', nombre: 'BANFANB' },
   { codigo: '0190', nombre: 'Banco Nacional de Crédito, C.A.' },
 ]
+
 const METODO_LABEL = {
   Efectivo: 'Efectivo',
   Tarjeta: 'Tarjeta (Punto de Venta)',
@@ -705,7 +740,7 @@ const steps = [
 ]
 const currentStep = ref(1)
 
-// ─── STEP 1 ───
+/* STEP 1 */
 const clienteFiltro = ref('')
 const resultadosClientes = ref([])
 const buscandoCliente = ref(false)
@@ -717,7 +752,7 @@ const motivoConsulta = ref('')
 const step1Errors = ref({})
 let debounce = null
 
-// ─── STEP 2 ───
+/* STEP 2 */
 const veterinarios = ref([])
 const selectedVeterinario = ref(null)
 const servicios = ref([])
@@ -730,7 +765,7 @@ const selectedBloque = ref(null)
 const bloqueConflicto = ref(null)
 const step2Errors = ref({})
 
-// ─── STEP 3 ───
+/* STEP 3 */
 const metodos = ref([])
 const selectedMetodo = ref(null)
 const datosPago = ref({})
@@ -739,19 +774,34 @@ const fondosConfirmados = ref(false)
 const step3Errors = ref({})
 const procesando = ref(false)
 const pagoError = ref('')
+const tasaCambio = ref(null)
 
-// ─── STEP 4 ───
+
+/* STEP 4 */
 const resultado = ref(null)
 const envio = ref(null)
+
+const horarioModalVisible = ref(false)
+const vetHorario = ref(null)
+
+function verHorario(v) {
+  vetHorario.value = v
+  horarioModalVisible.value = true
+}
+
+function cerrarHorarioModal() {
+  horarioModalVisible.value = false
+  vetHorario.value = null
+}
+
 const enviando = ref(false)
 const imprimiendo = ref(false)
 
-// ─── Computed ───
 const servicioSeleccionado = computed(() =>
-  servicios.value.find(s => s.id === selectedServicio.value) || null
+  servicios.value.find((s) => s.id === selectedServicio.value) || null
 )
 const metodoSeleccionado = computed(() =>
-  metodos.value.find(m => m.id === selectedMetodo.value) || null
+  metodos.value.find((m) => m.id === selectedMetodo.value) || null
 )
 const camposDinamicos = computed(() => {
   if (!metodoSeleccionado.value?.camposRequeridos) return []
@@ -762,20 +812,26 @@ const camposDinamicos = computed(() => {
 
 const resumenActual = computed(() => {
   const servicio = servicioSeleccionado.value
+  const precioUsd = servicio?.precioUsd ?? null
+  const totalBs = (precioUsd != null && tasaCambio.value != null)
+    ? precioUsd * tasaCambio.value
+    : null
+
   return {
     cliente: clienteSeleccionado.value?.nombreCompleto || null,
-    mascota: mascotas.value.find(m => m.idMascota === selectedMascota.value)?.nombre || null,
-    veterinario: veterinarios.value.find(v => v.id === selectedVeterinario.value)?.nombre || null,
+    mascota: mascotas.value.find((m) => m.idMascota === selectedMascota.value)?.nombre || null,
+    veterinario: veterinarios.value.find((v) => v.id === selectedVeterinario.value)?.nombre || null,
     servicio: servicio?.nombre || null,
     fecha: fecha.value ? fmtFecha(fecha.value) : null,
     hora: selectedBloque.value
       ? `${fmtHora(selectedBloque.value.horaInicio)} – ${fmtHora(selectedBloque.value.horaFin)}`
       : null,
-    total: servicio?.precioUsd != null ? fmtUsd(servicio.precioUsd) : null,
+    total: precioUsd != null ? fmtUsd(precioUsd) : null,
+    totalBs: totalBs != null ? fmtBs(totalBs) : null,
   }
 })
 
-// ─── Búsqueda de cliente ───
+/* Búsqueda cliente */
 watch(clienteFiltro, (val) => {
   if (clienteSeleccionado.value) return
   clearTimeout(debounce)
@@ -829,20 +885,18 @@ async function cargarMascotas() {
   }
 }
 
-// ─── Vet → servicios ───
+/* Vet → servicios */
 async function onVeterinarioChange() {
   selectedServicio.value = null
   servicios.value = []
   bloques.value = []
   selectedBloque.value = null
-  const vet = veterinarios.value.find(v => v.id === selectedVeterinario.value)
+  const vet = veterinarios.value.find((v) => v.id === selectedVeterinario.value)
   if (!vet?.especialidad) return
   try {
     const { data } = await getServicios({ especialidad: vet.especialidad })
     servicios.value = data
-  } catch {
-    /* silencioso */
-  }
+  } catch { /* silencioso */ }
 }
 
 watch(fecha, () => {
@@ -870,7 +924,7 @@ async function cargarBloques() {
   }
 }
 
-// ─── Validaciones ───
+/* Validaciones */
 function validarStep1() {
   const errors = {}
   if (!clienteSeleccionado.value) errors.cliente = 'Seleccione un cliente'
@@ -890,7 +944,7 @@ function validarStep2() {
   return Object.keys(errors).length === 0
 }
 
-// ─── Confirmar y facturar ───
+/* Confirmar y facturar */
 async function confirmarYFacturar() {
   const campos = metodoSeleccionado.value?.camposRequeridos || {}
   const errors = {}
@@ -947,7 +1001,7 @@ async function confirmarYFacturar() {
   }
 }
 
-// ─── Acciones del comprobante ───
+/* Acciones del comprobante */
 async function imprimirComprobante() {
   imprimiendo.value = true
   try {
@@ -955,11 +1009,8 @@ async function imprimirComprobante() {
     const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
     window.open(url, '_blank')
     setTimeout(() => window.URL.revokeObjectURL(url), 60000)
-  } catch {
-    /* el PDF puede reintentarse */
-  } finally {
-    imprimiendo.value = false
-  }
+  } catch { /* reintentable */ }
+  finally { imprimiendo.value = false }
 }
 
 async function enviarPorCorreo() {
@@ -984,7 +1035,7 @@ function cancelar() {
   router.push('/recepcion/citas')
 }
 
-// ─── Helpers de formato ───
+/* Helpers */
 function fmtHora(t) {
   if (!t) return ''
   const [h, m] = t.split(':')
@@ -1001,6 +1052,15 @@ function fmtUsd(v) {
   if (v == null) return '—'
   return `$${Number(v).toFixed(2)}`
 }
+
+function fmtBs(v) {
+  if (v == null) return '—'
+  return `Bs. ${Number(v).toLocaleString('es-VE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
+}
+
 function fmtFieldLabel(key) {
   const labels = {
     banco: 'Banco emisor',
@@ -1011,18 +1071,24 @@ function fmtFieldLabel(key) {
   return labels[key] || key.replace(/_/g, ' ')
 }
 
-// ─── Init ───
+/* Init */
 onMounted(async () => {
-  const { data } = await getVeterinarios()
-  veterinarios.value = data
-  const { data: m } = await getMetodosPresenciales()
-  metodos.value = m
+  // Cargar tasa, veterinarios y métodos en paralelo
+  const [vetsRes, metodosRes, tasaRes] = await Promise.allSettled([
+    getVeterinarios(),
+    getMetodosPresenciales(),
+    getTasaCambio(),
+  ])
+
+  veterinarios.value = vetsRes.status === 'fulfilled' ? vetsRes.value.data : []
+  metodos.value = metodosRes.status === 'fulfilled' ? metodosRes.value.data : []
+  tasaCambio.value = tasaRes.status === 'fulfilled' ? Number(tasaRes.value.data.tasa) : null
 
   if (route.query.clienteDocumento) {
     clienteFiltro.value = route.query.clienteDocumento
     await buscarClientes()
     const exacto = resultadosClientes.value.find(
-      c => c.documentoIdentidad === route.query.clienteDocumento
+      (c) => c.documentoIdentidad === route.query.clienteDocumento
     )
     if (exacto) seleccionarCliente(exacto)
     clienteFiltro.value = ''
@@ -1034,103 +1100,64 @@ onMounted(async () => {
 .agendar-mostrador {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 24px 24px 48px;
-  font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  color: #1E293B;
+  padding: var(--space-6) var(--space-6) var(--space-12);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
 }
-button { font-family: inherit; }
 
-/* ═══ BREADCRUMB ═══ */
+/* BREADCRUMB */
 .breadcrumb {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
-  font-size: 13px;
-  color: #64748B;
+  gap: var(--space-2);
+  font-size: var(--text-md);
+  color: var(--text-secondary);
 }
 .bc-back {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
-  border: 1px solid #E2E8F0;
-  background: #fff;
-  color: #475569;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--neutral-600);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all .15s ease;
+  transition: all var(--duration-fast) var(--ease-out);
   margin-right: 2px;
 }
-.bc-back:hover { background: #F1F5F9; color: #0F766E; border-color: #CBD5E1; }
-.bc-item { font-weight: 500; }
+.bc-back:hover { background: var(--neutral-100); color: var(--brand-700); border-color: var(--border-strong); }
+.bc-item { font-weight: var(--font-medium); }
 .bc-link {
   background: none;
   border: none;
-  color: #64748B;
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 0;
-  font-size: 13px;
+  font-size: var(--text-md);
+  font-family: inherit;
 }
-.bc-link:hover { color: #0F766E; text-decoration: underline; }
-.bc-current { color: #1E293B; font-weight: 700; }
-.bc-sep { color: #CBD5E1; }
+.bc-link:hover { color: var(--brand-700); text-decoration: underline; }
+.bc-current { color: var(--text-primary); font-weight: var(--font-bold); }
+.bc-sep { color: var(--neutral-300); }
 
-/* ═══ HERO ═══ */
-.wizard-hero {
-  padding: 24px 28px;
-  margin-bottom: 16px;
-  background: linear-gradient(135deg, #F0FDFA 0%, #FFFFFF 55%);
-  border: 1px solid #CCFBF1;
-  border-radius: 16px;
-}
-.hero-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 0 8px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .7px;
-  color: #0F766E;
-  background: #fff;
-  padding: 4px 10px;
-  border-radius: 20px;
-  border: 1px solid #CCFBF1;
-}
-.wizard-hero h1 {
-  margin: 0 0 4px;
-  font-size: 26px;
-  font-weight: 700;
-  color: #0F172A;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-.hero-sub {
-  margin: 0;
-  font-size: 14px;
-  color: #64748B;
-  max-width: 520px;
-}
-
-/* ═══ STEPPER ═══ */
+/* STEPPER */
 .stepper {
   display: flex;
   align-items: center;
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 14px;
-  padding: 14px 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .03), 0 10px 15px -3px rgba(0, 0, 0, .04);
-  gap: 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2xl);
+  padding: var(--space-4) var(--space-5);
+  box-shadow: var(--shadow-sm);
+  gap: var(--space-2);
 }
 .stepper-step {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
   flex: 1;
   min-width: 0;
   position: relative;
@@ -1143,38 +1170,38 @@ button { font-family: inherit; }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12.5px;
-  font-weight: 700;
-  background: #F1F5F9;
-  color: #94A3B8;
-  border: 2px solid #E2E8F0;
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
+  background: var(--neutral-100);
+  color: var(--text-tertiary);
+  border: 2px solid var(--border-subtle);
   flex-shrink: 0;
-  transition: all .3s ease;
+  transition: all var(--duration-slow) var(--ease-out);
 }
 .stepper-step.active .stepper-circle {
-  background: #0F766E;
-  color: #fff;
-  border-color: #0F766E;
-  box-shadow: 0 0 0 4px rgba(15, 118, 110, .15);
+  background: var(--brand-700);
+  color: var(--text-inverse);
+  border-color: var(--brand-700);
+  box-shadow: 0 0 0 4px var(--brand-100);
 }
 .stepper-step.completed .stepper-circle {
-  background: #0F766E;
-  color: #fff;
-  border-color: #0F766E;
+  background: var(--brand-700);
+  color: var(--text-inverse);
+  border-color: var(--brand-700);
 }
 .stepper-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .stepper-label {
-  font-size: 13px;
-  font-weight: 700;
-  color: #94A3B8;
-  transition: color .25s ease;
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
+  color: var(--text-tertiary);
+  transition: color var(--duration-slow) var(--ease-out);
   white-space: nowrap;
 }
-.stepper-step.active .stepper-label { color: #0F766E; }
-.stepper-step.completed .stepper-label { color: #1E293B; }
+.stepper-step.active .stepper-label { color: var(--brand-700); }
+.stepper-step.completed .stepper-label { color: var(--text-primary); }
 .stepper-desc {
-  font-size: 11px;
-  color: #94A3B8;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1182,192 +1209,155 @@ button { font-family: inherit; }
 .stepper-line {
   flex: 1;
   height: 2px;
-  background: #E2E8F0;
-  margin: 0 10px;
+  background: var(--border-subtle);
+  margin: 0 var(--space-3);
   border-radius: 1px;
-  transition: background .3s ease;
-  min-width: 16px;
+  transition: background var(--duration-slow) var(--ease-out);
+  min-width: 20px;
 }
-.stepper-step.completed .stepper-line { background: #0F766E; }
+.stepper-step.completed .stepper-line { background: var(--brand-700); }
 
-/* ═══ LAYOUT ═══ */
+/* LAYOUT */
 .wizard-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 20px;
+  gap: var(--space-5);
   align-items: start;
 }
 .wizard-layout.is-success { grid-template-columns: 1fr; }
-.wizard-main {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
+.wizard-main { min-width: 0; display: flex; flex-direction: column; gap: var(--space-4); }
 
-/* ═══ SIDEBAR ═══ */
-.summary-card {
+/* SIDEBAR */
+.wizard-sidebar {
   position: sticky;
-  top: 24px;
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 14px;
+  top: var(--space-6);
+  max-height: calc(100vh - var(--space-12));
+  overflow-y: auto;
+  min-width: 0;
+}
+.summary-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2xl);
   overflow: hidden;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .03), 0 10px 15px -3px rgba(0, 0, 0, .04);
+  box-shadow: var(--shadow-sm);
 }
-.summary-card-header { padding: 16px 20px 12px; border-bottom: 1px solid #F1F5F9; }
-.summary-card-header h4 { margin: 0 0 2px; font-size: 14.5px; font-weight: 700; color: #0F172A; }
-.summary-card-hint { font-size: 11.5px; color: #94A3B8; }
-.summary-card-body {
-  padding: 12px 20px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 11px;
+.summary-card-header {
+  padding: var(--space-5) var(--space-5) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
 }
-.summary-line { display: flex; flex-direction: column; gap: 3px; transition: opacity .2s ease; }
-.summary-line.is-empty { opacity: .55; }
+.summary-card-header h4 { margin: 0 0 2px; font-size: var(--text-lg); font-weight: var(--font-bold); color: var(--text-primary); }
+.summary-card-hint { font-size: var(--text-sm); color: var(--text-tertiary); }
+.summary-card-body { padding: var(--space-3) var(--space-5) var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+.summary-line { display: flex; flex-direction: column; gap: 3px; transition: opacity var(--duration-base) var(--ease-out); }
+.summary-line.is-empty { opacity: 0.55; }
 .summary-line-label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 10.5px;
-  font-weight: 700;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
   text-transform: uppercase;
-  letter-spacing: .5px;
-  color: #64748B;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
 }
-.summary-line-value {
-  font-size: 13px;
-  font-weight: 600;
-  color: #0F172A;
-  line-height: 1.35;
-  word-break: break-word;
-}
-.summary-line.is-empty .summary-line-value {
-  color: #94A3B8;
-  font-weight: 500;
-  font-style: italic;
-}
+.summary-line-value { font-size: var(--text-base); font-weight: var(--font-semibold); color: var(--text-primary); line-height: var(--leading-snug); word-break: break-word; }
+.summary-line.is-empty .summary-line-value { color: var(--text-tertiary); font-weight: var(--font-medium); font-style: italic; }
 .summary-card-footer {
-  padding: 14px 20px 18px;
-  background: linear-gradient(180deg, #F8FAFC 0%, #F0FDFA 100%);
-  border-top: 1px solid #E2E8F0;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  background: linear-gradient(180deg, var(--neutral-50) 0%, var(--brand-50) 100%);
+  border-top: 1px solid var(--border-subtle);
 }
 .summary-total {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
+  flex-wrap: wrap;
 }
 .total-label {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--font-extrabold);
   text-transform: uppercase;
-  letter-spacing: .5px;
-  color: #64748B;
+  letter-spacing: 0.07em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
-.total-value { font-size: 20px; font-weight: 700; color: #0F766E; letter-spacing: -0.01em; }
+.total-value {
+  font-size: 18px;
+  font-weight: var(--font-bold);
+  color: var(--brand-700);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+  margin-left: auto;
+}
 .summary-note {
   display: flex;
   align-items: center;
-  gap: 5px;
-  margin: 12px 0 0;
-  font-size: 11px;
-  color: #64748B;
-  line-height: 1.4;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  line-height: var(--leading-snug);
 }
+.summary-note svg { flex-shrink: 0; }
 
-/* ═══ CARDS ═══ */
-.card {
-  background: #fff;
-  border-radius: 14px;
-  border: 1px solid #E2E8F0;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .03), 0 10px 15px -3px rgba(0, 0, 0, .04);
-  overflow: hidden;
-}
-.card-header {
-  padding: 16px 22px;
-  border-bottom: 1px solid #E2E8F0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.card-header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+/* CARD HEADER */
+.card-header-left { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
 .card-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: #F0FDFA;
-  color: #0F766E;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-lg);
+  background: var(--brand-50);
+  color: var(--brand-700);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
-.card-header h3 { font-size: 14.5px; font-weight: 700; color: #0F172A; margin: 0; line-height: 1.2; }
-.card-header-sub { margin: 2px 0 0; font-size: 12px; color: #64748B; }
-.card-body { padding: 18px 22px 22px; }
 
-/* ═══ SEARCH BOX ═══ */
-.search-box { position: relative; }
+/* SEARCH */
+.search-bar { position: relative; }
 .search-icon {
   position: absolute;
-  left: 14px;
+  left: var(--space-4);
   top: 50%;
   transform: translateY(-50%);
-  color: #94A3B8;
+  color: var(--text-tertiary);
   pointer-events: none;
 }
-.search-input {
-  width: 100%;
-  padding: 11px 40px 11px 40px;
-  border: 1.5px solid #E2E8F0;
-  border-radius: 10px;
-  font-size: 13.5px;
-  color: #1E293B;
-  background: #fff;
-  font-family: inherit;
-  outline: none;
-  box-sizing: border-box;
-  transition: all .2s;
-}
-.search-input::placeholder { color: #94A3B8; }
-.search-input:focus {
-  border-color: #0F766E;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, .1);
-}
+.search-input { padding-left: 40px; padding-right: 40px; }
 .search-spinner {
   position: absolute;
-  right: 12px;
+  right: var(--space-3);
   top: 50%;
   transform: translateY(-50%);
-  color: #0F766E;
+  color: var(--brand-700);
 }
 .search-clear {
   position: absolute;
-  right: 10px;
+  right: var(--space-3);
   top: 50%;
   transform: translateY(-50%);
   background: none;
   border: none;
-  color: #94A3B8;
+  color: var(--text-tertiary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 5px;
-  border-radius: 6px;
-  transition: all .15s;
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
 }
-.search-clear:hover { color: #475569; background: #F1F5F9; }
+.search-clear:hover { color: var(--neutral-600); background: var(--neutral-100); }
 
-/* ═══ RESULTS DROPDOWN ═══ */
 .results-list {
-  margin-top: 10px;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
+  margin-top: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
   overflow: hidden;
   max-height: 300px;
   overflow-y: auto;
@@ -1375,575 +1365,392 @@ button { font-family: inherit; }
 .result-row {
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 12px;
+  gap: var(--space-3);
   align-items: center;
   width: 100%;
   text-align: left;
-  padding: 12px 14px;
-  background: #fff;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-surface);
   border: none;
-  border-bottom: 1px solid #F1F5F9;
+  border-bottom: 1px solid var(--neutral-100);
   cursor: pointer;
   font-family: inherit;
-  transition: background-color .15s;
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
 .result-row:last-child { border-bottom: none; }
-.result-row:hover { background: #F0FDFA; }
+.result-row:hover { background: var(--brand-50); }
 .result-info { min-width: 0; }
-.result-name {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 700;
-  color: #0F172A;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.result-meta {
-  margin: 2px 0 0;
-  font-size: 12px;
-  color: #64748B;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.result-arrow { color: #CBD5E1; flex-shrink: 0; transition: color .2s ease; }
-.result-row:hover .result-arrow { color: #0F766E; }
+.result-name { margin: 0; font-size: var(--text-base); font-weight: var(--font-bold); color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.result-meta { margin: 2px 0 0; font-size: var(--text-sm); color: var(--text-secondary); }
+.result-arrow { color: var(--neutral-300); flex-shrink: 0; }
+.result-row:hover .result-arrow { color: var(--brand-700); }
 
-/* ═══ CLIENTE CHIP ═══ */
+/* CLIENTE CHIP */
 .cliente-chip {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  background: #F0FDFA;
-  border: 1px solid #99F6E4;
-  border-radius: 12px;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--brand-50);
+  border: 1px solid var(--brand-200);
+  border-radius: var(--radius-xl);
 }
 .cliente-chip-info { flex: 1; min-width: 0; }
-.cliente-chip-name {
-  margin: 0;
-  font-size: 14.5px;
-  font-weight: 700;
-  color: #0F172A;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.cliente-chip-doc {
-  margin: 2px 0 0;
-  font-size: 12.5px;
-  color: #0F766E;
-  font-weight: 600;
-}
+.cliente-chip-name { margin: 0; font-size: var(--text-base); font-weight: var(--font-bold); color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cliente-chip-doc { margin: 2px 0 0; font-size: var(--text-sm); color: var(--brand-700); font-weight: var(--font-semibold); }
 .btn-chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  background: #fff;
-  border: 1px solid #99F6E4;
-  color: #0F766E;
-  border-radius: 8px;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 700;
+  gap: var(--space-1);
+  background: var(--bg-surface);
+  border: 1px solid var(--brand-200);
+  color: var(--brand-700);
+  border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
   cursor: pointer;
   font-family: inherit;
-  transition: all .2s ease;
+  transition: all var(--duration-fast) var(--ease-out);
   flex-shrink: 0;
 }
-.btn-chip:hover {
-  background: #CCFBF1;
-  border-color: #0F766E;
-}
+.btn-chip:hover { background: var(--brand-100); border-color: var(--brand-700); }
 
-/* ═══ PICK GRID ═══ */
+/* PICK GRID */
 .pick-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 10px;
+  gap: var(--space-3);
 }
 .pick-grid.with-error {
-  padding: 4px;
-  border-radius: 12px;
-  background: #FEF2F2;
-  border: 1px solid #FECACA;
+  padding: var(--space-1);
+  border-radius: var(--radius-xl);
+  background: var(--danger-50);
+  border: 1px solid var(--danger-200);
 }
 .pick-card {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  background: #fff;
-  border: 1.5px solid #E2E8F0;
-  border-radius: 12px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
   cursor: pointer;
   font-family: inherit;
   text-align: left;
-  transition: all .2s ease;
+  transition: all var(--duration-base) var(--ease-out);
   overflow: hidden;
 }
 .pick-card:hover {
-  border-color: #99F6E4;
-  background: #F0FDFA;
+  border-color: var(--brand-200);
+  background: var(--brand-50);
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px -8px rgba(15, 118, 110, .2);
+  box-shadow: 0 6px 16px -8px rgba(15, 118, 110, 0.2);
 }
 .pick-card.selected {
-  border-color: #0F766E;
-  background: #F0FDFA;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, .1);
+  border-color: var(--brand-700);
+  background: var(--brand-50);
+  box-shadow: 0 0 0 3px var(--brand-100);
 }
 .pick-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.pick-name {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #0F172A;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.25;
-}
-.pick-meta {
-  font-size: 11.5px;
-  color: #64748B;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+.pick-name { font-size: var(--text-base); font-weight: var(--font-bold); color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pick-meta { font-size: var(--text-sm); color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pick-check {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: #0F766E;
-  color: #fff;
+  background: var(--brand-700);
+  color: var(--text-inverse);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  animation: checkPop .25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: checkPop 0.25s var(--ease-spring);
 }
-@keyframes checkPop {
-  0% { transform: scale(0); }
-  100% { transform: scale(1); }
-}
+@keyframes checkPop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
 
-/* ═══ SERVICE LIST ═══ */
-.service-list { display: flex; flex-direction: column; gap: 8px; }
+/* EMPTY */
+.empty-inline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-7) var(--space-5);
+  color: var(--text-tertiary);
+  text-align: center;
+  font-size: var(--text-md);
+}
+.empty-inline p { margin: 0; }
+.link-teal { color: var(--brand-700); font-weight: var(--font-bold); text-decoration: none; }
+.link-teal:hover { text-decoration: underline; }
+
+/* SERVICE */
+.service-list { display: flex; flex-direction: column; gap: var(--space-2); }
 .service-list.with-error {
-  padding: 4px;
-  border-radius: 12px;
-  background: #FEF2F2;
-  border: 1px solid #FECACA;
+  padding: var(--space-1);
+  border-radius: var(--radius-xl);
+  background: var(--danger-50);
+  border: 1px solid var(--danger-200);
 }
 .service-item {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
-  padding: 14px 16px;
-  background: #fff;
-  border: 1.5px solid #E2E8F0;
-  border-radius: 12px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
   cursor: pointer;
   font-family: inherit;
   text-align: left;
   width: 100%;
-  transition: all .2s ease;
+  transition: all var(--duration-base) var(--ease-out);
 }
-.service-item:hover { border-color: #99F6E4; background: #F0FDFA; }
-.service-item.selected {
-  border-color: #0F766E;
-  background: #F0FDFA;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, .1);
-}
+.service-item:hover { border-color: var(--brand-200); background: var(--brand-50); }
+.service-item.selected { border-color: var(--brand-700); background: var(--brand-50); box-shadow: 0 0 0 3px var(--brand-100); }
 .service-item-radio {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  border: 2px solid #CBD5E1;
+  border: 2px solid var(--neutral-300);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   margin-top: 2px;
-  transition: border-color .2s ease;
+  transition: border-color var(--duration-base);
 }
-.service-item.selected .service-item-radio { border-color: #0F766E; }
+.service-item.selected .service-item-radio { border-color: var(--brand-700); }
 .service-item-radio-inner {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #0F766E;
-  animation: radioPop .2s ease;
+  background: var(--brand-700);
+  animation: radioPop 0.2s var(--ease-out);
 }
-@keyframes radioPop {
-  0% { transform: scale(0); }
-  100% { transform: scale(1); }
-}
-.service-item-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.service-item-name { font-size: 14px; font-weight: 700; color: #0F172A; line-height: 1.3; }
-.service-item-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+@keyframes radioPop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+.service-item-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.service-item-name { font-size: var(--text-base); font-weight: var(--font-bold); color: var(--text-primary); line-height: 1.3; }
+.service-item-meta { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .meta-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #0F766E;
-  background: #fff;
-  padding: 3px 10px;
-  border-radius: 20px;
-  border: 1px solid #CCFBF1;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--brand-700);
+  background: var(--bg-surface);
+  padding: 3px var(--space-3);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--brand-200);
 }
-.meta-price { color: #0F172A; border-color: #E2E8F0; }
+.meta-price { color: var(--text-primary); border-color: var(--border-subtle); }
 
-/* ═══ FORM INPUTS ═══ */
-.form-input,
-.form-select,
-.form-textarea {
-  width: 100%;
-  padding: 11px 14px;
-  border: 1px solid #D1D5DB;
-  border-radius: 10px;
-  font-size: 14px;
-  color: #1E293B;
-  background: #fff;
-  font-family: inherit;
-  transition: border-color .2s, box-shadow .2s;
-  box-sizing: border-box;
-  appearance: none;
-  -webkit-appearance: none;
-}
-.form-select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 14px center;
-  padding-right: 40px;
-  cursor: pointer;
-}
-.form-input:focus,
-.form-select:focus,
-.form-textarea:focus {
-  outline: none;
-  border-color: #0F766E;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, .12);
-}
-.form-textarea { resize: vertical; min-height: 84px; line-height: 1.55; }
-.is-invalid { border-color: #EF4444 !important; }
-.is-invalid:focus { box-shadow: 0 0 0 3px rgba(239, 68, 68, .12) !important; }
-.form-group { display: flex; flex-direction: column; gap: 6px; }
-.form-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #374151;
-}
-.required { color: #EF4444; }
-.form-error { font-size: 12px; color: #EF4444; font-weight: 600; }
-.form-error.mt-8 { display: block; margin-top: 10px; }
-.form-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
-.char-count { font-size: 11px; color: #94A3B8; margin-left: auto; }
-
-/* ═══ SLOTS ═══ */
+/* SLOTS */
 .slots-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 10px;
+  gap: var(--space-3);
 }
 .slot-btn {
-  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 14px 12px;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  background: #fff;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  background: var(--bg-surface);
   cursor: pointer;
-  transition: all .2s ease;
+  transition: all var(--duration-base) var(--ease-out);
+  position: relative;
   min-height: 62px;
   font-family: inherit;
 }
-.slot-btn:hover {
-  border-color: #0F766E;
-  background: #F0FDFA;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px -8px rgba(15, 118, 110, .25);
-}
-.slot-btn.is-selected {
-  background: #0F766E;
-  border-color: #0F766E;
-  color: #fff;
-  box-shadow: 0 6px 16px -6px rgba(15, 118, 110, .5);
-}
-.slot-btn.is-conflicto {
-  border-color: #DC2626;
-  background: #FEF2F2;
-  color: #DC2626;
-  animation: pulseWarn 1.2s ease-in-out;
-}
+.slot-btn:hover { border-color: var(--brand-700); background: var(--brand-50); transform: translateY(-1px); box-shadow: 0 6px 16px -8px rgba(15, 118, 110, 0.25); }
+.slot-btn.is-selected { background: var(--brand-700); border-color: var(--brand-700); color: var(--text-inverse); box-shadow: 0 6px 16px -6px rgba(15, 118, 110, 0.5); }
+.slot-btn.is-conflicto { border-color: var(--danger-500); background: var(--danger-50); animation: pulseWarn 1.2s ease-in-out; }
 @keyframes pulseWarn {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, .2); }
-  50% { box-shadow: 0 0 0 6px rgba(220, 38, 38, .15); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.2); }
+  50% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0.15); }
 }
-.slot-time { font-size: 13px; font-weight: 700; color: #0F172A; transition: color .2s; }
-.slot-btn.is-selected .slot-time { color: #fff; }
-.slot-btn.is-conflicto .slot-time { color: #DC2626; }
-.slot-sep { font-size: 10px; color: #94A3B8; transition: color .2s; }
-.slot-btn.is-selected .slot-sep { color: rgba(255, 255, 255, .7); }
-.slot-end { font-size: 12px; font-weight: 500; color: #64748B; transition: color .2s; }
-.slot-btn.is-selected .slot-end { color: rgba(255, 255, 255, .85); }
+.slot-time { font-size: var(--text-md); font-weight: var(--font-bold); color: var(--text-primary); transition: color var(--duration-base); }
+.slot-btn.is-selected .slot-time { color: var(--text-inverse); }
+.slot-sep { font-size: var(--text-2xs); color: var(--text-tertiary); }
+.slot-btn.is-selected .slot-sep { color: rgba(255, 255, 255, 0.7); }
+.slot-end { font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--text-secondary); }
+.slot-btn.is-selected .slot-end { color: rgba(255, 255, 255, 0.85); }
 .slot-check {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: var(--space-1);
+  right: var(--space-1);
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, .25);
+  background: rgba(255, 255, 255, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--text-inverse);
 }
 .hint-teal {
   display: flex;
   align-items: center;
-  gap: 5px;
-  margin: 12px 0 0;
-  padding: 8px 12px;
-  font-size: 12px;
-  color: #0F766E;
-  background: #F0FDFA;
-  border: 1px solid #CCFBF1;
-  border-radius: 8px;
+  gap: var(--space-2);
+  margin: var(--space-4) 0 0;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--brand-700);
+  background: var(--brand-50);
+  border: 1px solid var(--brand-200);
+  border-radius: var(--radius-md);
 }
 
-/* ═══ MÉTODOS DE PAGO ═══ */
-.methods-list { display: flex; flex-direction: column; gap: 10px; }
+/* METHODS */
+.methods-list { display: flex; flex-direction: column; gap: var(--space-3); }
 .method-option {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
   cursor: pointer;
-  transition: all .2s ease;
-  background: #fff;
+  transition: all var(--duration-base) var(--ease-out);
+  background: var(--bg-surface);
   font-family: inherit;
   text-align: left;
   width: 100%;
 }
-.method-option:hover { border-color: #99F6E4; background: #F0FDFA; }
-.method-option.active {
-  border-color: #0F766E;
-  background: #F0FDFA;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, .1);
-}
+.method-option:hover { border-color: var(--brand-200); background: var(--brand-50); }
+.method-option.active { border-color: var(--brand-700); background: var(--brand-50); box-shadow: 0 0 0 3px var(--brand-100); }
 .method-radio { flex-shrink: 0; }
 .radio-outer {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  border: 2px solid #CBD5E1;
+  border: 2px solid var(--neutral-300);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all .2s;
 }
-.radio-outer.checked { border-color: #0F766E; }
+.radio-outer.checked { border-color: var(--brand-700); }
 .radio-inner {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #0F766E;
-  animation: radioPop .2s ease;
+  background: var(--brand-700);
+  animation: radioPop 0.2s var(--ease-out);
 }
 .method-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.method-name { font-size: 14px; font-weight: 700; color: #0F172A; }
-.method-desc { font-size: 12.5px; color: #64748B; }
+.method-name { font-size: var(--text-base); font-weight: var(--font-bold); color: var(--text-primary); }
+.method-desc { font-size: var(--text-sm); color: var(--text-secondary); }
 
-/* ═══ DYNAMIC FIELDS ═══ */
 .dynamic-fields {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid #E2E8F0;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border-subtle);
 }
+.form-group { display: flex; flex-direction: column; gap: var(--space-2); }
+.form-label { display: flex; align-items: center; gap: var(--space-1); font-size: var(--text-md); font-weight: var(--font-semibold); color: var(--neutral-700); }
+.required { color: var(--danger-500); }
+.form-error { font-size: var(--text-sm); color: var(--danger-600); font-weight: var(--font-semibold); }
+.form-error.mt-2 { display: block; margin-top: var(--space-2); }
 
-/* ═══ CHECKBOX ═══ */
+/* CHECK */
 .check-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  margin-top: 18px;
-  background: #F8FAFC;
-  border: 1.5px solid #E2E8F0;
-  border-radius: 10px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin-top: var(--space-5);
+  background: var(--bg-surface-alt);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   font-family: inherit;
-  transition: all .2s ease;
+  transition: all var(--duration-fast) var(--ease-out);
 }
-.check-row:hover { border-color: #99F6E4; background: #F0FDFA; }
-.check-row.is-invalid { border-color: #EF4444; background: #FEF2F2; }
+.check-row:hover { border-color: var(--brand-200); background: var(--brand-50); }
+.check-row.is-invalid { border-color: var(--danger-500); background: var(--danger-50); }
 .checkbox-input { display: none; }
 .checkbox-box {
   width: 20px;
   height: 20px;
-  border-radius: 6px;
-  border: 2px solid #CBD5E1;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--neutral-300);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fff;
+  background: var(--bg-surface);
   flex-shrink: 0;
-  transition: all .2s ease;
-  color: #fff;
+  transition: all var(--duration-fast);
+  color: var(--text-inverse);
 }
 .check-row .checkbox-input:checked + .checkbox-box {
-  background: #0F766E;
-  border-color: #0F766E;
+  background: var(--brand-700);
+  border-color: var(--brand-700);
 }
-.checkbox-label {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: #1E293B;
-}
+.checkbox-label { font-size: var(--text-md); font-weight: var(--font-semibold); color: var(--text-primary); }
 
-/* ═══ BOTÓN PAGAR ═══ */
-.btn-pay-main {
-  width: 100%;
-  padding: 14px 24px;
-  background: #0F766E;
-  color: #fff;
-  border: none;
-  border-radius: 12px;
-  font-size: 14.5px;
-  font-weight: 700;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  transition: all .2s ease;
-  margin-top: 18px;
-  font-family: inherit;
-}
-.btn-pay-main:hover:not(:disabled) {
-  background: #115E59;
-  transform: translateY(-1px);
-  box-shadow: 0 8px 20px -6px rgba(15, 118, 110, .4);
-}
-.btn-pay-main:disabled { opacity: .55; cursor: not-allowed; }
-
-/* ═══ ALERTAS ═══ */
-.alert {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px 16px;
-  border-radius: 10px;
-  font-size: 13px;
-  line-height: 1.5;
-  font-weight: 500;
-}
-.alert-error { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
-.alert-warning { background: #FFFBEB; color: #92400E; border: 1px solid #FDE68A; }
-.alert-success { background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; }
-.mt-12 { margin-top: 12px; }
-
-/* ═══ MINI LOAD ═══ */
+/* MINI LOAD */
 .mini-load {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: #64748B;
-  font-size: 13px;
-  padding: 12px 0;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+  padding: var(--space-3) 0;
 }
+.form-footer { display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-2); }
+.char-count { font-size: var(--text-xs); color: var(--text-tertiary); margin-left: auto; }
 
-/* ═══ EMPTY INLINE ═══ */
-.empty-inline {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 24px 20px;
-  color: #94A3B8;
-  text-align: center;
-  font-size: 13px;
-  background: #F8FAFC;
-  border: 1px dashed #E2E8F0;
-  border-radius: 10px;
-}
-.empty-inline p { margin: 0; max-width: 380px; line-height: 1.5; }
-.link-teal {
-  color: #0F766E;
-  font-weight: 700;
-  text-decoration: none;
-}
-.link-teal:hover { text-decoration: underline; }
-
-/* ═══ ÉXITO ═══ */
+/* SUCCESS */
 .step-success { max-width: 720px; margin: 0 auto; }
 .success-container {
-  background: #fff;
-  border-radius: 16px;
-  border: 1px solid #E2E8F0;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .03), 0 10px 15px -3px rgba(0, 0, 0, .04);
-  padding: 44px 32px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-3xl);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-12) var(--space-8);
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 14px;
+  gap: var(--space-3);
 }
 .success-icon {
-  width: 84px;
-  height: 84px;
+  width: 88px;
+  height: 88px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #ECFDF5 0%, #F0FDFA 100%);
-  border: 3px solid #10B981;
+  background: linear-gradient(135deg, var(--success-50) 0%, var(--brand-50) 100%);
+  border: 3px solid var(--success-500);
+  color: var(--success-600);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #059669;
-  margin-bottom: 8px;
-  animation: successPop .5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  margin-bottom: var(--space-2);
+  animation: successPop 0.5s var(--ease-spring);
 }
 @keyframes successPop {
   0% { transform: scale(0); opacity: 0; }
   60% { transform: scale(1.1); }
   100% { transform: scale(1); opacity: 1; }
 }
-.success-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: #0F172A;
-  margin: 0;
-  letter-spacing: -0.01em;
-}
-.success-message {
-  font-size: 13.5px;
-  color: #64748B;
-  margin: 0;
-  max-width: 480px;
-  line-height: 1.6;
-}
+.success-title { font-size: var(--text-4xl); font-weight: var(--font-bold); color: var(--text-primary); margin: 0; letter-spacing: var(--tracking-tight); }
+.success-message { font-size: var(--text-base); color: var(--text-secondary); margin: 0; max-width: 460px; line-height: var(--leading-relaxed); }
+
 .factura-box {
-  margin-top: 8px;
-  padding: 6px 20px;
-  background: #F8FAFC;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-5);
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
   width: 100%;
   max-width: 520px;
   text-align: left;
@@ -1952,189 +1759,151 @@ button { font-family: inherit; }
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  padding: 11px 0;
-  border-bottom: 1px solid #E2E8F0;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--text-md);
 }
 .factura-row:last-child { border-bottom: none; }
 .factura-label {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #64748B;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
   white-space: nowrap;
+  flex-shrink: 0;
 }
-.factura-value {
-  font-size: 13px;
-  font-weight: 700;
-  color: #1E293B;
+.factura-value { font-size: var(--text-md); font-weight: var(--font-bold); color: var(--text-primary); text-align: right; word-break: break-word; }
+.mono { font-family: var(--font-mono); font-size: var(--text-sm); background: var(--neutral-100); padding: 2px var(--space-2); border-radius: var(--radius-sm); }
+.factura-row.total { border-top: 2px solid var(--border-subtle); padding-top: var(--space-4); margin-top: var(--space-1); }
+.total-value { color: var(--brand-700); display: flex; flex-direction: column; align-items: flex-end; }
+
+.total-bs {
+  margin-top: var(--space-1);
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
+  color: var(--text-secondary);
   text-align: right;
-  word-break: break-word;
-}
-.factura-row.total {
-  border-top: 2px solid #E2E8F0;
-  padding-top: 14px;
-  margin-top: 4px;
-}
-.total-value { color: #0F766E; font-size: 15px; display: flex; flex-direction: column; align-items: flex-end; }
-.total-bs { font-size: 11.5px; color: #64748B; font-weight: 500; margin-top: 2px; }
-.mono { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; }
-
-.success-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 18px;
-  flex-wrap: wrap;
-  justify-content: center;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
 }
 
-/* ═══ STEP ACTIONS ═══ */
+.success-actions { display: flex; gap: var(--space-3); margin-top: var(--space-5); flex-wrap: wrap; justify-content: center; }
+
+/* STEP ACTIONS */
 .step-actions {
+  position: sticky;
+  bottom: var(--space-4);
+  z-index: var(--z-sticky);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 20px;
-  padding: 16px 22px;
-  border-radius: 14px;
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .03);
-  gap: 12px;
+  margin-top: var(--space-5);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-2xl);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-lg);
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
-.step-actions-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
-.btn-cancel,
-.btn-back,
-.btn-next,
-.btn-primary,
-.btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 10px 20px;
-  border-radius: 10px;
-  font-size: 13.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all .2s ease;
-  font-family: inherit;
-  white-space: nowrap;
-}
-.btn-cancel {
-  background: none;
-  border: 1px solid #E2E8F0;
-  color: #64748B;
-}
-.btn-cancel:hover {
-  background: #FEF2F2;
-  border-color: #FECACA;
-  color: #EF4444;
-}
-.btn-back {
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  color: #475569;
-}
-.btn-back:hover { background: #F8FAFC; border-color: #CBD5E1; }
-.btn-next {
-  background: #0F766E;
-  border: none;
-  color: #fff;
-}
-.btn-next:hover:not(:disabled) {
-  background: #115E59;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px -4px rgba(15, 118, 110, .4);
-}
-.btn-next:disabled { opacity: .5; cursor: not-allowed; }
-.btn-primary {
-  background: #0F766E;
-  color: #fff;
-  border: none;
-}
-.btn-primary:hover:not(:disabled) {
-  background: #115E59;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px -4px rgba(15, 118, 110, .4);
-}
-.btn-primary:disabled { opacity: .5; cursor: not-allowed; }
-.btn-secondary {
-  background: #fff;
-  color: #475569;
-  border: 1px solid #E2E8F0;
-}
-.btn-secondary:hover:not(:disabled) {
-  background: #F8FAFC;
-  border-color: #CBD5E1;
-  color: #0F766E;
-}
-.btn-secondary:disabled { opacity: .55; cursor: not-allowed; }
+.step-actions-right { display: flex; align-items: center; gap: var(--space-3); margin-left: auto; }
 
-/* ═══ SPIN ═══ */
-.spin { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ═══ TRANSICIONES ═══ */
-.step-fade-enter-active,
-.step-fade-leave-active {
-  transition: opacity .25s ease, transform .25s ease;
+/* TRANSITIONS */
+.step-fade-enter-active, .step-fade-leave-active {
+  transition: opacity var(--duration-slow) var(--ease-out),
+              transform var(--duration-slow) var(--ease-out);
 }
 .step-fade-enter-from { opacity: 0; transform: translateY(8px); }
 .step-fade-leave-to { opacity: 0; transform: translateY(-8px); }
-.expand-enter-active,
-.expand-leave-active {
-  transition: opacity .25s ease, transform .25s ease;
+.expand-enter-active, .expand-leave-active {
+  transition: opacity var(--duration-slow) var(--ease-out),
+              transform var(--duration-slow) var(--ease-out);
   overflow: hidden;
 }
-.expand-enter-from,
-.expand-leave-to { opacity: 0; transform: translateY(-6px); }
+.expand-enter-from, .expand-leave-to { opacity: 0; transform: translateY(-6px); }
 
-/* ═══ RESPONSIVE ═══ */
+/* UTIL */
+.mt-2 { margin-top: var(--space-2); }
+.mt-4 { margin-top: var(--space-4); }
+.mt-5 { margin-top: var(--space-5); }
+.mb-4 { margin-bottom: var(--space-4); }
+
+/* RESPONSIVE */
 @media (max-width: 1024px) {
   .wizard-layout { grid-template-columns: 1fr; }
-  .summary-card { position: static; }
+  .wizard-sidebar { position: static; max-height: none; overflow: visible; }
 }
 @media (max-width: 768px) {
-  .agendar-mostrador { padding: 16px; }
-  .wizard-hero { padding: 20px; }
-  .wizard-hero h1 { font-size: 22px; }
+  .agendar-mostrador { padding: var(--space-4); }
   .stepper {
     flex-direction: column;
     align-items: flex-start;
-    padding: 14px;
-    gap: 12px;
+    padding: var(--space-4);
+    gap: var(--space-3);
   }
   .stepper-step { width: 100%; flex: none; }
   .stepper-step:last-child { flex: none; }
   .stepper-line {
     position: absolute;
-    top: 32px;
-    left: 16px;
+    top: 34px;
+    left: 17px;
     width: 2px;
-    height: 12px;
+    height: 14px;
     margin: 0;
     min-width: 0;
   }
   .stepper-step:last-child .stepper-line { display: none; }
-  .step-actions { flex-direction: column-reverse; padding: 14px; }
+  .step-actions { flex-direction: column-reverse; padding: var(--space-3); bottom: var(--space-2); }
   .step-actions-right { width: 100%; flex-direction: column-reverse; }
-  .btn-cancel,
-  .btn-back,
-  .btn-next { width: 100%; }
-  .success-actions { flex-direction: column; width: 100%; }
-  .btn-primary,
-  .btn-secondary { width: 100%; justify-content: center; }
+  .step-actions :deep(.btn) { width: 100%; }
   .pick-grid { grid-template-columns: 1fr; }
+  .success-actions { flex-direction: column; width: 100%; }
+  .success-actions :deep(.btn) { width: 100%; }
 }
 @media (max-width: 480px) {
-  .card-body { padding: 16px 18px 20px; }
-  .card-header { padding: 14px 18px; }
-  .slots-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .success-container { padding: 32px 20px; }
+  .slots-grid { grid-template-columns: repeat(2, 1fr); }
+  .success-container { padding: var(--space-8) var(--space-5); }
   .success-icon { width: 72px; height: 72px; }
-  .success-title { font-size: 19px; }
-  .factura-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .success-title { font-size: var(--text-3xl); }
+  .factura-row { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
   .factura-value { text-align: left; }
   .total-value { align-items: flex-start; }
+}
+
+.pick-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.pick-icon-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.pick-icon-btn:hover {
+  background: var(--brand-50);
+  border-color: var(--brand-200);
+  color: var(--brand-700);
+}
+.pick-icon-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--brand-100);
+}
+.pick-card.selected .pick-icon-btn {
+  background: var(--bg-surface);
+  border-color: var(--brand-200);
+  color: var(--brand-700);
 }
 </style>

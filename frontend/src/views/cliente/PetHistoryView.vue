@@ -1,78 +1,82 @@
 <template>
-  <div class="historiales">
+  <div class="historiales" :class="{ 'has-selected': !!idMascota }">
     <ToastContainer />
 
-    <!-- ═══════ BREADCRUMB ═══════ -->
-    <nav class="breadcrumb" aria-label="Migas de pan">
-      <template v-if="!idMascota">
-        <span class="bc-item bc-current">Historial Clínico</span>
-      </template>
-      <template v-else>
-        <button class="bc-back" type="button" aria-label="Volver al selector" @click="volverAlSelector">
-          <ArrowLeft :size="15" />
-        </button>
-        <button class="bc-item bc-link" type="button" @click="volverAlSelector">
-          Historial Clínico
-        </button>
-        <ChevronRight :size="14" class="bc-sep" />
-        <span class="bc-item bc-current">{{ infoMascota?.nombre || `Paciente #${idMascota}` }}</span>
-      </template>
+    <!-- ═══ BREADCRUMB ═══ -->
+    <nav v-if="idMascota" class="breadcrumb" aria-label="Migas de pan">
+      <button class="bc-back" type="button" aria-label="Volver al selector" @click="volverAlSelector">
+        <ArrowLeft :size="15" />
+      </button>
+      <button class="bc-item bc-link" type="button" @click="volverAlSelector">
+        Historial Clínico
+      </button>
+      <ChevronRight :size="14" class="bc-sep" />
+      <span class="bc-item bc-current">{{ infoMascota?.nombre || `Paciente #${idMascota}` }}</span>
     </nav>
 
-    <!-- ═══════ SELECTOR (sin ?mascota=) ═══════ -->
+    <!-- ═══ SELECTOR (sin mascota seleccionada) ═══ -->
     <template v-if="!idMascota">
-      <header class="pagina-header">
+      <header class="page-header">
         <div>
+          <span class="page-header-eyebrow">
+            <Stethoscope :size="12" /> Historial clínico
+          </span>
           <h1>Historial Clínico</h1>
-          <p>Expediente cronológico de atenciones de tus mascotas, de la más reciente a la más antigua.</p>
+          <p class="page-header-sub">
+            Expediente cronológico de atenciones de tus mascotas, de la más reciente a la más antigua.
+          </p>
         </div>
       </header>
 
-      <div class="card">
-        <div class="card-header">
+      <AppCard>
+        <template #header>
           <div>
             <h3>Selecciona una de tus mascotas</h3>
             <p class="card-header-sub">Verás su expediente clínico completo.</p>
           </div>
-        </div>
-        <div class="card-body">
-          <!-- Estado de carga propio del selector (antes mostraba "sin mascotas" mientras cargaba) -->
-          <div v-if="cargandoCatalogo" class="loading-state">
-            <div class="spin"></div>
-            <p>Cargando tus mascotas…</p>
-          </div>
+        </template>
 
-          <div v-else-if="!misMascotas.length" class="empty-state">
-            <PawPrint :size="40" />
-            <p>No tienes mascotas registradas todavía.</p>
-            <button class="btn-primary" type="button" @click="router.push('/cliente/mascotas')">
-              <Plus :size="16" /> Registrar mascota
-            </button>
-          </div>
-
-          <div v-else class="selector-mascotas">
-            <button
-              v-for="m in misMascotas"
-              :key="m.idMascota"
-              type="button"
-              class="selector-card"
-              @click="irAlHistorial(m)"
-            >
-              <PetAvatar :nombre-especie="especieNombre(m.idEspecie)" size="lg" />
-              <div class="selector-info">
-                <p class="selector-nombre">{{ m.nombre }}</p>
-                <p class="selector-sub">{{ resumenMascota(m) }}</p>
-              </div>
-              <span class="selector-cta" aria-hidden="true">
-                <ChevronRight :size="16" />
-              </span>
-            </button>
-          </div>
+        <div v-if="cargandoCatalogo" class="loading-state">
+          <span class="spinner spinner-lg" />
+          <p>Cargando tus mascotas…</p>
         </div>
-      </div>
+
+        <AppEmptyState
+          v-else-if="!misMascotas.length"
+          :icon="PawPrint"
+          title="No tienes mascotas registradas"
+          description="Registra tu primera mascota para ver su historial."
+        >
+          <template #action>
+            <AppButton variant="primary" @click="router.push('/cliente/mascotas')">
+              <template #icon-left><Plus :size="16" /></template>
+              Registrar mascota
+            </AppButton>
+          </template>
+        </AppEmptyState>
+
+        <div v-else class="selector-mascotas">
+          <button
+            v-for="m in misMascotas"
+            :key="m.idMascota"
+            type="button"
+            class="selector-card"
+            @click="irAlHistorial(m)"
+          >
+            <PetAvatar :nombre-especie="especieNombre(m.idEspecie)" size="lg" />
+            <div class="selector-info">
+              <p class="selector-nombre">{{ m.nombre }}</p>
+              <p class="selector-sub">{{ resumenMascota(m) }}</p>
+            </div>
+            <span class="selector-cta" aria-hidden="true">
+              <ChevronRight :size="16" />
+            </span>
+          </button>
+        </div>
+      </AppCard>
     </template>
 
-    <!-- ═══════ VISTA DE PACIENTE ═══════ -->
+    <!-- ═══ VISTA DE PACIENTE ═══ -->
     <template v-else>
       <!-- Hero del paciente -->
       <section class="paciente-hero">
@@ -102,14 +106,15 @@
         </div>
 
         <div class="paciente-acciones">
-          <button class="btn-secondary" type="button" @click="router.push('/cliente/solicitar-cita')">
-            <Calendar :size="16" /> Agendar cita
-          </button>
+          <AppButton variant="primary" @click="router.push('/cliente/solicitar-cita')">
+            <template #icon-left><CalendarPlus :size="16" /></template>
+            Agendar cita
+          </AppButton>
         </div>
       </section>
 
-      <!-- KPIs (config-driven) -->
-      <section class="kpis">
+      <!-- KPIs -->
+      <section v-if="historial.length" class="kpis">
         <article v-for="kpi in kpis" :key="kpi.etiqueta" class="kpi">
           <div class="kpi-icon" :style="{ '--kpi-color': kpi.color, '--kpi-bg': kpi.fondo }">
             <component :is="kpi.icono" :size="18" />
@@ -121,23 +126,26 @@
         </article>
       </section>
 
-      <!-- Estado: cargando -->
-      <div v-if="cargandoHistorial" class="loading-state">
-        <div class="spin"></div>
-        <p>Cargando el historial clínico…</p>
-      </div>
-
-      <!-- Estado: sin atenciones -->
-      <div v-else-if="!historial.length" class="card">
+      <!-- Loading historial -->
+      <div v-if="cargandoHistorial" class="card">
         <div class="card-body">
-          <div class="empty-state">
-            <Inbox :size="40" />
-            <p>Aún no hay atenciones registradas para esta mascota.</p>
+          <div class="loading-state">
+            <span class="spinner spinner-lg" />
+            <p>Cargando el historial clínico…</p>
           </div>
         </div>
       </div>
 
-      <!-- Timeline de atenciones -->
+      <!-- Sin atenciones -->
+      <AppCard v-else-if="!historial.length">
+        <AppEmptyState
+          :icon="Inbox"
+          title="Sin atenciones registradas"
+          description="Aún no hay atenciones registradas para esta mascota."
+        />
+      </AppCard>
+
+      <!-- Timeline -->
       <template v-else>
         <div class="timeline-header">
           <h2 class="timeline-title">Historial de atenciones</h2>
@@ -152,10 +160,9 @@
             :key="atencion.idAtencion"
             class="timeline-item"
           >
-            <div class="timeline-dot"></div>
+            <div class="timeline-dot" />
 
             <div class="atencion-card" :class="{ 'is-open': estaExpandida(atencion.idAtencion) }">
-              <!-- Cabecera clickeable -->
               <button
                 type="button"
                 class="atencion-head"
@@ -173,7 +180,7 @@
                   </p>
                 </div>
                 <div class="atencion-head-side">
-                  <span class="pill-estado">
+                  <span class="badge badge-brand">
                     {{ estadoLabel(atencion.estadoAtencion) }}
                   </span>
                   <span class="atencion-toggle" aria-hidden="true">
@@ -182,10 +189,9 @@
                 </div>
               </button>
 
-              <!-- Cuerpo expandible -->
               <Transition name="expand">
                 <div v-show="estaExpandida(atencion.idAtencion)" class="atencion-body">
-                  <!-- Signos vitales (config-driven) -->
+                  <!-- Signos vitales -->
                   <div class="vitales-grid">
                     <div v-for="vitalCfg in SIGNOS_VITALES" :key="vitalCfg.campo" class="vital">
                       <component :is="vitalCfg.icono" :size="14" class="vital-icon" />
@@ -196,7 +202,7 @@
                     </div>
                   </div>
 
-                  <!-- Bloques clínicos (config-driven, solo los que tienen contenido) -->
+                  <!-- Bloques clínicos -->
                   <div class="detalle-textos">
                     <div
                       v-for="bloque in bloquesDe(atencion)"
@@ -212,7 +218,7 @@
                   <!-- Insumos -->
                   <div v-if="atencion.insumos?.length" class="bloque-interno">
                     <h5><Package :size="13" /> Insumos aplicados</h5>
-                    <div class="tabla-wrap">
+                    <div class="table-wrap">
                       <table class="data-table">
                         <thead>
                           <tr>
@@ -249,7 +255,7 @@
                     <p v-if="atencion.receta.indicacionesGenerales" class="receta-indicaciones">
                       <strong>Indicaciones generales:</strong> {{ atencion.receta.indicacionesGenerales }}
                     </p>
-                    <div class="tabla-wrap">
+                    <div class="table-wrap">
                       <table class="data-table">
                         <thead>
                           <tr>
@@ -282,27 +288,23 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   ChevronRight, ChevronDown, Inbox, Package, PawPrint, Pill, Stethoscope,
   User, Calendar, FileText, Activity, Weight, Thermometer, Heart, Wind,
-  ArrowLeft, Plus
+  ArrowLeft, Plus, CalendarPlus,
 } from 'lucide-vue-next'
 import { useToast } from '@/composables/useToast'
+import { useAuthStore } from '@/stores/auth.store'
 import ToastContainer from '@/components/ui/ToastContainer.vue'
 import PetAvatar from '@/components/ui/PetAvatar.vue'
+import AppButton from '@/components/ui/AppButton.vue'
+import AppCard from '@/components/ui/AppCard.vue'
+import AppEmptyState from '@/components/ui/AppEmptyState.vue'
 import { getHistorialMascota } from '@/api/atenciones.api'
 import { getMisMascotas, getEspecies } from '@/api/mascotas.api'
 import { getApiErrorMessage } from '@/utils/apiError'
-import { useAuthStore } from '@/stores/auth.store'
 import { fechaHoraCorta } from '@/utils/fecha'
 
-const route = useRoute()
-const router = useRouter()
-const authStore = useAuthStore()
-const { toastError } = useToast()
-
-/* ═══════════════════════════════════════════════════════════
-   CONFIGURACIÓN DECLARATIVA — render data-driven
-   Añadir/quitar un signo vital, bloque clínico o columna
-   de récipe es editar una línea de estas listas, no el HTML.
-   ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   CONFIGURACIÓN DECLARATIVA
+   ═══════════════════════════════════════════════════════════════ */
 const SIGNOS_VITALES = [
   { campo: 'pesoKg', etiqueta: 'Peso', unidad: 'kg', icono: Weight },
   { campo: 'temperaturaC', etiqueta: 'Temp.', unidad: '°C', icono: Thermometer },
@@ -329,25 +331,28 @@ const COLUMNAS_RECETA = [
   { campo: 'duracion', titulo: 'Duración' },
 ]
 
-/* ═══════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════
    ESTADO
-   ═══════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════ */
+const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
+const { toastError } = useToast()
+
 const idMascota = computed(() => route.query.mascota)
 
 const misMascotas = ref([])
 const especies = ref([])
 const historial = ref([])
 
-const cargandoCatalogo = ref(true)   // mascotas + especies (solo al montar)
-const cargandoHistorial = ref(false) // atenciones de la mascota activa
+const cargandoCatalogo = ref(true)
+const cargandoHistorial = ref(false)
 
-// Atenciones expandidas: { [idAtencion]: true }
 const expandidas = ref({})
 
-/* ═══════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════
    DERIVADOS
-   ═══════════════════════════════════════════════════════════ */
-// Map O(1) en vez de find() lineal por cada item del v-for
+   ═══════════════════════════════════════════════════════════════ */
 const mapaEspecies = computed(() =>
   new Map(especies.value.map((e) => [e.id, e.nombre]))
 )
@@ -366,18 +371,17 @@ const stats = computed(() => ({
 }))
 
 const kpis = computed(() => [
-  { icono: FileText, valor: stats.value.total, etiqueta: 'Atenciones', color: '#0F766E', fondo: '#F0FDFA' },
-  { icono: Calendar, valor: stats.value.ultimaVisita, etiqueta: 'Última visita', color: '#3B82F6', fondo: '#EFF6FF' },
-  { icono: Activity, valor: stats.value.edad, etiqueta: 'Edad', color: '#F59E0B', fondo: '#FFFBEB' },
-  { icono: Weight, valor: stats.value.peso, etiqueta: 'Peso actual', color: '#8B5CF6', fondo: '#F5F3FF' },
+  { icono: FileText, valor: stats.value.total, etiqueta: 'Atenciones', color: 'var(--brand-700)', fondo: 'var(--brand-50)' },
+  { icono: Calendar, valor: stats.value.ultimaVisita, etiqueta: 'Última visita', color: 'var(--info-600)', fondo: 'var(--info-50)' },
+  { icono: Activity, valor: stats.value.edad, etiqueta: 'Edad', color: 'var(--warning-600)', fondo: 'var(--warning-50)' },
+  { icono: Weight, valor: stats.value.peso, etiqueta: 'Peso actual', color: 'var(--purple-600)', fondo: 'var(--purple-50)' },
 ])
 
-/* ═══════════════════════════════════════════════════════════
-   HELPERS PUROS (candidatos a @/utils/mascota.js — ver notas)
-   ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════════════════════════════ */
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
-/** "valor unidad" o "—" si no hay dato (evita "null kg" / "undefined °C") */
 function vital(valor, unidad) {
   return valor !== null && valor !== undefined && valor !== ''
     ? `${valor} ${unidad}`
@@ -403,7 +407,6 @@ function formatFechaNac(iso) {
   return `${d} ${MESES[Number(m) - 1]} ${y}`
 }
 
-/** Edad legible: "3 años", "8 meses", "Recién nacido" */
 function edadMascota(iso) {
   if (!iso) return null
   const nac = new Date(iso)
@@ -423,7 +426,6 @@ function edadMascota(iso) {
   return `${anios} ${anios === 1 ? 'año' : 'años'}`
 }
 
-/** Metadatos compartidos por el selector y el hero del paciente */
 function metadatosDe(m) {
   return [
     especieNombre(m?.idEspecie),
@@ -441,21 +443,19 @@ function ultimaVisita() {
   return fecha ? fechaHoraCorta(fecha).split('·')[0]?.trim() : '—'
 }
 
-/* ─── Cálculo de insumos ─── */
 const subtotalInsumo = (insumo) =>
   insumo.subtotal ?? insumo.subtotalUsd ?? insumo.cantidad * insumo.precioUnitarioUsd
 
 const totalInsumosAtencion = (atencion) =>
   (atencion.insumos || []).reduce((suma, i) => suma + subtotalInsumo(i), 0)
 
-/** Bloques clínicos con contenido para una atención dada */
 function bloquesDe(atencion) {
   return BLOQUES_CLINICOS.filter((b) => b.siempreVisible || atencion[b.campo])
 }
 
-/* ═══════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════
    INTERACCIÓN
-   ═══════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════ */
 function estaExpandida(id) {
   return !!expandidas.value[id]
 }
@@ -464,11 +464,9 @@ function toggleExpandida(id) {
   expandidas.value = { ...expandidas.value, [id]: !expandidas.value[id] }
 }
 
-/* ═══════════════════════════════════════════════════════════
-   CARGA DE DATOS — separada por responsabilidad
-   ═══════════════════════════════════════════════════════════ */
-
-/** Catálogo estático: se carga UNA sola vez al montar. */
+/* ═══════════════════════════════════════════════════════════════
+   CARGA DE DATOS
+   ═══════════════════════════════════════════════════════════════ */
 async function cargarCatalogo() {
   const [mascotasRes, especiesRes] = await Promise.allSettled([
     getMisMascotas(),
@@ -481,8 +479,6 @@ async function cargarCatalogo() {
     toastError(getApiErrorMessage(mascotasRes.reason))
   }
 
-  // Fallo de especies es silencioso a propósito: solo degrada el
-  // icono del avatar a la pata genérica, no bloquea la vista.
   if (especiesRes.status === 'fulfilled') {
     especies.value = especiesRes.value.data ?? []
   }
@@ -490,7 +486,6 @@ async function cargarCatalogo() {
   cargandoCatalogo.value = false
 }
 
-/** Historial de la mascota activa, con guard anti race conditions. */
 let idSolicitud = 0
 
 async function cargarHistorial(id) {
@@ -498,17 +493,11 @@ async function cargarHistorial(id) {
     historial.value = []
     return
   }
-
-  // Cada invocación incrementa el token; si el usuario cambia de
-  // mascota mientras la petición está en vuelo, la respuesta vieja
-  // se descarta al llegar (nunca pisa la más reciente).
   const solicitud = ++idSolicitud
-
   cargandoHistorial.value = true
   try {
     const data = await getHistorialMascota(id)
     if (solicitud !== idSolicitud) return
-
     historial.value = data
     expandirPrimera(data)
   } catch (error) {
@@ -525,28 +514,22 @@ function expandirPrimera(atenciones) {
   expandidas.value = primera ? { [primera]: true } : {}
 }
 
-/* ═══════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════
    ORQUESTACIÓN
-   ═══════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════ */
 onMounted(async () => {
-  // Orden garantizado: el catálogo alimenta infoMascota/especieNombre
-  // antes del primer render del hero del paciente.
   await cargarCatalogo()
   await cargarHistorial(idMascota.value)
 })
 
-// Cambios posteriores de ?mascota= (navegación interna) NO
-// re-fetchan el catálogo: solo el historial de la nueva mascota.
 watch(idMascota, async (id) => {
   window.scrollTo({ top: 0, behavior: 'smooth' })
   await cargarHistorial(id)
 })
 
-/* ═══════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════
    NAVEGACIÓN
-   ═══════════════════════════════════════════════════════════ */
-// replace: "volver" no debe acumular entradas duplicadas en el
-// historial del navegador (el botón atrás del browser salta directo).
+   ═══════════════════════════════════════════════════════════════ */
 function volverAlSelector() {
   router.replace({ path: '/cliente/historial-clinico' })
 }
@@ -562,124 +545,93 @@ function irAlHistorial(mascota) {
 .historiales {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 24px 24px 64px;
-  font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  color: #1E293B;
+  padding: var(--space-6) var(--space-6) var(--space-12);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
 }
-button { font-family: inherit; }
 
 /* ═══ BREADCRUMB ═══ */
 .breadcrumb {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 18px;
-  font-size: 13px;
-  color: #64748B;
+  gap: var(--space-2);
+  font-size: var(--text-md);
+  color: var(--text-secondary);
   min-height: 24px;
 }
 .bc-back {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
-  border: 1px solid #E2E8F0;
-  background: #fff;
-  color: #475569;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--neutral-600);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all .15s ease;
+  transition: all var(--duration-fast) var(--ease-out);
   margin-right: 2px;
 }
-.bc-back:hover { background: #F1F5F9; color: #0F766E; border-color: #CBD5E1; }
-.bc-item { font-weight: 500; }
+.bc-back:hover { background: var(--neutral-100); color: var(--brand-700); border-color: var(--border-strong); }
+.bc-item { font-weight: var(--font-medium); }
 .bc-link {
   background: none;
   border: none;
-  color: #64748B;
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 0;
-  font-size: 13px;
+  font-size: var(--text-md);
+  font-family: inherit;
 }
-.bc-link:hover { color: #0F766E; text-decoration: underline; }
-.bc-current { color: #1E293B; font-weight: 600; }
-.bc-sep { color: #CBD5E1; }
-
-/* ═══ HEADERS ═══ */
-.pagina-header { margin-bottom: 22px; }
-.pagina-header h1 { margin: 0 0 4px; font-size: 22px; font-weight: 700; }
-.pagina-header p { margin: 0; font-size: 14px; color: #64748B; }
-
-/* ═══ CARDS ═══ */
-.card {
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 14px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .03), 0 10px 15px -3px rgba(0, 0, 0, .04);
-}
-.card-header { padding: 20px 24px; border-bottom: 1px solid #E2E8F0; }
-.card-header h3 { margin: 0 0 2px; font-size: 16px; font-weight: 600; }
-.card-header-sub { margin: 0; font-size: 13px; color: #64748B; }
-.card-body { padding: 22px 24px; }
+.bc-link:hover { color: var(--brand-700); text-decoration: underline; }
+.bc-current { color: var(--text-primary); font-weight: var(--font-bold); }
+.bc-sep { color: var(--neutral-300); }
 
 /* ═══ SELECTOR DE MASCOTAS ═══ */
 .selector-mascotas {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 14px;
+  gap: var(--space-4);
 }
 .selector-card {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 14px;
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  padding: 16px;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
   cursor: pointer;
   font-family: inherit;
   text-align: left;
   overflow: hidden;
-  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
-}
-.selector-card::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 3px;
-  background: var(--pet-color, #0F766E);
-  transform: scaleY(.35);
-  opacity: 0;
-  transition: opacity .25s ease, transform .25s ease;
+  transition: border-color var(--duration-base) var(--ease-out),
+              box-shadow var(--duration-base) var(--ease-out),
+              transform var(--duration-base) var(--ease-out);
+  box-shadow: var(--shadow-xs);
 }
 .selector-card:hover {
-  border-color: rgba(15, 118, 110, .35);
+  border-color: var(--brand-200);
   transform: translateY(-2px);
-  box-shadow: 0 10px 24px -8px rgba(15, 118, 110, .18),
-              0 4px 8px -4px rgba(15, 23, 42, .06);
-}
-.selector-card:hover::before { opacity: 1; transform: scaleY(1); }
-.selector-card:focus-visible {
-  outline: none;
-  border-color: #0F766E;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, .15);
+  box-shadow: var(--shadow-md);
 }
 .selector-info { flex: 1; min-width: 0; }
 .selector-nombre {
   margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-  color: #1E293B;
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .selector-sub {
-  margin: 3px 0 0;
-  font-size: 12.5px;
-  color: #64748B;
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -691,14 +643,14 @@ button { font-family: inherit; }
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #94A3B8;
-  background: #F1F5F9;
+  color: var(--text-tertiary);
+  background: var(--neutral-100);
   flex-shrink: 0;
-  transition: background-color .2s ease, color .2s ease, transform .2s ease;
+  transition: all var(--duration-base) var(--ease-out);
 }
 .selector-card:hover .selector-cta {
-  background: #0F766E;
-  color: #fff;
+  background: var(--brand-700);
+  color: var(--text-inverse);
   transform: translateX(2px);
 }
 
@@ -706,86 +658,75 @@ button { font-family: inherit; }
 .paciente-hero {
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 20px;
+  gap: var(--space-5);
   align-items: center;
-  background: linear-gradient(135deg, #F0FDFA 0%, #FFFFFF 60%);
-  border: 1px solid #CCFBF1;
-  border-radius: 16px;
-  padding: 22px 24px;
-  margin-bottom: 18px;
-  box-shadow: 0 4px 6px -1px rgba(15, 118, 110, .04);
+  padding: var(--space-5) var(--space-6);
+  background: linear-gradient(135deg, var(--brand-50) 0%, var(--bg-surface) 60%);
+  border: 1px solid var(--brand-100);
+  border-radius: var(--radius-3xl);
+  box-shadow: var(--shadow-xs);
 }
 .paciente-datos { min-width: 0; }
 .paciente-nombre {
-  margin: 0 0 8px;
-  font-size: 24px;
-  font-weight: 700;
-  color: #0F172A;
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-4xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
   line-height: 1.2;
-  letter-spacing: -0.01em;
+  letter-spacing: var(--tracking-tight);
 }
 .paciente-badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 10px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 .paciente-badge {
   display: inline-flex;
   align-items: center;
-  padding: 3px 11px;
-  border-radius: 20px;
-  background: #fff;
-  border: 1px solid #CCFBF1;
-  color: #0F766E;
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: .1px;
+  padding: 3px var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--bg-surface);
+  border: 1px solid var(--brand-100);
+  color: var(--brand-700);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
 }
 .paciente-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
-  font-size: 12.5px;
-  color: #64748B;
+  gap: var(--space-4);
+  font-size: var(--text-md);
+  color: var(--text-secondary);
 }
-.meta-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.meta-item strong { font-weight: 600; color: #334155; }
-.paciente-acciones {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
+.meta-item { display: inline-flex; align-items: center; gap: var(--space-2); }
+.meta-item strong { font-weight: var(--font-semibold); color: var(--neutral-700); }
+.paciente-acciones { display: flex; gap: var(--space-3); align-items: center; }
 
 /* ═══ KPIs ═══ */
 .kpis {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  margin-bottom: 28px;
+  gap: var(--space-4);
 }
 .kpi {
   display: flex;
   align-items: center;
-  gap: 14px;
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  padding: 16px 18px;
-  transition: all .2s ease;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  transition: all var(--duration-base) var(--ease-out);
 }
 .kpi:hover {
-  border-color: #CBD5E1;
-  box-shadow: 0 4px 12px -4px rgba(15, 23, 42, .06);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
 }
 .kpi-icon {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--kpi-bg);
   color: var(--kpi-color);
   display: flex;
@@ -795,52 +736,51 @@ button { font-family: inherit; }
 }
 .kpi-value {
   margin: 0;
-  font-size: 17px;
-  font-weight: 700;
-  color: #0F172A;
-  line-height: 1.15;
+  font-size: var(--text-3xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  line-height: 1.1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .kpi-label {
-  margin: 2px 0 0;
-  font-size: 11.5px;
-  font-weight: 600;
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
   text-transform: uppercase;
-  letter-spacing: .5px;
-  color: #64748B;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
 }
 
-/* ═══ TIMELINE HEADER ═══ */
+/* ═══ TIMELINE ═══ */
 .timeline-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 .timeline-title {
   margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-  color: #0F172A;
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
 }
 .timeline-count {
-  font-size: 12px;
-  font-weight: 600;
-  color: #64748B;
-  background: #F1F5F9;
-  padding: 4px 12px;
-  border-radius: 20px;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
+  background: var(--neutral-100);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
 }
 
-/* ═══ TIMELINE ═══ */
 .timeline {
   position: relative;
-  padding-left: 28px;
+  padding-left: var(--space-7);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--space-4);
 }
 .timeline::before {
   content: '';
@@ -849,234 +789,214 @@ button { font-family: inherit; }
   top: 10px;
   bottom: 10px;
   width: 2px;
-  background: linear-gradient(to bottom, #99F6E4 0%, #E2E8F0 60%);
+  background: linear-gradient(to bottom, var(--brand-200) 0%, var(--border-subtle) 60%);
   border-radius: 2px;
 }
 .timeline-item { position: relative; }
 .timeline-dot {
   position: absolute;
-  left: -28px;
+  left: calc(var(--space-7) * -1);
   top: 20px;
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #0F766E;
-  border: 3px solid #fff;
-  box-shadow: 0 0 0 2px #99F6E4;
+  background: var(--brand-700);
+  border: 3px solid var(--bg-surface);
+  box-shadow: 0 0 0 2px var(--brand-200);
   z-index: 1;
 }
 
-/* ═══ ATENCIÓN CARD (colapsable) ═══ */
+/* ═══ ATENCIÓN CARD ═══ */
 .atencion-card {
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
   overflow: hidden;
-  transition: border-color .2s ease, box-shadow .2s ease;
+  transition: border-color var(--duration-base) var(--ease-out),
+              box-shadow var(--duration-base) var(--ease-out);
 }
-.atencion-card:hover {
-  border-color: #CBD5E1;
-}
+.atencion-card:hover { border-color: var(--border-strong); }
 .atencion-card.is-open {
-  border-color: #99F6E4;
-  box-shadow: 0 8px 20px -10px rgba(15, 118, 110, .18);
+  border-color: var(--brand-200);
+  box-shadow: 0 8px 20px -10px rgba(15, 118, 110, 0.18);
 }
-
 .atencion-head {
   width: 100%;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  padding: 16px 18px;
+  gap: var(--space-4);
+  padding: var(--space-4);
   background: transparent;
   border: none;
   text-align: left;
   cursor: pointer;
   font-family: inherit;
-  transition: background-color .15s ease;
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
-.atencion-head:hover { background: #FAFBFC; }
-.atencion-head:focus-visible {
-  outline: none;
-  background: #F0FDFA;
-}
+.atencion-head:hover { background: var(--bg-surface-alt); }
 .atencion-head-main { min-width: 0; flex: 1; }
 .atencion-fecha {
   margin: 0;
-  font-size: 14.5px;
-  font-weight: 700;
-  color: #0F766E;
-  letter-spacing: -.01em;
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--brand-700);
+  letter-spacing: -0.01em;
 }
 .atencion-vet {
-  margin: 4px 0 0;
-  font-size: 12.5px;
-  color: #64748B;
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .atencion-dx {
-  margin: 8px 0 0;
-  font-size: 13px;
-  color: #334155;
-  line-height: 1.5;
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-md);
+  color: var(--neutral-700);
+  line-height: var(--leading-normal);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.atencion-dx strong { color: #64748B; font-weight: 600; }
+.atencion-dx strong { color: var(--text-secondary); font-weight: var(--font-semibold); }
 
-.atencion-head-side {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
+.atencion-head-side { display: flex; align-items: center; gap: var(--space-3); flex-shrink: 0; }
 .atencion-toggle {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
-  background: #F1F5F9;
-  color: #64748B;
+  border-radius: var(--radius-md);
+  background: var(--neutral-100);
+  color: var(--text-secondary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: transform .25s ease, background-color .2s ease, color .2s ease;
+  transition: transform var(--duration-base) var(--ease-out),
+              background-color var(--duration-base) var(--ease-out),
+              color var(--duration-base) var(--ease-out);
 }
 .atencion-card.is-open .atencion-toggle {
-  background: #F0FDFA;
-  color: #0F766E;
+  background: var(--brand-50);
+  color: var(--brand-700);
   transform: rotate(180deg);
 }
 
-.pill-estado {
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 11.5px;
-  font-weight: 600;
-  background: #F0FDFA;
-  color: #0F766E;
-  border: 1px solid #99F6E4;
-  white-space: nowrap;
-}
-
-/* ═══ CUERPO DE LA ATENCIÓN ═══ */
+/* ═══ CUERPO ATENCIÓN ═══ */
 .atencion-body {
-  padding: 4px 18px 20px;
-  border-top: 1px solid #F1F5F9;
+  padding: var(--space-1) var(--space-5) var(--space-5);
+  border-top: 1px solid var(--border-subtle);
 }
 
-/* ═══ VITALES ═══ */
+/* Vitales */
 .vitales-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  margin: 16px 0;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
 }
 .vital {
   display: grid;
   grid-template-columns: auto 1fr;
   grid-template-rows: auto auto;
   align-items: center;
-  column-gap: 8px;
+  column-gap: var(--space-3);
   row-gap: 2px;
-  background: #F8FAFC;
-  border: 1px solid #E2E8F0;
-  border-radius: 10px;
-  padding: 10px 12px;
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
 }
-.vital-icon {
-  grid-row: 1 / span 2;
-  color: #94A3B8;
-}
+.vital-icon { grid-row: 1 / span 2; color: var(--text-tertiary); }
 .vital-label {
-  font-size: 10.5px;
-  font-weight: 700;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-bold);
   text-transform: uppercase;
-  letter-spacing: .5px;
-  color: #64748B;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
 }
 .vital-value {
-  font-size: 14px;
-  color: #1E293B;
-  font-weight: 700;
-  letter-spacing: -.01em;
+  font-size: var(--text-lg);
+  color: var(--text-primary);
+  font-weight: var(--font-bold);
+  letter-spacing: -0.01em;
 }
 
-/* ═══ BLOQUES DE TEXTO ═══ */
+/* Bloques texto */
 .detalle-textos {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 4px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
 }
 .detalle-bloque {
-  background: #F8FAFC;
-  border: 1px solid #E2E8F0;
-  border-radius: 10px;
-  padding: 12px 14px;
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
 }
 .detalle-bloque.dx {
-  background: #F0FDFA;
-  border-color: #99F6E4;
+  background: var(--brand-50);
+  border-color: var(--brand-200);
 }
 .detalle-bloque h5 {
-  margin: 0 0 6px;
-  font-size: 10.5px;
-  font-weight: 700;
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-bold);
   text-transform: uppercase;
-  letter-spacing: .6px;
-  color: #64748B;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
 }
-.detalle-bloque.dx h5 { color: #0F766E; }
+.detalle-bloque.dx h5 { color: var(--brand-700); }
 .detalle-bloque p {
   margin: 0;
-  font-size: 13.5px;
-  color: #334155;
-  line-height: 1.55;
+  font-size: var(--text-md);
+  color: var(--neutral-700);
+  line-height: var(--leading-relaxed);
 }
 
-/* ═══ BLOQUES INTERNOS (insumos / récipe) ═══ */
+/* Bloques internos */
 .bloque-interno {
-  margin-top: 14px;
-  background: #F8FAFC;
-  border: 1px solid #E2E8F0;
-  border-radius: 10px;
-  padding: 14px 16px;
+  margin-top: var(--space-4);
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
 }
 .bloque-interno h5 {
-  margin: 0 0 10px;
-  font-size: 11.5px;
-  font-weight: 700;
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
   text-transform: uppercase;
-  letter-spacing: .5px;
-  color: #64748B;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
 }
-.bloque-receta { background: #FFFBEB; border-color: #FDE68A; }
-.bloque-receta h5 { color: #92400E; }
+.bloque-receta {
+  background: var(--warning-50);
+  border-color: var(--warning-200);
+}
+.bloque-receta h5 { color: var(--warning-700); }
 .receta-cabecera {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
 }
-.receta-cabecera h5 { margin: 0; color: #92400E; font-size: 12.5px; }
+.receta-cabecera h5 { margin: 0; color: var(--warning-700); font-size: var(--text-md); }
 .receta-indicaciones {
-  margin: 0 0 10px;
-  font-size: 13px;
-  color: #334155;
-  line-height: 1.55;
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-md);
+  color: var(--neutral-700);
+  line-height: var(--leading-relaxed);
 }
 
-/* ═══ TABLAS ═══ */
-.tabla-wrap { overflow-x: auto; border-radius: 8px; }
+/* Tablas */
+.table-wrap { overflow-x: auto; border-radius: var(--radius-md); }
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -1085,156 +1005,77 @@ button { font-family: inherit; }
 }
 .data-table th {
   text-align: left;
-  padding: 8px 10px;
-  font-size: 11px;
-  font-weight: 700;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
   text-transform: uppercase;
-  letter-spacing: .5px;
-  color: #64748B;
-  border-bottom: 2px solid #E2E8F0;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  border-bottom: 2px solid var(--border-subtle);
   background: transparent;
 }
 .data-table td {
-  padding: 8px 10px;
-  font-size: 13px;
-  color: #1E293B;
-  border-bottom: 1px solid #F1F5F9;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-md);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--neutral-100);
   vertical-align: middle;
 }
 .data-table tbody tr:last-child td { border-bottom: none; }
-.data-table tbody tr:hover td { background: rgba(15, 118, 110, .03); }
-.amount { font-weight: 700; color: #0F766E; }
+.data-table tbody tr:hover td { background: rgba(15, 118, 110, 0.03); }
+.amount { font-weight: var(--font-bold); color: var(--brand-700); }
 .der { text-align: right; }
-.sku { color: #94A3B8; font-size: 12px; }
+.sku { color: var(--text-tertiary); font-size: var(--text-sm); }
 .total-linea {
   display: flex;
   justify-content: space-between;
-  margin: 12px 0 0;
-  padding-top: 10px;
-  border-top: 1px dashed #CBD5E1;
-  font-size: 13px;
-  font-weight: 600;
-  color: #334155;
+  margin: var(--space-3) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--neutral-300);
+  font-size: var(--text-md);
+  font-weight: var(--font-semibold);
+  color: var(--neutral-700);
 }
 
-/* ═══ BOTONES ═══ */
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  background: #0F766E;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all .2s;
-  font-family: inherit;
-  white-space: nowrap;
-}
-.btn-primary:hover:not(:disabled) {
-  background: #115E59;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(15, 118, 110, .25);
-}
-.btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 16px;
-  background: #fff;
-  color: #0F766E;
-  border: 1px solid #99F6E4;
-  border-radius: 10px;
-  font-size: 13.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all .2s;
-  font-family: inherit;
-  white-space: nowrap;
-}
-.btn-secondary:hover {
-  background: #F0FDFA;
-  border-color: #0F766E;
-}
-
-/* ═══ LOADING / EMPTY ═══ */
+/* ═══ LOADING ═══ */
 .loading-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 64px 24px;
-  color: #64748B;
-  font-size: 14px;
+  gap: var(--space-3);
+  padding: var(--space-12);
+  color: var(--text-secondary);
+  font-size: var(--text-base);
 }
-.spin {
-  width: 32px;
-  height: 32px;
-  border: 3px solid #E2E8F0;
-  border-top-color: #0F766E;
-  border-radius: 50%;
-  animation: girar .8s linear infinite;
-}
-@keyframes girar { to { transform: rotate(360deg); } }
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 48px 24px;
-  color: #94A3B8;
-  text-align: center;
-  font-size: 14px;
-}
-.empty-state p { margin: 0; }
 
 /* ═══ TRANSICIÓN EXPAND ═══ */
 .expand-enter-active,
 .expand-leave-active {
-  transition: opacity .2s ease, transform .2s ease;
+  transition: opacity var(--duration-base) var(--ease-out),
+              transform var(--duration-base) var(--ease-out);
 }
 .expand-enter-from,
-.expand-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
-}
+.expand-leave-to { opacity: 0; transform: translateY(-4px); }
 
 /* ═══ RESPONSIVE ═══ */
 @media (max-width: 1024px) {
   .kpis { grid-template-columns: repeat(2, 1fr); }
   .vitales-grid { grid-template-columns: repeat(2, 1fr); }
   .detalle-textos { grid-template-columns: 1fr; }
-  .paciente-hero {
-    grid-template-columns: auto 1fr;
-    gap: 16px;
-  }
-  .paciente-acciones {
-    grid-column: 1 / -1;
-    padding-top: 4px;
-  }
+  .paciente-hero { grid-template-columns: auto 1fr; gap: var(--space-4); }
+  .paciente-acciones { grid-column: 1 / -1; padding-top: var(--space-1); }
 }
-
 @media (max-width: 640px) {
-  .historiales { padding: 16px 16px 48px; }
-  .paciente-hero {
-    padding: 18px;
-    border-radius: 14px;
-  }
-  .paciente-nombre { font-size: 20px; }
-  .timeline { padding-left: 20px; }
-  .timeline-dot { left: -20px; width: 12px; height: 12px; }
+  .historiales { padding: var(--space-4); }
+  .paciente-hero { padding: var(--space-4); border-radius: var(--radius-2xl); }
+  .paciente-nombre { font-size: var(--text-3xl); }
+  .timeline { padding-left: var(--space-5); }
+  .timeline-dot { left: calc(var(--space-5) * -1); width: 12px; height: 12px; }
   .timeline::before { left: 5px; }
-  .atencion-head { padding: 14px; }
-  .atencion-head-side {
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 8px;
-  }
-  .atencion-body { padding: 4px 14px 16px; }
-  .vitales-grid { gap: 8px; }
+  .atencion-head { padding: var(--space-3); }
+  .atencion-head-side { flex-direction: column; align-items: flex-end; gap: var(--space-2); }
+  .atencion-body { padding: var(--space-1) var(--space-4) var(--space-4); }
+  .vitales-grid { gap: var(--space-2); }
   .selector-mascotas { grid-template-columns: 1fr; }
   .kpis { grid-template-columns: 1fr; }
 }

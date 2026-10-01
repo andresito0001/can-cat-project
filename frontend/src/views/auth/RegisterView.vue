@@ -8,191 +8,177 @@
       </p>
     </header>
 
-    <Transition name="slide-fade">
-      <div v-if="mostrarError" class="alert alert-error">
-        <AlertCircle :size="16" />
-        <span>{{ authStore.error || 'Revisa los campos marcados.' }}</span>
-      </div>
+    <Transition name="slide-down">
+      <AppAlert v-if="mostrarError && authStore.error" variant="error" class="alert-spacing">
+        {{ authStore.error }}
+      </AppAlert>
     </Transition>
 
     <form @submit.prevent="handleRegister" novalidate>
-      <!-- ═══ Sección: Tu cuenta ═══ -->
-      <div class="section-block">
+      <section class="form-section">
         <p class="section-eyebrow"><User :size="12" /> Tu cuenta</p>
 
-        <div class="form-group">
-          <label class="form-label" for="nombre">
-            Nombre completo <span class="required">*</span>
-          </label>
-          <div class="input-wrap">
-            <UserCircle :size="15" class="input-icon" />
-            <input
-              id="nombre" v-model="form.nombreCompleto" type="text"
-              class="form-input" :class="{ 'is-invalid': errors.nombreCompleto }"
-              placeholder="Ej: María Alejandra González" :disabled="authStore.isLoading"
+        <AppFormField
+          label="Nombre completo"
+          :error="errors.nombreCompleto ? 'Ingresa tu nombre completo (mínimo 3 caracteres).' : ''"
+          required
+        >
+          <template #default="{ id, invalid }">
+            <AppInput
+              :id="id"
+              v-model="form.nombreCompleto"
+              placeholder="Ej: María Alejandra González"
+              :disabled="authStore.isLoading"
+              :error="invalid"
               autocomplete="name"
             />
-          </div>
-          <span v-if="errors.nombreCompleto" class="form-error">
-            Ingresa tu nombre completo (mínimo 3 caracteres).
-          </span>
-        </div>
+          </template>
+        </AppFormField>
 
-        <div class="form-group">
-          <label class="form-label" for="correo">
-            Correo electrónico <span class="required">*</span>
-          </label>
-          <div class="input-wrap">
-            <Mail :size="15" class="input-icon" />
-            <input
-              id="correo" v-model="form.correoElectronico" type="email"
-              class="form-input" :class="{ 'is-invalid': errors.correoElectronico }"
-              placeholder="usuario@ejemplo.com" :disabled="authStore.isLoading"
+        <AppFormField
+          label="Correo electrónico"
+          :error="errors.correoElectronico ? 'Ingresa un correo electrónico válido.' : ''"
+          required
+        >
+          <template #default="{ id, invalid }">
+            <AppInput
+              :id="id"
+              v-model="form.correoElectronico"
+              type="email"
+              placeholder="usuario@ejemplo.com"
+              :disabled="authStore.isLoading"
+              :error="invalid"
               autocomplete="email"
             />
-          </div>
-          <span v-if="errors.correoElectronico" class="form-error">
-            Ingresa un correo electrónico válido.
-          </span>
-        </div>
+          </template>
+        </AppFormField>
 
-        <div class="form-group">
-          <label class="form-label" for="password">
-            Contraseña <span class="required">*</span>
-          </label>
-          <div class="input-wrap">
-            <Lock :size="15" class="input-icon" />
-            <input
-              id="password" v-model="form.contrasena"
-              :type="mostrarPassword ? 'text' : 'password'"
-              class="form-input form-input-password" :class="{ 'is-invalid': errors.contrasena }"
-              placeholder="Mínimo 6 caracteres" :disabled="authStore.isLoading"
+        <AppFormField
+          label="Contraseña"
+          :error="errors.contrasena ? 'La contraseña debe tener al menos 6 caracteres.' : ''"
+          hint="Mínimo 6 caracteres"
+          required
+        >
+          <template #default="{ id, invalid }">
+            <AppPasswordField
+              :id="id"
+              v-model="form.contrasena"
+              placeholder="Mínimo 6 caracteres"
+              :disabled="authStore.isLoading"
+              :error="invalid"
               autocomplete="new-password"
             />
-            <button
-              type="button" class="toggle-password" tabindex="-1"
-              :aria-label="mostrarPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
-              @click="mostrarPassword = !mostrarPassword"
-            >
-              <Eye v-if="!mostrarPassword" :size="16" />
-              <EyeOff v-else :size="16" />
-            </button>
-          </div>
-          <span v-if="errors.contrasena" class="form-error">
-            La contraseña debe tener al menos 6 caracteres.
-          </span>
-        </div>
-      </div>
+          </template>
+        </AppFormField>
+      </section>
 
-      <!-- ═══ Sección: Identificación ═══ -->
-      <div class="section-block">
+      <section class="form-section">
         <p class="section-eyebrow"><CreditCard :size="12" /> Identificación</p>
 
         <div class="form-grid-2">
-          <div class="form-group">
-            <label class="form-label" for="doc">
-              Cédula / Documento <span class="required">*</span>
-            </label>
-            <div class="input-wrap">
-              <IdCard :size="15" class="input-icon" />
-              <input
-                id="doc" v-model="form.documentoIdentidad" type="text"
-                class="form-input" :class="{ 'is-invalid': errors.documentoIdentidad }"
-                placeholder="V-12345678" :disabled="authStore.isLoading"
+          <AppFormField
+            label="Cédula / Documento"
+            :error="errors.documentoIdentidad ? 'Documento requerido (mínimo 6 caracteres).' : ''"
+            required
+          >
+            <template #default="{ id, invalid }">
+              <AppInput
+                :id="id"
+                v-model="form.documentoIdentidad"
+                placeholder="V-12345678"
+                :disabled="authStore.isLoading"
+                :error="invalid"
               />
-            </div>
-            <span v-if="errors.documentoIdentidad" class="form-error">
-              Documento requerido (mínimo 6 caracteres).
-            </span>
-          </div>
+            </template>
+          </AppFormField>
 
-          <div class="form-group">
-            <label class="form-label" for="nac">
-              Fecha de nacimiento <span class="optional">(opcional)</span>
-            </label>
-            <div class="input-wrap">
-              <CalendarDays :size="15" class="input-icon" />
-              <input
-                id="nac" v-model="form.fechaNacimiento" type="date"
-                class="form-input" :disabled="authStore.isLoading"
+          <AppFormField label="Fecha de nacimiento" optional>
+            <template #default="{ id }">
+              <AppInput
+                :id="id"
+                v-model="form.fechaNacimiento"
+                type="date"
+                :disabled="authStore.isLoading"
               />
-            </div>
-          </div>
+            </template>
+          </AppFormField>
         </div>
-      </div>
+      </section>
 
-      <!-- ═══ Sección: Contacto ═══ -->
-      <div class="section-block">
+      <section class="form-section">
         <p class="section-eyebrow"><Phone :size="12" /> Contacto</p>
 
         <div class="form-grid-2">
-          <div class="form-group">
-            <label class="form-label" for="tel1">
-              Teléfono principal <span class="required">*</span>
-            </label>
-            <div class="input-wrap">
-              <Phone :size="15" class="input-icon" />
-              <input
-                id="tel1" v-model="form.telefonoPrincipal" type="tel"
-                class="form-input" :class="{ 'is-invalid': errors.telefonoPrincipal }"
-                placeholder="0412-1234567" :disabled="authStore.isLoading"
+          <AppFormField
+            label="Teléfono principal"
+            :error="errors.telefonoPrincipal ? 'El teléfono principal es obligatorio.' : ''"
+            required
+          >
+            <template #default="{ id, invalid }">
+              <AppInput
+                :id="id"
+                v-model="form.telefonoPrincipal"
+                type="tel"
+                placeholder="0412-1234567"
+                :disabled="authStore.isLoading"
+                :error="invalid"
                 autocomplete="tel"
               />
-            </div>
-            <span v-if="errors.telefonoPrincipal" class="form-error">
-              El teléfono principal es obligatorio.
-            </span>
-          </div>
+            </template>
+          </AppFormField>
 
-          <div class="form-group">
-            <label class="form-label" for="tel2">
-              Teléfono secundario <span class="optional">(opcional)</span>
-            </label>
-            <div class="input-wrap">
-              <Phone :size="15" class="input-icon" />
-              <input
-                id="tel2" v-model="form.telefonoSecundario" type="tel"
-                class="form-input" placeholder="0212-9876543"
+          <AppFormField label="Teléfono secundario" optional>
+            <template #default="{ id }">
+              <AppInput
+                :id="id"
+                v-model="form.telefonoSecundario"
+                type="tel"
+                placeholder="0212-9876543"
                 :disabled="authStore.isLoading"
               />
-            </div>
+            </template>
+          </AppFormField>
+
+          <div class="form-grid-full">
+            <AppFormField label="Dirección" optional>
+              <template #default="{ id }">
+                <AppInput
+                  :id="id"
+                  v-model="form.direccion"
+                  placeholder="Av. Principal, Casa 5, Sector Centro"
+                  :disabled="authStore.isLoading"
+                  autocomplete="street-address"
+                />
+              </template>
+            </AppFormField>
           </div>
 
-          <div class="form-group full-width">
-            <label class="form-label" for="direccion">
-              Dirección <span class="optional">(opcional)</span>
-            </label>
-            <div class="input-wrap">
-              <MapPin :size="15" class="input-icon" />
-              <input
-                id="direccion" v-model="form.direccion" type="text"
-                class="form-input" placeholder="Av. Principal, Casa 5, Sector Centro"
-                :disabled="authStore.isLoading" autocomplete="street-address"
-              />
-            </div>
-          </div>
-
-          <div class="form-group full-width">
-            <label class="form-label" for="ciudad">
-              Ciudad <span class="optional">(opcional)</span>
-            </label>
-            <div class="input-wrap">
-              <Building2 :size="15" class="input-icon" />
-              <input
-                id="ciudad" v-model="form.ciudad" type="text"
-                class="form-input" placeholder="Ej: Barcelona"
-                :disabled="authStore.isLoading" autocomplete="address-level2"
-              />
-            </div>
+          <div class="form-grid-full">
+            <AppFormField label="Ciudad" optional>
+              <template #default="{ id }">
+                <AppInput
+                  :id="id"
+                  v-model="form.ciudad"
+                  placeholder="Ej: Barcelona"
+                  :disabled="authStore.isLoading"
+                  autocomplete="address-level2"
+                />
+              </template>
+            </AppFormField>
           </div>
         </div>
-      </div>
+      </section>
 
-      <button type="submit" class="btn-submit" :disabled="authStore.isLoading">
-        <Loader2 v-if="authStore.isLoading" :size="16" class="spin" />
-        <UserPlus v-else :size="16" />
+      <AppButton
+        type="submit"
+        variant="primary"
+        size="lg"
+        block
+        :loading="authStore.isLoading"
+      >
+        <template #icon-left><UserPlus :size="16" /></template>
         {{ authStore.isLoading ? 'Creando cuenta…' : 'Crear cuenta' }}
-      </button>
+      </AppButton>
 
       <p class="legal-note">
         Al crear una cuenta aceptas nuestros términos de servicio y política de privacidad.
@@ -201,7 +187,7 @@
 
     <div class="register-block">
       <span class="register-text">¿Ya tienes una cuenta?</span>
-      <router-link to="/auth/login" class="link-register">Inicia sesión</router-link>
+      <RouterLink to="/auth/login" class="link-register">Inicia sesión</RouterLink>
     </div>
   </AuthShell>
 </template>
@@ -209,18 +195,19 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
+import { UserPlus, User, CreditCard, Phone } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth.store'
-import {
-  AlertCircle, Eye, EyeOff, Loader2, UserPlus, User, UserCircle,
-  Mail, Lock, CreditCard, IdCard, CalendarDays, Phone, MapPin, Building2,
-} from 'lucide-vue-next'
 
 import AuthShell from './AuthShell.vue'
+import AppAlert from '@/components/ui/AppAlert.vue'
+import AppButton from '@/components/ui/AppButton.vue'
+import AppFormField from '@/components/ui/AppFormField.vue'
+import AppInput from '@/components/ui/AppInput.vue'
+import AppPasswordField from '@/components/ui/AppPasswordField.vue'
 
 const authStore = useAuthStore()
 const router = useRouter()
 
-const mostrarPassword = ref(false)
 const mostrarError = ref(false)
 
 const errors = reactive({
@@ -244,7 +231,7 @@ const form = reactive({
 })
 
 function resetErrors() {
-  Object.keys(errors).forEach(k => (errors[k] = false))
+  Object.keys(errors).forEach((k) => (errors[k] = false))
   mostrarError.value = false
   authStore.error = null
 }
@@ -255,7 +242,6 @@ function validarEmail(email) {
 
 async function handleRegister() {
   resetErrors()
-
   let hayError = false
 
   if (!form.nombreCompleto.trim() || form.nombreCompleto.trim().length < 3) {
@@ -299,8 +285,106 @@ async function handleRegister() {
     mostrarError.value = true
     const msg = (authStore.error || '').toLowerCase()
     if (msg.includes('correo')) errors.correoElectronico = true
-    if (msg.includes('documento') || msg.includes('cédula') || msg.includes('cedula')) errors.documentoIdentidad = true
+    if (msg.includes('documento') || msg.includes('cédula') || msg.includes('cedula'))
+      errors.documentoIdentidad = true
     if (msg.includes('nombre')) errors.nombreCompleto = true
   }
 }
 </script>
+
+<style scoped>
+.form-header {
+  margin-bottom: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+.form-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-xl);
+  background: var(--brand-50);
+  color: var(--brand-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-2);
+}
+.form-title {
+  font-size: var(--text-4xl);
+  font-weight: var(--font-bold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-primary);
+  margin: 0;
+}
+.form-subtitle {
+  margin: 0;
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  line-height: var(--leading-normal);
+}
+.alert-spacing { margin-bottom: var(--space-5); }
+
+.form-section {
+  padding-bottom: var(--space-5);
+  margin-bottom: var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.form-section:last-of-type {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: var(--space-2);
+}
+.section-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--brand-700);
+}
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.form-grid-full { grid-column: 1 / -1; }
+.form-grid-2 :deep(.form-group),
+.form-grid-full :deep(.form-group) { margin-bottom: 0; }
+
+.legal-note {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.register-block {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-base);
+}
+.register-text { color: var(--text-secondary); }
+.link-register {
+  font-weight: var(--font-bold);
+  color: var(--brand-700);
+  text-decoration: none;
+}
+.link-register:hover { color: var(--brand-800); text-decoration: underline; }
+
+@media (max-width: 560px) {
+  .form-grid-2 { grid-template-columns: 1fr; gap: var(--space-3); }
+  .form-section { padding-bottom: var(--space-4); margin-bottom: var(--space-4); }
+}
+</style>

@@ -26,3 +26,5 @@ export const getPendientesPago = () => api.get('/citas/pendientes-pago')
 export const cobrarCitaMostrador = (id, data) => api.post(`/citas/${id}/cobrar-mostrador`, data)
 
 export const cambiarEstadoCita = (id, estado) => api.post(`/citas/${id}/cambiar-estado`, { estado })
+
+export const cancelarCitaExpirada = (id) => api.post(`/citas/${id}/cancelar-expirada`)

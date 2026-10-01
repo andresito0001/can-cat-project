@@ -1,1 +1,8 @@
 .vscode/
+
+# Archivos temporales / generados
+repomix-output.xml
+fix.sh
+frontend/help.sh
+frontend/src/components/ui/script.sh
+cleanup.sh

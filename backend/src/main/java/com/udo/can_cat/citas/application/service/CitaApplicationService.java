@@ -207,9 +207,8 @@ public class CitaApplicationService {
         cita.setCostoBs(costoBs);
         cita.setTasaCambioAplicada(tasa);
         cita.setCostoEstimado(costoBs);
-        cita.setExpiraEn(LocalDateTime.now().plusHours(1));
-        
-        
+        cita.setExpiraEn(LocalDateTime.now().plusMinutes(1));
+
 
         cita = citaRepository.guardar(cita);
 
@@ -312,6 +311,48 @@ public class CitaApplicationService {
                 "Cancelada",
                 "La cita ha sido cancelada exitosamente."
         );
+    }
+
+    /**
+     * Cancela la cita si su reserva ya expiró.
+     * - Si aún no ha expirado → devuelve el estado actual sin cambios.
+     * - Si ya no está en Pendiente_Pago → devuelve el estado actual sin cambios.
+     * - Si expiró y sigue en Pendiente_Pago → la cancela.
+     *
+     * Idempotente.
+     */
+    @Transactional
+    public CitaEstadoResponseDTO cancelarSiExpirada(Integer idCita) {
+        Integer idCliente = obtenerIdClienteActual();
+        Cita cita = validarCitaPerteneceAlCliente(idCita, idCliente);
+
+        String estadoActual = obtenerNombreEstado(cita.getIdEstado());
+
+        // Si ya no está pendiente de pago → no hacer nada (idempotente)
+        if (!"Pendiente_Pago".equals(estadoActual)) {
+            return new CitaEstadoResponseDTO(idCita, estadoActual,
+                    "La cita ya no está pendiente de pago.");
+        }
+
+        // Si aún no ha expirado → no hacer nada
+        if (cita.getExpiraEn() != null && cita.getExpiraEn().isAfter(LocalDateTime.now())) {
+            return new CitaEstadoResponseDTO(idCita, estadoActual,
+                    "La reserva aún no ha expirado.");
+        }
+
+        // Cancelar
+        EstadoCita estadoCancelada = estadoCitaRepo.buscarPorNombre("Cancelada")
+                .orElseThrow(() -> new OperacionNoPermitidaException(
+                        "Estado 'Cancelada' no encontrado en el sistema"));
+
+        cita.setIdEstado(estadoCancelada.getId());
+        cita.setExpiraEn(null);
+        citaRepository.guardar(cita);
+
+        log.info("Cita {} cancelada por expiración de reserva", idCita);
+
+        return new CitaEstadoResponseDTO(idCita, "Cancelada",
+                "La reserva expiró y la cita fue cancelada automáticamente.");
     }
     
     // ================================================================

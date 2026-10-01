@@ -166,41 +166,41 @@ public class AuthApplicationService {
         // 1. Buscar token en BD
         TokenRecuperacionContrasenaJpaEntity resetToken = tokenRepository
                 .findByToken(request.getToken())
-                .orElseThrow(() -> new RuntimeException("El enlace de recuperación es inválido"));
+                .orElseThrow(TokenRecuperacionInvalidoException::noExiste);
 
         // 2. Verificar si ya fue usado
         if (resetToken.isUsado()) {
-            throw new RuntimeException("Este enlace ya fue utilizado. Solicite uno nuevo.");
+            throw TokenRecuperacionInvalidoException.yaUsado();
         }
 
         // 3. Verificar expiración
         if (resetToken.getFechaExpiracion().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("El enlace de recuperación ha expirado");
+            throw TokenRecuperacionInvalidoException.expirado();
         }
 
-        // 4. Validar firma del JWT (por si alguien inventó un token que existe en BD)
-        if (!jwtTokenProvider.validateToken(request.getToken()) 
+        // 4. Validar firma del JWT
+        if (!jwtTokenProvider.validateToken(request.getToken())
                 || !jwtTokenProvider.isPasswordResetToken(request.getToken())) {
-            throw new RuntimeException("El enlace de recuperación es inválido");
+            throw TokenRecuperacionInvalidoException.corrupto();
         }
 
         // 5. Extraer correo y buscar usuario
         String correo = jwtTokenProvider.getEmailFromToken(request.getToken());
         if (!correo.equals(resetToken.getCorreo())) {
-            throw new RuntimeException("Token corrupto");
+            throw TokenRecuperacionInvalidoException.corrupto();
         }
 
         Usuario usuario = usuarioRepository.findByCorreoElectronico(correo)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                .orElseThrow(TokenRecuperacionInvalidoException::corrupto);
 
         // 6. Actualizar contraseña
         usuario.setContrasenaHash(passwordEncoder.encode(request.getNuevaContrasena()));
         usuarioRepository.save(usuario);
 
-        // 7. MARCAR COMO USADO (¡ESTO ES LO CRÍTICO!)
+        // 7. Marcar como usado
         resetToken.setUsado(true);
         tokenRepository.save(resetToken);
-        
+
         logger.info("Contraseña actualizada correctamente para: {}", correo);
     }
 

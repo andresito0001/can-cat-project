@@ -92,7 +92,21 @@ const routes = [
       { path: 'reportes', name: 'AdminReportes', component: () => import('@/views/admin/ReportesView.vue') },
       { path: 'configuracion', name: 'AdminConfiguracion', component: () => import('@/views/admin/ConfiguracionView.vue') },
     ]
-  }
+  },
+
+  // ─── PERFIL (transversal a todos los roles) ───
+  {
+    path: '/perfil',
+    component: () => import('@/layouts/AppLayout.vue'),
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        name: 'MiPerfil',
+        component: () => import('@/views/shared/MiPerfilView.vue'),
+      },
+    ],
+  },
 ]
 
 const router = createRouter({

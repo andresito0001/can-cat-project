@@ -3,6 +3,7 @@
     class="app-layout"
     :class="{
       'sidebar-open': sidebarOpen,
+      'sidebar-collapsed': sidebarCollapsed && !isMobile,
       'is-mobile': isMobile,
     }"
   >
@@ -17,10 +18,12 @@
 
     <!-- Sidebar -->
     <Sidebar
-    :items="menuItems"
-    :open="sidebarOpen"
-    :is-mobile="isMobile"
-    @close="cerrarSidebar"
+      :items="menuItems"
+      :open="sidebarOpen"
+      :is-mobile="isMobile"
+      :is-collapsed="sidebarCollapsed"
+      @close="cerrarSidebar"
+      @toggle-collapse="toggleCollapse"
     />
 
     <!-- Main -->
@@ -49,19 +52,17 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 const SIDEBAR_KEY = 'cancat-sidebar-open'
+const COLLAPSE_KEY = 'cancat-sidebar-collapsed'
 const MOBILE_BREAKPOINT = 1024
 
-// ─── Estado reactivo ───
 const sidebarOpen = ref(true)
+const sidebarCollapsed = ref(false)
 const isMobile = ref(false)
 
-// ─── Items del menú según rol ───
 const menuItems = computed(() => MENU_ITEMS[authStore.userRole] || [])
 
-// ─── Título dinámico: matchea el item del menú activo ───
 const tituloActivo = computed(() => {
   const path = route.path
-  // Match exacto o por prefijo (para rutas con :id)
   const match = menuItems.value.find((item) => {
     if (!item.route) return false
     return path === item.route || path.startsWith(item.route + '/')
@@ -71,12 +72,19 @@ const tituloActivo = computed(() => {
   return 'Panel'
 })
 
-// ─── Detectar mobile ───
 function detectarMobile() {
+  const wasMobile = isMobile.value
   isMobile.value = window.innerWidth < MOBILE_BREAKPOINT
+  // Al entrar a mobile → colapsar automáticamente el sidebar
+  if (!wasMobile && isMobile.value) {
+    sidebarOpen.value = false
+  }
+  // Al volver a desktop → restaurar preferencias
+  if (wasMobile && !isMobile.value) {
+    restaurarPreferencias()
+  }
 }
 
-// ─── Toggle y cierre ───
 function toggleSidebar() {
   sidebarOpen.value = !sidebarOpen.value
 }
@@ -85,40 +93,40 @@ function cerrarSidebar() {
   sidebarOpen.value = false
 }
 
-// ─── Persistencia ───
-function guardarPreferencia() {
-  // Solo guardamos en desktop; en mobile el estado no se persiste
+function toggleCollapse() {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+}
+
+function guardarPreferencias() {
   if (!isMobile.value) {
     localStorage.setItem(SIDEBAR_KEY, String(sidebarOpen.value))
+    localStorage.setItem(COLLAPSE_KEY, String(sidebarCollapsed.value))
   }
 }
 
-function restaurarPreferencia() {
+function restaurarPreferencias() {
   if (isMobile.value) {
-    // En mobile siempre empieza cerrado
     sidebarOpen.value = false
     return
   }
-  const saved = localStorage.getItem(SIDEBAR_KEY)
-  sidebarOpen.value = saved === null ? true : saved === 'true'
+  const savedOpen = localStorage.getItem(SIDEBAR_KEY)
+  const savedCollapsed = localStorage.getItem(COLLAPSE_KEY)
+  sidebarOpen.value = savedOpen === null ? true : savedOpen === 'true'
+  sidebarCollapsed.value = savedCollapsed === 'true'
 }
 
-// ─── Atajo Cmd/Ctrl + B ───
+/* Atajo Ctrl/Cmd + B → colapsar/expandir en desktop, abrir/cerrar en mobile */
 function handleKeydown(e) {
-  const isCmdB =
-    (e.metaKey || e.ctrlKey) &&
-    e.key.toLowerCase() === 'b'
-  if (isCmdB) {
-    e.preventDefault()
-    toggleSidebar()
-  }
+  const isCmdB = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b'
+  if (!isCmdB) return
+  e.preventDefault()
+  if (isMobile.value) toggleSidebar()
+  else toggleCollapse()
 }
 
-// ─── Lifecycle ───
 onMounted(() => {
   detectarMobile()
-  restaurarPreferencia()
-
+  restaurarPreferencias()
   window.addEventListener('resize', detectarMobile)
   window.addEventListener('keydown', handleKeydown)
 })
@@ -128,26 +136,10 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeydown)
 })
 
-// ─── Watchers ───
-// Guardar preferencia cada vez que cambia (solo desktop)
-watch(sidebarOpen, guardarPreferencia)
+watch([sidebarOpen, sidebarCollapsed], guardarPreferencias)
 
-// Al cambiar de ruta: cerrar en mobile, ajustar si entra/sale del breakpoint
-watch(
-  () => route.path,
-  () => {
-    if (isMobile.value) cerrarSidebar()
-  }
-)
-
-watch(isMobile, (nuevoEsMobile) => {
-  if (nuevoEsMobile) {
-    // Pasamos a mobile: cerrar
-    sidebarOpen.value = false
-  } else {
-    // Volvemos a desktop: restaurar preferencia
-    restaurarPreferencia()
-  }
+watch(() => route.path, () => {
+  if (isMobile.value) cerrarSidebar()
 })
 </script>
 
@@ -155,19 +147,18 @@ watch(isMobile, (nuevoEsMobile) => {
 .app-layout {
   display: flex;
   min-height: 100vh;
-  background: #F1F5F9;
+  background: var(--bg-page);
 }
 
 /* ═══ Overlay mobile ═══ */
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.45);
+  background: var(--bg-overlay);
   backdrop-filter: blur(2px);
   z-index: 30;
-  animation: fadeIn 0.2s ease;
+  animation: fadeIn var(--duration-base) var(--ease-out);
 }
-
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -180,23 +171,26 @@ watch(isMobile, (nuevoEsMobile) => {
   flex-direction: column;
   min-height: 100vh;
   min-width: 0;
-  transition: margin-left 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: margin-left var(--duration-slow) var(--ease-out);
 }
 
-/* Empuje lateral SOLO en desktop cuando el sidebar está abierto */
+/* Desktop: empuje según estado del sidebar */
 .app-layout:not(.is-mobile).sidebar-open .main-wrapper {
   margin-left: 260px;
+}
+.app-layout:not(.is-mobile).sidebar-open.sidebar-collapsed .main-wrapper {
+  margin-left: 76px;
 }
 
 .main-content {
   flex: 1;
-  padding: 24px 32px;
+  padding: var(--space-6) var(--space-7);
 }
 
 /* ═══ Transiciones ═══ */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity var(--duration-base) var(--ease-out);
 }
 .fade-enter-from,
 .fade-leave-to {
@@ -206,7 +200,7 @@ watch(isMobile, (nuevoEsMobile) => {
 /* ═══ Responsive ═══ */
 @media (max-width: 1023px) {
   .main-content {
-    padding: 20px 16px;
+    padding: var(--space-5) var(--space-4);
   }
 }
 </style>
