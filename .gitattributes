@@ -1,0 +1,60 @@
+# ═══════════════════════════════════════════════════════════════
+# Line endings — garantiza que Windows y Linux no rompan archivos
+# ═══════════════════════════════════════════════════════════════
+
+# Por defecto: texto con LF
+* text=auto eol=lf
+
+# Binarios (nunca tocar)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+
+# SVG: es texto
+*.svg text eol=lf
+
+# Scripts de Linux → LF
+*.sh text eol=lf
+mvnw text eol=lf
+
+# Scripts de Windows → CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+mvnw.cmd text eol=crlf
+
+# Archivos que van dentro de contenedores Linux → LF obligatorio
+Dockerfile text eol=lf
+*.dockerfile text eol=lf
+docker-compose.yml text eol=lf
+docker-compose.yaml text eol=lf
+nginx.conf text eol=lf
+.dockerignore text eol=lf
+
+# Configuración y código → LF
+*.yml text eol=lf
+*.yaml text eol=lf
+*.js text eol=lf
+*.ts text eol=lf
+*.vue text eol=lf
+*.json text eol=lf
+*.java text eol=lf
+*.xml text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.md text eol=lf
+*.sql text eol=lf
+
+# Variables de entorno → LF (crítico para Docker)
+.env text eol=lf
+.env.example text eol=lf
+
+# Metadatos del repo
+.gitignore text eol=lf
+.gitattributes text eol=lf

@@ -1,0 +1,12 @@
+target/
+.idea/
+*.iml
+.vscode/
+.git/
+.gitignore
+.gitattributes
+*.log
+HELP.md
+mvnw.cmd
+clear
+scripts/

@@ -22,6 +22,3 @@ scripts/
 # OS
 .DS_Store
 Thumbs.db
-
-application-dev.yml
-prueba.sh
