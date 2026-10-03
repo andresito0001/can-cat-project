@@ -54,6 +54,8 @@ import com.udo.can_cat.usuarios.domain.repository.PersonalRepository;
 import com.udo.can_cat.usuarios.domain.repository.UsuarioRepository;
 import java.util.List;
 import java.math.RoundingMode;
+import com.udo.can_cat.facturacion.application.dto.EstadisticasCajaHoyDTO;
+
 
 @Service
 public class PagoApplicationService {
@@ -123,6 +125,32 @@ public class PagoApplicationService {
                         m.getDatosRequeridos() != null ? m.getDatosRequeridos() : Map.of()
                 ))
                 .toList();
+    }
+
+    // ═══════════════════════════════════════════════════
+    // ESTADÍSTICAS DEL DÍA (KPIs de Caja)
+    // ═══════════════════════════════════════════════════
+
+    @Transactional(readOnly = true)
+    public EstadisticasCajaHoyDTO estadisticasHoy() {
+        LocalDate hoy = LocalDate.now();
+        LocalDateTime inicio = hoy.atStartOfDay();
+        LocalDateTime fin = hoy.plusDays(1).atStartOfDay();
+        LocalDateTime corte24h = LocalDateTime.now().minusHours(24);
+
+        BigDecimal totalUsd = pagoRepo.sumarPagosConfirmadosEntre(inicio, fin);
+        long cantidad = pagoRepo.contarPagosConfirmadosEntre(inicio, fin);
+        long pendientes = facturaRepo.contarFacturasEmitidasSinPago();
+        long urgentes = facturaRepo.contarFacturasUrgentes(corte24h);
+        long porVerificar = pagoRepo.contarPagosPendientesVerificacion();
+
+        return new EstadisticasCajaHoyDTO(
+                totalUsd != null ? totalUsd : BigDecimal.ZERO,
+                (int) cantidad,
+                (int) pendientes,
+                (int) urgentes,
+                (int) porVerificar
+        );
     }
 
     // ═══════════════════════════════════════════════════
@@ -256,6 +284,8 @@ public class PagoApplicationService {
                 tasa
         );
     }
+
+    
 
     // ═══════════════════════════════════════════════════
     // DATOS PARA GENERAR PDF

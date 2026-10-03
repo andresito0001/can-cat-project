@@ -15,6 +15,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
+
 @RestController
 @RequestMapping("/api/pagos")
 public class PagoController {
@@ -225,6 +226,16 @@ public class PagoController {
             @PathVariable Integer idPago,
             @Valid @RequestBody VerificarPagoRequestDTO request) {
         return ResponseEntity.ok(pagoService.verificarPago(idPago, request));
+    }
+    
+    /**
+     * GET /api/pagos/estadisticas-hoy
+     * KPIs agregados del día para el dashboard de Caja (recepción).
+     */
+    @GetMapping("/estadisticas-hoy")
+    @PreAuthorize("hasRole('Recepcionista')")
+    public ResponseEntity<EstadisticasCajaHoyDTO> estadisticasHoy() {
+        return ResponseEntity.ok(pagoService.estadisticasHoy());
     }
 
     private Integer obtenerIdUsuarioActual() {

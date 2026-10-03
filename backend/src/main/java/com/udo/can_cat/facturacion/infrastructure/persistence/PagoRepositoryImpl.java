@@ -6,6 +6,8 @@ import jakarta.persistence.NoResultException;
 import jakarta.persistence.PersistenceContext;
 import com.udo.can_cat.facturacion.domain.entity.Pago;
 import com.udo.can_cat.facturacion.domain.repository.PagoRepository;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -113,5 +115,49 @@ public class PagoRepositoryImpl implements PagoRepository {
                 .setParameter("idCita", idCita)
                 .getSingleResult();
         return count != null && count > 0;
+    }
+
+        @Override
+    public BigDecimal sumarPagosConfirmadosEntre(LocalDateTime inicio, LocalDateTime fin) {
+        Object result = em.createQuery(
+                        "SELECT SUM(p.monto) FROM PagoJpaEntity p " +
+                        "WHERE p.estadoPago = :estado " +
+                        "AND p.fechaPago >= :inicio " +
+                        "AND p.fechaPago < :fin")
+                .setParameter("estado", "Confirmado")
+                .setParameter("inicio", inicio)
+                .setParameter("fin", fin)
+                .getSingleResult();
+
+        if (result == null) return BigDecimal.ZERO;
+        return (BigDecimal) result;
+    }
+
+    @Override
+    public long contarPagosConfirmadosEntre(LocalDateTime inicio, LocalDateTime fin) {
+        Long count = em.createQuery(
+                        "SELECT COUNT(p) FROM PagoJpaEntity p " +
+                        "WHERE p.estadoPago = :estado " +
+                        "AND p.fechaPago >= :inicio " +
+                        "AND p.fechaPago < :fin",
+                        Long.class)
+                .setParameter("estado", "Confirmado")
+                .setParameter("inicio", inicio)
+                .setParameter("fin", fin)
+                .getSingleResult();
+
+        return count != null ? count : 0L;
+    }
+
+    @Override
+    public long contarPagosPendientesVerificacion() {
+        Long count = em.createQuery(
+                        "SELECT COUNT(p) FROM PagoJpaEntity p " +
+                        "WHERE p.estadoPago = :estado",
+                        Long.class)
+                .setParameter("estado", "Pendiente_Verificacion")
+                .getSingleResult();
+
+        return count != null ? count : 0L;
     }
 }

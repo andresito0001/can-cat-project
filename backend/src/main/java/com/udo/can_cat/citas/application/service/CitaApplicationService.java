@@ -207,7 +207,7 @@ public class CitaApplicationService {
         cita.setCostoBs(costoBs);
         cita.setTasaCambioAplicada(tasa);
         cita.setCostoEstimado(costoBs);
-        cita.setExpiraEn(LocalDateTime.now().plusMinutes(1));
+        cita.setExpiraEn(LocalDateTime.now().plusMinutes(5));
 
 
         cita = citaRepository.guardar(cita);

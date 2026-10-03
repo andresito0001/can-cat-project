@@ -5,6 +5,10 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public record RegistrarMascotaRequestDTO (
+        @Pattern (
+                regexp = com.udo.can_cat.shared.validation.DocumentoIdentidad.PATTERN,
+                message =  com.udo.can_cat.shared.validation.DocumentoIdentidad.MENSAJE
+        )
         String documentoIdentidadCliente,
 
         @NotNull(message = "La especie es obligatoria")

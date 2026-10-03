@@ -2,6 +2,8 @@ package com.udo.can_cat.facturacion.domain.repository;
 
 import com.udo.can_cat.facturacion.domain.entity.Pago;
 import java.util.Optional;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface PagoRepository {
@@ -13,4 +15,7 @@ public interface PagoRepository {
     boolean existePagoConfirmadoParaCita(Integer idCita);
     Optional<Pago> buscarPorFacturaCita(Integer idCita);
     boolean existePagoActivoParaCita(Integer idCita);
+    BigDecimal sumarPagosConfirmadosEntre(LocalDateTime inicio, LocalDateTime fin);
+    long contarPagosConfirmadosEntre(LocalDateTime inicio, LocalDateTime fin);
+    long contarPagosPendientesVerificacion();
 }

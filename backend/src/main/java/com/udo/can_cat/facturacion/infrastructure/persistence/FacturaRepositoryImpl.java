@@ -7,6 +7,7 @@ import jakarta.persistence.PersistenceContext;
 import com.udo.can_cat.facturacion.domain.entity.Factura;
 import com.udo.can_cat.facturacion.domain.repository.FacturaRepository;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -82,5 +83,29 @@ public class FacturaRepositoryImpl implements FacturaRepository {
                 .stream()
                 .map(FacturaJpaEntity::toDomain)
                 .toList();
+    }
+    
+    @Override
+    public long contarFacturasEmitidasSinPago() {
+        Number result = (Number) em.createNativeQuery(
+                        "SELECT COUNT(*) FROM factura f " +
+                        "WHERE f.estado_factura = 'Emitida' " +
+                        "AND NOT EXISTS (SELECT 1 FROM pago p WHERE p.id_factura = f.id_factura)")
+                .getSingleResult();
+
+        return result != null ? result.longValue() : 0L;
+    }
+
+    @Override
+    public long contarFacturasUrgentes(LocalDateTime corteAntesDe) {
+        Number result = (Number) em.createNativeQuery(
+                        "SELECT COUNT(*) FROM factura f " +
+                        "WHERE f.estado_factura = 'Emitida' " +
+                        "AND f.fecha_emision < :corte " +
+                        "AND NOT EXISTS (SELECT 1 FROM pago p WHERE p.id_factura = f.id_factura)")
+                .setParameter("corte", corteAntesDe)
+                .getSingleResult();
+
+        return result != null ? result.longValue() : 0L;
     }
 }

@@ -13,6 +13,10 @@ public class RegistroClienteRequestDTO {
 
     @NotBlank(message = "El documento de identidad es obligatorio")
     @Size(min = 6, max = 20, message = "El documento debe tener entre 6 y 20 caracteres")
+    @Pattern(
+        regexp = com.udo.can_cat.shared.validation.DocumentoIdentidad.PATTERN,
+        message = com.udo.can_cat.shared.validation.DocumentoIdentidad.MENSAJE
+    )
     private String documentoIdentidad;
 
     @NotBlank(message = "El correo electrónico es obligatorio")
