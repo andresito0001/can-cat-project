@@ -85,16 +85,12 @@
             <label class="form-label">
               {{ fmtFieldLabel(campo.key) }} <span class="required">*</span>
             </label>
-            <AppSelect
+            <BancoSelector
               v-if="campo.key === 'banco'"
               v-model="datosPago[campo.key]"
               :error="errors[campo.key]"
-            >
-              <option value="" disabled>Selecciona el banco emisor</option>
-              <option v-for="b in BANCOS_VENEZUELA" :key="b.codigo" :value="b.nombre">
-                {{ b.codigo }} - {{ b.nombre }}
-              </option>
-            </AppSelect>
+              placeholder="Selecciona el banco emisor"
+            />
             <AppInput
               v-else
               v-model="datosPago[campo.key]"
@@ -146,9 +142,7 @@ import AppModal from '@/components/ui/AppModal.vue'
 import AppButton from '@/components/ui/AppButton.vue'
 import AppAlert from '@/components/ui/AppAlert.vue'
 import AppInput from '@/components/ui/AppInput.vue'
-import AppSelect from '@/components/ui/AppSelect.vue'
-
-import { BANCOS_VENEZUELA } from '@/utils/constants/bancos'
+import BancoSelector from '@/components/ui/BancoSelector.vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },

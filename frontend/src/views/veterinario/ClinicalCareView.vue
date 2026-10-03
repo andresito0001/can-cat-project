@@ -557,11 +557,12 @@
                   </div>
                   <div class="field">
                     <label class="field-label" for="proxima">Próxima cita recomendada</label>
-                    <input
-                      id="proxima"
-                      v-model="form.proximaCitaRecomendada"
-                      type="date"
-                      class="field-input"
+                    <DatePicker
+                        id="proxima"
+                        v-model="form.proximaCitaRecomendada"
+                        placeholder="Seleccionar fecha"
+                        :min="hoyFecha"
+                        :meses-ahead="24"
                     />
                   </div>
                 </div>
@@ -1127,10 +1128,13 @@ import { getApiErrorMessage, getValidationFieldErrors } from '@/utils/apiError'
 import { descargarBlob } from '@/utils/descargas'
 import { ESTADO_COLOR } from '@/utils/constants/estadosCita'
 import { fechaCompleta, fechaHoraCorta, hoyISO, rangoHora } from '@/utils/fecha'
+import DatePicker from '@/components/ui/DatePicker.vue'
+
 
 const route = useRoute()
 const router = useRouter()
 const { toastExito, toastError, toastInfo } = useToast()
+const hoyFecha = hoyISO()
 
 const formatoUSD = (valor) => `$${Number(valor || 0).toFixed(2)}`
 

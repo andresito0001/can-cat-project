@@ -100,3 +100,8 @@ export const verificarPago = (idPago, payload) =>
 export const getDatosBancarios = () => api.get('/public/datos-bancarios')
 
 export const getTasaCambio = () => api.get('/public/tasa-cambio')
+
+export async function getEstadisticasCajaHoy() {
+  const { data } = await api.get('/pagos/estadisticas-hoy')
+  return data
+}

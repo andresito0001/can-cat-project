@@ -604,16 +604,12 @@
                       <label class="form-label">
                         {{ formatFieldLabel(campo.key) }} <span class="required">*</span>
                       </label>
-                      <AppSelect
+                      <BancoSelector
                         v-if="campo.key === 'banco'"
                         v-model="datosPago[campo.key]"
                         :error="pagoFormErrors[campo.key]"
-                      >
-                        <option value="" disabled>Seleccione el banco emisor</option>
-                        <option v-for="banco in BANCOS_VENEZUELA" :key="banco.codigo" :value="banco.nombre">
-                          {{ banco.codigo }} - {{ banco.nombre }}
-                        </option>
-                      </AppSelect>
+                        placeholder="Seleccione el banco emisor"
+                      />
                       <AppInput
                         v-else
                         v-model="datosPago[campo.key]"
@@ -949,13 +945,10 @@ import AppButton from '@/components/ui/AppButton.vue'
 import AppCard from '@/components/ui/AppCard.vue'
 import AppAlert from '@/components/ui/AppAlert.vue'
 import AppInput from '@/components/ui/AppInput.vue'
-import AppSelect from '@/components/ui/AppSelect.vue'
+import BancoSelector from '@/components/ui/BancoSelector.vue'
 import AppTextarea from '@/components/ui/AppTextarea.vue'
 import PetAvatar from '@/components/ui/PetAvatar.vue'
 import EntityAvatar from '@/components/ui/EntityAvatar.vue'
-
-import { BANCOS_VENEZUELA } from '@/utils/constants/bancos'
-
 import HorarioSemanalCard from '@/components/ui/HorarioSemanalCard.vue'
 import AppModal from '@/components/ui/AppModal.vue'
 

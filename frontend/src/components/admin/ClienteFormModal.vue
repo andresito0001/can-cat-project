@@ -1,65 +1,76 @@
 <template>
-  <Transition name="fade">
-    <div v-if="visible" class="modal-overlay" @click.self="cerrar">
-      <div class="modal-card">
-        <header class="modal-header">
-          <div>
-            <h3>Editar Cliente</h3>
-            <p class="modal-sub">Actualiza los datos del cliente</p>
-          </div>
-          <button class="close-btn" type="button" @click="cerrar"><X :size="18" /></button>
-        </header>
-
-        <form class="modal-body" @submit.prevent="submit">
-          <div class="field">
-            <label>Nombre completo *</label>
-            <input v-model="form.nombreCompleto" type="text" required maxlength="150" />
-          </div>
-
-          <div class="row">
-            <div class="field">
-              <label>Documento de identidad *</label>
-              <input v-model="form.documentoIdentidad" type="text" required maxlength="20" />
+  <Teleport to="body">
+    <Transition name="fade">
+      <div v-if="visible" class="modal-overlay" @click.self="cerrar">
+        <div class="modal-card">
+          <header class="modal-header">
+            <div>
+              <h3>Editar Cliente</h3>
+              <p class="modal-sub">Actualiza los datos del cliente</p>
             </div>
+            <button class="close-btn" type="button" @click="cerrar"><X :size="18" /></button>
+          </header>
+
+          <form class="modal-body" @submit.prevent="submit">
             <div class="field">
-              <label>Fecha de nacimiento</label>
-              <input v-model="form.fechaNacimiento" type="date" />
+              <label>Nombre completo *</label>
+              <input v-model="form.nombreCompleto" type="text" required maxlength="150" />
             </div>
-          </div>
 
-          <div class="row">
+            <div class="row">
+              <div class="field">
+                <label>Documento de identidad *</label>
+                <AppInput
+                  v-model="form.documentoIdentidad"
+                  maxlength="11"
+                  placeholder="V-12345678"
+                  @update:model-value="form.documentoIdentidad = formatearCedula($event)"
+                />
+              </div>
+              <div class="field">
+                <label>Fecha de nacimiento</label>
+                <DatePicker
+                  v-model="form.fechaNacimiento"
+                  placeholder="Seleccionar fecha"
+                  :max="hoy"
+                />
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="field">
+                <label>Teléfono principal *</label>
+                <input v-model="form.telefonoPrincipal" type="text" required maxlength="20" />
+              </div>
+              <div class="field">
+                <label>Teléfono secundario</label>
+                <input v-model="form.telefonoSecundario" type="text" maxlength="20" />
+              </div>
+            </div>
+
             <div class="field">
-              <label>Teléfono principal *</label>
-              <input v-model="form.telefonoPrincipal" type="text" required maxlength="20" />
+              <label>Dirección</label>
+              <input v-model="form.direccion" type="text" maxlength="255" />
             </div>
+
             <div class="field">
-              <label>Teléfono secundario</label>
-              <input v-model="form.telefonoSecundario" type="text" maxlength="20" />
+              <label>Ciudad</label>
+              <input v-model="form.ciudad" type="text" maxlength="50" />
             </div>
-          </div>
 
-          <div class="field">
-            <label>Dirección</label>
-            <input v-model="form.direccion" type="text" maxlength="255" />
-          </div>
+            <p v-if="error" class="error-msg">{{ error }}</p>
 
-          <div class="field">
-            <label>Ciudad</label>
-            <input v-model="form.ciudad" type="text" maxlength="50" />
-          </div>
-
-          <p v-if="error" class="error-msg">{{ error }}</p>
-
-          <footer class="modal-footer">
-            <button type="button" class="btn-ghost" @click="cerrar">Cancelar</button>
-            <button type="submit" class="btn-primary" :disabled="guardando">
-              {{ guardando ? 'Guardando…' : 'Guardar cambios' }}
-            </button>
-          </footer>
-        </form>
+            <footer class="modal-footer">
+              <button type="button" class="btn-ghost" @click="cerrar">Cancelar</button>
+              <button type="submit" class="btn-primary" :disabled="guardando">
+                {{ guardando ? 'Guardando…' : 'Guardar cambios' }}
+              </button>
+            </footer>
+          </form>
+        </div>
       </div>
-    </div>
-  </Transition>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup>
@@ -67,6 +78,10 @@ import { ref, watch, computed } from 'vue'
 import { X } from 'lucide-vue-next'
 import { actualizarCliente } from '@/api/admin.api'
 import { getApiErrorMessage, getValidationFieldErrors } from '@/utils/apiError'
+import DatePicker from '@/components/ui/DatePicker.vue'
+import { hoyISO } from '@/utils/fecha'
+
+const hoy = hoyISO()
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -124,7 +139,19 @@ async function submit() {
 </script>
 
 <style scoped>
-.modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+  padding: var(--space-5);
+}
+
 .modal-card { background: #fff; border-radius: 16px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 50px -12px rgba(15,23,42,.3); }
 .modal-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 22px 26px; border-bottom: 1px solid #E2E8F0; }
 .modal-header h3 { margin: 0; font-size: 17px; font-weight: 700; }

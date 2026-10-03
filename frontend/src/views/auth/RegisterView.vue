@@ -82,24 +82,27 @@
             required
           >
             <template #default="{ id, invalid }">
-              <AppInput
-                :id="id"
-                v-model="form.documentoIdentidad"
-                placeholder="V-12345678"
-                :disabled="authStore.isLoading"
-                :error="invalid"
-              />
+            <AppInput
+              :id="id"
+              :model-value="form.documentoIdentidad"
+              placeholder="V-12345678"
+              :disabled="isLoading"
+              :error="invalid"
+              maxlength="11"
+              @update:model-value="form.documentoIdentidad = formatearCedula($event)"
+            />
             </template>
           </AppFormField>
 
           <AppFormField label="Fecha de nacimiento" optional>
             <template #default="{ id }">
-              <AppInput
+              <DatePicker
                 :id="id"
                 v-model="form.fechaNacimiento"
-                type="date"
+                placeholder="Seleccionar fecha"
+                :max="hoy"
                 :disabled="authStore.isLoading"
-              />
+             />
             </template>
           </AppFormField>
         </div>
@@ -204,6 +207,11 @@ import AppButton from '@/components/ui/AppButton.vue'
 import AppFormField from '@/components/ui/AppFormField.vue'
 import AppInput from '@/components/ui/AppInput.vue'
 import AppPasswordField from '@/components/ui/AppPasswordField.vue'
+import DatePicker from '@/components/ui/DatePicker.vue'
+
+import { formatearCedula, validarCedula } from '@/utils/cedula'
+
+const hoy = new Date().toISOString().split('T')[0]
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -248,10 +256,12 @@ async function handleRegister() {
     errors.nombreCompleto = true
     hayError = true
   }
-  if (!form.documentoIdentidad.trim() || form.documentoIdentidad.trim().length < 6) {
+
+  if (validarCedula(form.documentoIdentidad)) {
     errors.documentoIdentidad = true
     hayError = true
   }
+
   if (!form.correoElectronico.trim() || !validarEmail(form.correoElectronico)) {
     errors.correoElectronico = true
     hayError = true

@@ -87,10 +87,10 @@
 
           <AppFormField label="Fecha de nacimiento" optional>
             <template #default="{ id }">
-              <AppInput
+              <DatePicker
                 :id="id"
                 v-model="form.fechaNacimiento"
-                type="date"
+                placeholder="Seleccionar fecha"
                 :max="hoy"
                 :disabled="guardando"
               />
@@ -190,6 +190,11 @@ import AppInput from '@/components/ui/AppInput.vue'
 import AppSelect from '@/components/ui/AppSelect.vue'
 import AppAlert from '@/components/ui/AppAlert.vue'
 
+import DatePicker from '@/components/ui/DatePicker.vue'
+import { hoyISO } from '@/utils/fecha'
+
+const hoy = new Date().toISOString().split('T')[0]
+
 const props = defineProps({
   visible: { type: Boolean, default: false },
   mascota: { type: Object, default: null },
@@ -199,7 +204,6 @@ const emit = defineEmits(['close', 'saved'])
 
 const { toastSuccess } = useToast()
 
-const hoy = new Date().toISOString().split('T')[0]
 const nombreInputRef = ref(null)
 const guardando = ref(false)
 const error = ref('')

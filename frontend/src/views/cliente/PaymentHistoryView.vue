@@ -93,13 +93,26 @@
       </div>
 
       <div v-if="filtroModo === 'dia'" class="filtro-campos">
-        <input v-model="fechaDia" type="date" aria-label="Día" class="form-input" />
+        <DatePicker
+          v-model="fechaDia"
+          placeholder="Seleccionar día"
+          :max="hoy"
+        />
       </div>
 
       <div v-else-if="filtroModo === 'rango'" class="filtro-campos">
-        <input v-model="fechaDesde" type="date" aria-label="Desde" class="form-input" />
+        <DatePicker
+          v-model="fechaDesde"
+          placeholder="Desde"
+          :max="fechaHasta || hoy"
+        />
         <span class="filtro-sep">hasta</span>
-        <input v-model="fechaHasta" type="date" aria-label="Hasta" class="form-input" />
+          <DatePicker
+            v-model="fechaHasta"
+            placeholder="Hasta"
+            :min="fechaDesde || ''"
+            :max="hoy"
+          />
       </div>
 
       <div class="filtro-side">
@@ -289,6 +302,7 @@ import {
   Calendar, Wallet, Hash, Clock, Receipt, ChevronRight, X,
 } from 'lucide-vue-next'
 import { getHistorialPagos, descargarFactura } from '@/api/pagos.api.js'
+import DatePicker from '@/components/ui/DatePicker.vue'
 import { useToast } from '@/composables/useToast'
 
 import AppButton from '@/components/ui/AppButton.vue'
@@ -311,6 +325,8 @@ const fechaHasta = ref('')
 const filtroActivo = computed(() =>
   filtroModo.value !== 'todos' || !!fechaDia.value || !!fechaDesde.value || !!fechaHasta.value
 )
+
+const hoy = new Date().toISOString().split('T')[0]
 
 function limpiarFiltro() {
   filtroModo.value = 'todos'
@@ -636,13 +652,16 @@ onUnmounted(() => {
   box-shadow: 0 2px 8px rgba(15, 118, 110, 0.25);
 }
 .filtro-campos { display: flex; align-items: center; gap: var(--space-3); }
-.filtro-campos input[type="date"] {
-  width: auto;
-  height: var(--input-h-sm);
-  padding: 0 var(--space-3);
-  font-size: var(--text-md);
-  background: var(--bg-surface-alt);
-}
+.filtro-campos {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+  }
+  .filtro-campos :deep(.date-picker) {
+    flex: 1;
+    min-width: 160px;
+  }
 .filtro-sep { font-size: var(--text-md); color: var(--text-secondary); }
 .filtro-side {
   display: flex;
@@ -918,7 +937,7 @@ onUnmounted(() => {
   .kpis { grid-template-columns: 1fr; gap: var(--space-3); }
   .filtro-modos { width: 100%; overflow-x: auto; }
   .filtro-campos { width: 100%; flex-wrap: wrap; }
-  .filtro-campos input[type="date"] { flex: 1; min-width: 0; }
+
 
   .pago-card {
     grid-template-columns: auto minmax(0, 1fr);

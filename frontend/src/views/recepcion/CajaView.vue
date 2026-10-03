@@ -2,320 +2,376 @@
   <div class="caja-view">
     <ToastContainer />
 
-    <!-- ═══ HERO ═══ -->
-    <header class="page-header">
-      <div>
-        <span class="page-header-eyebrow">
+    <!-- ══════════════ HERO COMPACTO ══════════════ -->
+    <header class="caja-hero">
+      <div class="hero-info">
+        <span class="hero-eyebrow">
           <Sparkles :size="12" /> Recepción · Caja
         </span>
-        <h1>Caja</h1>
-        <p class="page-header-sub">
-          Cobra las facturas de productos generadas por las atenciones clínicas y verifica los pagos online.
+        <h1 class="hero-title">Caja</h1>
+        <p class="hero-sub">
+          Cobra facturas de productos y verifica los pagos online del día.
         </p>
       </div>
-      <div class="page-header-actions">
-        <AppButton
-          variant="secondary"
-          :loading="cargandoFacturas || cargandoVerificacion"
+      <div class="hero-actions">
+        <button
+          class="hero-refresh"
+          type="button"
+          :disabled="cargandoFacturas || cargandoVerificacion"
           @click="actualizar"
         >
-          <template #icon-left>
-            <RefreshCw :size="15" />
-          </template>
-          Actualizar
-        </AppButton>
+          <RefreshCw
+            :size="15"
+            :class="{ 'is-spinning': cargandoFacturas || cargandoVerificacion }"
+          />
+          <span>Actualizar</span>
+        </button>
       </div>
     </header>
 
-    <!-- ═══ KPIs ═══ -->
-    <section class="kpis">
-      <article class="kpi">
-        <div class="kpi-icon kpi-icon-purple"><Receipt :size="18" /></div>
-        <div class="kpi-texto">
-          <p class="kpi-value">{{ facturas.length }}</p>
-          <p class="kpi-label">Facturas por cobrar</p>
-        </div>
-      </article>
-      <article class="kpi" :class="{ 'is-warn': pagosPorVerificar.length > 0 }">
-        <div class="kpi-icon" :class="pagosPorVerificar.length ? 'kpi-icon-warning' : 'kpi-icon-neutral'">
-          <ShieldCheck :size="18" />
-        </div>
-        <div class="kpi-texto">
-          <p class="kpi-value" :class="{ 'is-warn': pagosPorVerificar.length > 0 }">
-            {{ pagosPorVerificar.length }}
-          </p>
-          <p class="kpi-label">Pagos por verificar</p>
-        </div>
-      </article>
+    <!-- ══════════════ KPIs DEL DÍA ══════════════ -->
+    <section class="caja-kpis">
+      <KpiCard
+        :icon="Receipt"
+        tone="brand"
+        label="Facturas pendientes"
+        :value="facturas.length"
+        :hint="facturas.length === 0 ? 'Todo cobrado' : 'Por cobrar en mostrador'"
+      />
+      <KpiCard
+        :icon="ShieldCheck"
+        tone="warning"
+        label="Pagos por verificar"
+        :value="pagosPorVerificar.length"
+        :hint="pagosPorVerificar.length === 0 ? 'Todo verificado' : 'Esperando validación'"
+        :warn="pagosPorVerificar.length > 0"
+      />
+      <KpiCard
+        :icon="Banknote"
+        tone="success"
+        label="Cobrado hoy"
+        :value="fmtUsd(statsDelDia.cobradoUsd)"
+        :hint="`${statsDelDia.pagosHoy} ${statsDelDia.pagosHoy === 1 ? 'pago' : 'pagos'} procesados`"
+      />
+      <KpiCard
+        :icon="Clock3"
+        tone="info"
+        label="Antigüedad máx."
+        :value="statsDelDia.antiguedadMax"
+        :hint="statsDelDia.antiguedadMax === '—' ? 'Sin trabajo pendiente' : 'Esperando gestión'"
+      />
     </section>
 
-    <!-- ═══ TABS ═══ -->
-    <nav class="tabs" role="tablist">
+    <!-- ══════════════ TABS STICKY ══════════════ -->
+    <nav class="caja-tabs" role="tablist" aria-label="Bandejas de trabajo">
       <button
         type="button"
         role="tab"
-        class="tab"
-        :class="{ active: tab === 'facturas' }"
+        class="caja-tab"
+        :class="{ 'is-active': tab === 'facturas' }"
         :aria-selected="tab === 'facturas'"
         @click="tab = 'facturas'"
       >
-        <Receipt :size="15" />
-        Facturas de productos
-        <span v-if="facturas.length" class="tab-count">{{ facturas.length }}</span>
+        <span class="tab-icon"><Receipt :size="15" /></span>
+        <span class="tab-label">Facturas de productos</span>
+        <span
+          v-if="facturas.length"
+          class="tab-counter"
+          :class="{ 'is-warn': statsDelDia.facturasUrgentes > 0 }"
+        >
+          {{ facturas.length }}
+        </span>
       </button>
+
       <button
         type="button"
         role="tab"
-        class="tab"
-        :class="{ active: tab === 'verificacion' }"
+        class="caja-tab"
+        :class="{ 'is-active': tab === 'verificacion' }"
         :aria-selected="tab === 'verificacion'"
         @click="tab = 'verificacion'"
       >
-        <ShieldCheck :size="15" />
-        Pagos por verificar
-        <span v-if="pagosPorVerificar.length" class="tab-count is-warn">
+        <span class="tab-icon"><ShieldCheck :size="15" /></span>
+        <span class="tab-label">Pagos por verificar</span>
+        <span
+          v-if="pagosPorVerificar.length"
+          class="tab-counter is-warn is-pulsing"
+        >
           {{ pagosPorVerificar.length }}
         </span>
       </button>
     </nav>
 
-    <!-- ══════════════ TAB 1: FACTURAS ══════════════ -->
-    <template v-if="tab === 'facturas'">
-      <AppAlert
-        v-if="errorFacturas"
-        variant="error"
-        :action="'Reintentar'"
-        @action="cargarFacturas"
-      >
-        {{ errorFacturas }}
-      </AppAlert>
-
-      <!-- Loading -->
-      <div v-if="cargandoFacturas" class="table-card">
-        <div class="skeleton-table">
-          <div v-for="i in 4" :key="i" class="skeleton-row-table">
-            <div class="skeleton w-25" />
-            <div class="skeleton w-15" />
-            <div class="skeleton w-30" />
-            <div class="skeleton w-20" />
-            <div class="skeleton w-15" />
-          </div>
-        </div>
-      </div>
-
-      <!-- Empty -->
-      <AppEmptyState
-        v-else-if="facturas.length === 0"
-        :icon="CheckCircle2"
-        title="No hay facturas de productos pendientes"
-        description="Las facturas generadas por insumos aplicados en atenciones clínicas aparecerán aquí para su cobro en mostrador."
-      >
-        <template #action>
-          <AppButton variant="secondary" @click="actualizar">
-            <template #icon-left><RefreshCw :size="15" /></template>
-            Actualizar
-          </AppButton>
-        </template>
-      </AppEmptyState>
-
-      <!-- Table -->
-      <div v-else class="table-card">
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>N.º control</th>
-                <th>Fecha</th>
-                <th>Cliente</th>
-                <th>Documento</th>
-                <th class="der">Total</th>
-                <th class="centro">Detalles</th>
-                <th class="der">Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              <template v-for="f in facturas" :key="f.idFactura">
-                <tr class="fila-factura">
-                  <td class="cell-control">
-                    <span class="mono">{{ f.numeroControl }}</span>
-                  </td>
-                  <td class="cell-fecha">{{ fmtFecha(f.fechaEmision) }}</td>
-                  <td class="cell-cliente">{{ f.cliente?.nombre || '—' }}</td>
-                  <td class="cell-doc">
-                    <span class="doc-pill">{{ f.cliente?.documento || '—' }}</span>
-                  </td>
-                  <td class="der cell-monto">
-                    <strong>{{fmtUsd(f.totalNeto) }}</strong>
-                  </td>
-                  <td class="centro">
-                    <button
-                      type="button"
-                      class="btn-expand"
-                      :aria-expanded="facturaExpandida === f.idFactura"
-                      :title="facturaExpandida === f.idFactura ? 'Ocultar detalles' : 'Ver detalles'"
-                      @click="alternarDetalles(f.idFactura)"
-                    >
-                      <ChevronUp v-if="facturaExpandida === f.idFactura" :size="15" />
-                      <ChevronDown v-else :size="15" />
-                    </button>
-                  </td>
-                  <td class="der">
-                    <AppButton variant="primary" size="sm" @click="abrirCobroFactura(f)">
-                      <template #icon-left><Banknote :size="14" /></template>
-                      Cobrar
-                    </AppButton>
-                  </td>
-                </tr>
-                <tr v-if="facturaExpandida === f.idFactura" class="detalles-row">
-                  <td colspan="7">
-                    <div class="detalles-wrap">
-                      <p class="detalles-titulo">
-                        <Package :size="13" /> Detalle de la factura
-                      </p>
-                      <table class="data-table inner">
-                        <thead>
-                          <tr>
-                            <th>Producto</th>
-                            <th class="der">Cantidad</th>
-                            <th class="der">P. unitario</th>
-                            <th class="der">Subtotal</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr v-for="(d, i) in f.detalles" :key="i">
-                            <td>{{ d.descripcion }}</td>
-                            <td class="der">{{ d.cantidad }}</td>
-                            <td class="der">{{ fmtUsd(d.precioUnitario) }}</td>
-                            <td class="der amount">
-                              {{ fmtUsd(d.cantidad * d.precioUnitario) }}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </td>
-                </tr>
-              </template>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </template>
-
-    <!-- ══════════════ TAB 2: PAGOS POR VERIFICAR ══════════════ -->
-    <template v-else>
-      <AppAlert
-        v-if="errorVerificacion"
-        variant="error"
-        :action="'Reintentar'"
-        @action="cargarPagosPorVerificar"
-      >
-        {{ errorVerificacion }}
-      </AppAlert>
-
-      <!-- Loading -->
-      <div v-if="cargandoVerificacion" class="skeleton-list">
-        <div v-for="i in 3" :key="i" class="skeleton-card">
-          <div class="skeleton sk-fecha" />
-          <div class="skeleton-info">
-            <div class="skeleton w-60" />
-            <div class="skeleton w-40" />
-          </div>
-          <div class="skeleton sk-monto" />
-        </div>
-      </div>
-
-      <!-- Empty -->
-      <AppEmptyState
-        v-else-if="pagosPorVerificar.length === 0"
-        :icon="ShieldCheck"
-        title="No hay pagos pendientes de verificación"
-        description="Todos los pagos online están verificados. Los nuevos aparecerán aquí automáticamente tras el pago del cliente."
-      >
-        <template #action>
-          <AppButton variant="secondary" @click="actualizar">
-            <template #icon-left><RefreshCw :size="15" /></template>
-            Actualizar
-          </AppButton>
-        </template>
-      </AppEmptyState>
-
-      <!-- Verificación cards -->
-      <div v-else class="verificacion-list">
-        <article
-          v-for="p in pagosPorVerificar"
-          :key="p.idPago"
-          class="verif-card"
-          :data-pago-id="p.idPago"
+    <!-- ══════════════ CONTENIDO ══════════════ -->
+    <main class="caja-content">
+      <!-- ══════════ TAB 1: FACTURAS ══════════ -->
+      <section v-if="tab === 'facturas'" class="caja-panel">
+        <AppAlert
+          v-if="errorFacturas"
+          variant="error"
+          :action="'Reintentar'"
+          @action="cargarFacturas"
         >
-          <header class="verif-header">
-            <div class="verif-metodo">
-              <div class="verif-icon">
-                <component :is="iconoMetodoVerif(p.metodoPago)" :size="18" />
-              </div>
-              <div>
-                <p class="verif-metodo-nombre">{{ fmtMetodoNombre(p.metodoPago) }}</p>
-                <p class="verif-metodo-tipo">Pago online · Factura {{ p.numeroControl }}</p>
-              </div>
-            </div>
-            <div class="verif-monto">
-              <span class="verif-monto-label">Monto</span>
-              <strong class="verif-monto-valor">{{ fmtUsd(p.monto) }} USD</strong>
-              <span v-if="fmtBs(p.montoBs)" class="verif-monto-bs">
-                {{ fmtBs(p.montoBs) }}
-              </span>
-            </div>
-          </header>
+          {{ errorFacturas }}
+        </AppAlert>
 
-          <div class="verif-body">
-            <div class="verif-col">
-              <p class="verif-label"><User :size="12" /> Cliente</p>
-              <p class="verif-valor">{{ p.clienteNombre }}</p>
-              <p class="verif-meta">{{ p.clienteDocumento }} · {{ p.clienteTelefono }}</p>
+        <!-- Loading -->
+        <div v-if="cargandoFacturas" class="skeleton-list">
+          <div v-for="i in 3" :key="i" class="skeleton-card">
+            <div class="skeleton sk-date" />
+            <div class="skeleton-body">
+              <div class="skeleton sk-line-lg" />
+              <div class="skeleton sk-line-sm" />
             </div>
-            <div v-if="p.mascotaNombre" class="verif-col">
-              <p class="verif-label"><PawPrint :size="12" /> Mascota</p>
-              <p class="verif-valor">{{ p.mascotaNombre }}</p>
-            </div>
-            <div class="verif-col">
-              <p class="verif-label"><CalendarDays :size="12" /> Fecha del pago</p>
-              <p class="verif-valor">{{ fmtFechaHora(p.fechaPago) }}</p>
-            </div>
+            <div class="skeleton sk-monto" />
           </div>
+        </div>
 
-          <div class="verif-transaccion">
-            <p class="verif-transaccion-titulo">
-              <CreditCard :size="13" /> Datos de la transacción
-            </p>
-            <div class="verif-grid">
-              <div v-if="p.referenciaTransaccion" class="verif-field">
-                <span class="verif-field-label">Referencia</span>
-                <span class="verif-field-valor mono">{{ p.referenciaTransaccion }}</span>
+        <!-- Empty: sin facturas -->
+        <AppEmptyState
+          v-else-if="facturas.length === 0"
+          :icon="CheckCircle2"
+          title="No hay facturas pendientes"
+          description="Las facturas generadas por insumos aplicados en atenciones clínicas aparecerán aquí para su cobro."
+        >
+          <template #action>
+            <AppButton variant="secondary" @click="actualizar">
+              <template #icon-left><RefreshCw :size="15" /></template>
+              Actualizar
+            </AppButton>
+          </template>
+        </AppEmptyState>
+
+        <!-- Lista -->
+        <ul v-else class="facturas-list">
+          <li
+            v-for="f in facturas"
+            :key="f.idFactura"
+            class="factura-row"
+            :class="`urgencia-${urgencia(f.fechaEmision)}`"
+          >
+            <article class="factura-card">
+              <!-- Columna izquierda: fecha + antigüedad -->
+              <div class="factura-fecha">
+                <span class="fecha-dia">{{ partesFecha(f.fechaEmision).dia }}</span>
+                <span class="fecha-mes">{{ partesFecha(f.fechaEmision).mes }}</span>
+                <span class="fecha-hace">{{ haceTiempo(f.fechaEmision) }}</span>
               </div>
-              <div
-                v-for="(val, key) in p.metadataPago || {}"
-                :key="key"
-                class="verif-field"
+
+              <!-- Columna central: identificación -->
+              <div class="factura-info">
+                <div class="factura-head">
+                  <span class="factura-control mono">{{ f.numeroControl }}</span>
+                  <span
+                    v-if="urgencia(f.fechaEmision) === 'alta'"
+                    class="factura-alert"
+                  >
+                    <AlertCircle :size="12" />
+                    Vencida
+                  </span>
+                </div>
+                <h4 class="factura-cliente">{{ f.cliente?.nombre || 'Cliente' }}</h4>
+                <div class="factura-meta">
+                  <span class="meta-item">
+                    <CreditCard :size="11" />
+                    {{ f.cliente?.documento || '—' }}
+                  </span>
+                  <span class="meta-item">
+                    <Package :size="11" />
+                    {{ (f.detalles?.length || 0) }}
+                    {{ (f.detalles?.length || 0) === 1 ? 'ítem' : 'ítems' }}
+                  </span>
+                  <button
+                    type="button"
+                    class="meta-toggle"
+                    :aria-expanded="facturaExpandida === f.idFactura"
+                    @click="alternarDetalles(f.idFactura)"
+                  >
+                    <component
+                      :is="facturaExpandida === f.idFactura ? ChevronUp : ChevronDown"
+                      :size="12"
+                    />
+                    {{ facturaExpandida === f.idFactura ? 'Ocultar detalle' : 'Ver detalle' }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Columna derecha: monto + acción -->
+              <div class="factura-action">
+                <div class="factura-monto">
+                  <span class="monto-label">Total</span>
+                  <strong class="monto-valor">{{ fmtUsd(f.totalNeto) }}</strong>
+                </div>
+                <button
+                  class="btn-cobrar"
+                  type="button"
+                  @click="abrirCobroFactura(f)"
+                >
+                  <Banknote :size="14" />
+                  Cobrar
+                </button>
+              </div>
+            </article>
+
+            <!-- Detalle expandible -->
+            <Transition name="expand">
+              <div v-if="facturaExpandida === f.idFactura" class="factura-detalle">
+                <table class="detalle-table">
+                  <thead>
+                    <tr>
+                      <th>Producto</th>
+                      <th class="der">Cant.</th>
+                      <th class="der">P. unitario</th>
+                      <th class="der">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(d, i) in f.detalles" :key="i">
+                      <td>{{ d.descripcion }}</td>
+                      <td class="der">{{ d.cantidad }}</td>
+                      <td class="der">{{ fmtUsd(d.precioUnitario) }}</td>
+                      <td class="der amount">
+                        {{ fmtUsd(d.cantidad * d.precioUnitario) }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </Transition>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ══════════ TAB 2: VERIFICACIÓN ══════════ -->
+      <section v-else class="caja-panel">
+        <AppAlert
+          v-if="errorVerificacion"
+          variant="error"
+          :action="'Reintentar'"
+          @action="cargarPagosPorVerificar"
+        >
+          {{ errorVerificacion }}
+        </AppAlert>
+
+        <!-- Loading -->
+        <div v-if="cargandoVerificacion" class="skeleton-list">
+          <div v-for="i in 2" :key="i" class="skeleton-card skeleton-card-tall">
+            <div class="skeleton sk-line-lg" />
+            <div class="skeleton sk-line-md" />
+            <div class="skeleton sk-line-sm" />
+          </div>
+        </div>
+
+        <!-- Empty -->
+        <AppEmptyState
+          v-else-if="pagosPorVerificar.length === 0"
+          :icon="ShieldCheck"
+          title="No hay pagos pendientes de verificación"
+          description="Todos los pagos online están verificados. Los nuevos aparecerán aquí automáticamente."
+        >
+          <template #action>
+            <AppButton variant="secondary" @click="actualizar">
+              <template #icon-left><RefreshCw :size="15" /></template>
+              Actualizar
+            </AppButton>
+          </template>
+        </AppEmptyState>
+
+        <!-- Lista -->
+        <div v-else class="verif-list">
+          <article
+            v-for="p in pagosPorVerificar"
+            :key="p.idPago"
+            class="verif-card"
+            :data-pago-id="p.idPago"
+          >
+            <!-- Header: método + monto -->
+            <header class="verif-header">
+              <div class="verif-metodo">
+                <div class="verif-metodo-icon">
+                  <component :is="iconoMetodoVerif(p.metodoPago)" :size="18" />
+                </div>
+                <div class="verif-metodo-info">
+                  <p class="verif-metodo-name">{{ fmtMetodoNombre(p.metodoPago) }}</p>
+                  <p class="verif-metodo-ref mono">{{ p.numeroControl }}</p>
+                </div>
+              </div>
+
+              <div class="verif-monto-block">
+                <span class="verif-monto-label">Monto</span>
+                <strong class="verif-monto-valor">{{ fmtUsd(p.monto) }}</strong>
+                <span v-if="p.montoBs" class="verif-monto-bs">
+                  Bs. {{ fmtBs(p.montoBs) }}
+                </span>
+              </div>
+            </header>
+
+            <!-- Body: cliente + transacción -->
+            <div class="verif-body">
+              <div class="verif-cliente">
+                <p class="verif-label"><User :size="12" /> Cliente</p>
+                <p class="verif-valor">{{ p.clienteNombre }}</p>
+                <p class="verif-meta">
+                  {{ p.clienteDocumento }} · {{ p.clienteTelefono }}
+                </p>
+              </div>
+
+              <div v-if="p.mascotaNombre" class="verif-cliente">
+                <p class="verif-label"><PawPrint :size="12" /> Mascota</p>
+                <p class="verif-valor">{{ p.mascotaNombre }}</p>
+              </div>
+
+              <div class="verif-cliente">
+                <p class="verif-label"><Clock3 :size="12" /> Recibido</p>
+                <p class="verif-valor">{{ fmtFechaHora(p.fechaPago) }}</p>
+                <p class="verif-meta">{{ haceTiempo(p.fechaPago) }}</p>
+              </div>
+            </div>
+
+            <!-- Transacción: referencia + metadatos -->
+            <div class="verif-transaccion">
+              <div class="trans-titulo">
+                <CreditCard :size="12" /> Datos de la transacción
+              </div>
+              <div class="trans-grid">
+                <div v-if="p.referenciaTransaccion" class="trans-field">
+                  <span class="trans-label">Referencia</span>
+                  <span class="trans-valor mono">{{ p.referenciaTransaccion }}</span>
+                </div>
+                <div
+                  v-for="(val, key) in p.metadataPago || {}"
+                  :key="key"
+                  class="trans-field"
+                >
+                  <span class="trans-label">{{ fmtFieldLabelVerif(key) }}</span>
+                  <span class="trans-valor">{{ val }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer: acciones -->
+            <footer class="verif-footer">
+              <button
+                class="btn-rechazar"
+                type="button"
+                @click="abrirVerificacion(p, false)"
               >
-                <span class="verif-field-label">{{ fmtFieldLabelVerif(key) }}</span>
-                <span class="verif-field-valor">{{ val }}</span>
-              </div>
-            </div>
-          </div>
-
-          <footer class="verif-actions">
-            <AppButton variant="danger-soft" @click="abrirVerificacion(p, false)">
-              <template #icon-left><X :size="14" /></template>
-              Rechazar
-            </AppButton>
-            <AppButton variant="primary" @click="abrirVerificacion(p, true)">
-              <template #icon-left><CheckCircle2 :size="14" /></template>
-              Confirmar pago
-            </AppButton>
-          </footer>
-        </article>
-      </div>
-    </template>
+                <X :size="14" />
+                Rechazar
+              </button>
+              <button
+                class="btn-confirmar"
+                type="button"
+                @click="abrirVerificacion(p, true)"
+              >
+                <CheckCircle2 :size="14" />
+                Confirmar pago
+              </button>
+            </footer>
+          </article>
+        </div>
+      </section>
+    </main>
 
     <!-- ══════════════ MODAL COBRO DE FACTURA ══════════════ -->
     <AppModal
@@ -401,16 +457,12 @@
               <label class="form-label">
                 {{ fmtFieldLabel(campo.key) }} <span class="required">*</span>
               </label>
-              <AppSelect
+              <BancoSelector
                 v-if="campo.key === 'banco'"
                 v-model="datosPago[campo.key]"
                 :error="stepErrors[campo.key]"
-              >
-                <option value="" disabled>Seleccione el banco emisor</option>
-                <option v-for="b in BANCOS_VENEZUELA" :key="b.codigo" :value="b.nombre">
-                  {{ b.codigo }} - {{ b.nombre }}
-                </option>
-              </AppSelect>
+                placeholder="Seleccione el banco emisor"
+              />
               <AppInput
                 v-else
                 v-model="datosPago[campo.key]"
@@ -588,7 +640,7 @@ import { useRoute } from 'vue-router'
 import {
   getMetodosPresenciales, enviarFactura, descargarFactura,
   getFacturasPendientes, cobrarFactura,
-  getPagosPendientesVerificacion, verificarPago,
+  getPagosPendientesVerificacion, verificarPago,  getEstadisticasCajaHoy,
 } from '@/api/pagos.api'
 import ToastContainer from '@/components/ui/ToastContainer.vue'
 import AppButton from '@/components/ui/AppButton.vue'
@@ -596,19 +648,17 @@ import AppAlert from '@/components/ui/AppAlert.vue'
 import AppModal from '@/components/ui/AppModal.vue'
 import AppEmptyState from '@/components/ui/AppEmptyState.vue'
 import AppInput from '@/components/ui/AppInput.vue'
-import AppSelect from '@/components/ui/AppSelect.vue'
 import AppTextarea from '@/components/ui/AppTextarea.vue'
+import BancoSelector from '@/components/ui/BancoSelector.vue'
+import KpiCard from '@/components/ui/KpiCard.vue'
 import {
   Banknote, RefreshCw, PawPrint, CalendarDays, CreditCard,
   Receipt, ChevronDown, ChevronUp, Sparkles, DollarSign, User,
   FileText, Package, Check, ShieldCheck, CheckCircle2,
-  AlertCircle, Landmark, Smartphone, X,
+  AlertCircle, Landmark, Smartphone, X, Clock3, Printer, Mail,
 } from 'lucide-vue-next'
 
-import { BANCOS_VENEZUELA } from '@/utils/constants/bancos'
-
 const route = useRoute()
-
 
 const METODO_LABEL = {
   Efectivo: 'Efectivo',
@@ -627,6 +677,7 @@ const facturas = ref([])
 const cargandoFacturas = ref(false)
 const errorFacturas = ref('')
 const facturaExpandida = ref(null)
+const estadisticasHoy = ref(null)
 
 /* Verificación */
 const pagosPorVerificar = ref([])
@@ -677,6 +728,133 @@ const camposDinamicos = computed(() =>
     .map(([key]) => ({ key }))
 )
 
+/* ═══ Stats del día (para los KPIs) ═══ */
+const statsDelDia = computed(() => {
+  const stats = estadisticasHoy.value || {}
+
+  const fechas = [
+    ...facturas.value.map((f) => f.fechaEmision),
+    ...pagosPorVerificar.value.map((p) => p.fechaPago),
+  ].filter(Boolean)
+
+  let antiguedadMax = '—'
+  if (fechas.length) {
+    const msMax = Math.max(...fechas.map((f) => Date.now() - new Date(f).getTime()))
+    antiguedadMax = formatearDuracion(msMax)
+  }
+
+  return {
+    facturasUrgentes: stats.facturasUrgentes ?? 0,
+    cobradoUsd: Number(stats.totalCobradoHoyUsd ?? 0),
+    pagosHoy: stats.cantidadPagosHoy ?? 0,
+    antiguedadMax,
+  }
+})
+
+/* ═══════════════════════════════════════════════════════════════
+   HELPERS DE FECHA Y URGENCIA
+   ═══════════════════════════════════════════════════════════════ */
+const MESES_CORTOS = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
+
+function partesFecha(iso) {
+  if (!iso) return { dia: '--', mes: '—' }
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return { dia: '--', mes: '—' }
+  return {
+    dia: String(d.getDate()).padStart(2, '0'),
+    mes: MESES_CORTOS[d.getMonth()],
+  }
+}
+
+function haceTiempo(iso) {
+  if (!iso) return ''
+  const ms = Date.now() - new Date(iso).getTime()
+  return formatearDuracion(ms)
+}
+
+function formatearDuracion(ms) {
+  if (ms < 60_000) return 'ahora'
+  const min = Math.floor(ms / 60_000)
+  if (min < 60) return `hace ${min} min`
+  const h = Math.floor(min / 60)
+  if (h < 24) return `hace ${h}h`
+  const d = Math.floor(h / 24)
+  return `hace ${d} d`
+}
+
+/** Categoriza la urgencia según horas transcurridas. */
+function urgencia(iso) {
+  if (!iso) return 'baja'
+  const h = (Date.now() - new Date(iso).getTime()) / 3_600_000
+  if (h < 1) return 'baja'
+  if (h < 24) return 'media'
+  return 'alta'
+}
+
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+
+function fmtFecha(iso) {
+  if (!iso) return ''
+  const [y, m, d] = String(iso).slice(0, 10).split('-')
+  return `${d} ${MESES[Number(m) - 1]} ${y}`
+}
+
+function fmtFechaHora(iso) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString('es-VE', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
+}
+
+function fmtUsd(v) {
+  if (v == null) return '$0.00'
+  return `$${Number(v).toFixed(2)}`
+}
+
+function fmtBs(v) {
+  if (v == null) return null
+  return Number(v).toLocaleString('es-VE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
+function iconoMetodoVerif(nombre) {
+  if (nombre === 'Transferencia') return Landmark
+  if (nombre === 'Pago_Movil') return Smartphone
+  return CreditCard
+}
+
+function fmtMetodoNombre(nombre) {
+  if (!nombre) return 'Pago online'
+  return METODO_LABEL[nombre] || nombre
+}
+
+function fmtFieldLabelVerif(key) {
+  const labels = {
+    banco: 'Banco',
+    telefono: 'Teléfono',
+    referencia: 'Referencia',
+    lote: 'Lote',
+    ultimos_digitos: 'Últimos 4 dígitos',
+    numero_cuenta: 'Número de cuenta',
+  }
+  return labels[key] || String(key).replace(/_/g, ' ')
+}
+
+function fmtFieldLabel(key) {
+  const labels = {
+    banco: 'Banco emisor',
+    telefono: 'Teléfono asociado',
+    lote: 'Número de lote',
+    ultimos_digitos: 'Últimos 4 dígitos de la tarjeta',
+  }
+  return labels[key] || key.replace(/_/g, ' ')
+}
+
 /* ═══════════════════════════════════════════════════════════════
    CARGA DE DATOS
    ═══════════════════════════════════════════════════════════════ */
@@ -716,15 +894,28 @@ async function cargarMetodos() {
   } catch { /* vacío */ }
 }
 
+async function cargarEstadisticas() {
+  try {
+     estadisticasHoy.value = await getEstadisticasCajaHoy()
+   } catch {
+     // silencioso: es un KPI secundario
+     estadisticasHoy.value = null
+   }
+}
+
 async function cargarTodo() {
   await Promise.all([
     cargarFacturas(),
     cargarPagosPorVerificar(),
     cargarMetodos(),
+    cargarEstadisticas(),
   ])
 }
 
+
+
 function actualizar() {
+  cargarEstadisticas()
   if (tab.value === 'verificacion') cargarPagosPorVerificar()
   else cargarFacturas()
 }
@@ -746,9 +937,7 @@ function enfocarPagoDesdeQuery() {
 }
 
 onMounted(async () => {
-  if (route.query.tab === 'verificacion') {
-    tab.value = 'verificacion'
-  }
+  if (route.query.tab === 'verificacion') tab.value = 'verificacion'
   await cargarTodo()
   enfocarPagoDesdeQuery()
 })
@@ -812,7 +1001,6 @@ async function confirmarCobro() {
       referenciaTransaccion: referencia.value.trim() || undefined,
       datosPago: datosPagoCompletos,
     }
-
     const data = await cobrarFactura(facturaACobrar.value.idFactura, payload)
     resultado.value = {
       tipo: 'factura',
@@ -829,6 +1017,7 @@ async function confirmarCobro() {
     }
     facturaACobrar.value = null
     envio.value = null
+    await cargarFacturas()
   } catch (err) {
     const msgRaw = err.response?.data?.message
     const msg = typeof msgRaw === 'string'
@@ -909,73 +1098,6 @@ function cerrarComprobante() {
   resultado.value = null
   cargarFacturas()
 }
-
-/* ═══════════════════════════════════════════════════════════════
-   HELPERS
-   ═══════════════════════════════════════════════════════════════ */
-const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
-
-function fmtFecha(iso) {
-  if (!iso) return ''
-  const [y, m, d] = String(iso).slice(0, 10).split('-')
-  return `${d} ${MESES[Number(m) - 1]} ${y}`
-}
-
-function fmtFechaHora(iso) {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleString('es-VE', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
-
-function fmtUsd(v) {
-  if (v == null) return '$0.00'
-  return `$${Number(v).toFixed(2)}`
-}
-
-function fmtBs(v) {
-  if (v == null) return null
-  return `Bs. ${Number(v).toLocaleString('es-VE', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`
-}
-
-function iconoMetodoVerif(nombre) {
-  if (nombre === 'Transferencia') return Landmark
-  if (nombre === 'Pago_Movil') return Smartphone
-  return CreditCard
-}
-
-function fmtMetodoNombre(nombre) {
-  if (!nombre) return 'Pago online'
-  return METODO_LABEL[nombre] || nombre
-}
-
-function fmtFieldLabelVerif(key) {
-  const labels = {
-    banco: 'Banco',
-    telefono: 'Teléfono',
-    referencia: 'Referencia',
-    lote: 'Lote',
-    ultimos_digitos: 'Últimos 4 dígitos',
-    numero_cuenta: 'Número de cuenta',
-  }
-  return labels[key] || String(key).replace(/_/g, ' ')
-}
-
-function fmtFieldLabel(key) {
-  const labels = {
-    banco: 'Banco emisor',
-    telefono: 'Teléfono asociado',
-    lote: 'Número de lote',
-    ultimos_digitos: 'Últimos 4 dígitos de la tarjeta',
-  }
-  return labels[key] || key.replace(/_/g, ' ')
-}
 </script>
 
 <style scoped>
@@ -988,233 +1110,471 @@ function fmtFieldLabel(key) {
   gap: var(--space-5);
 }
 
-/* KPIs */
-.kpis {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-4);
-}
-.kpi {
+/* ═══════════════════════════════════════════════════════════════
+   HERO COMPACTO
+   ═══════════════════════════════════════════════════════════════ */
+.caja-hero {
   display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  padding: var(--space-6) var(--space-7);
+  background: linear-gradient(135deg, var(--brand-50) 0%, var(--bg-surface) 55%);
+  border: 1px solid var(--brand-100);
+  border-radius: var(--radius-3xl);
+}
+.hero-info { min-width: 0; }
+.hero-eyebrow {
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-5);
+  gap: var(--space-1);
+  margin: 0 0 var(--space-2);
+  padding: var(--space-1) var(--space-3);
   background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  transition: all var(--duration-base) var(--ease-out);
-}
-.kpi:hover { border-color: var(--border-strong); transform: translateY(-2px); box-shadow: var(--shadow-md); }
-.kpi.is-warn { border-color: var(--warning-200); }
-.kpi-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: var(--radius-xl);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.kpi-icon-purple  { background: var(--purple-50); color: var(--purple-600); }
-.kpi-icon-warning { background: var(--warning-50); color: var(--warning-600); }
-.kpi-icon-neutral { background: var(--neutral-100); color: var(--text-secondary); }
-.kpi-texto { min-width: 0; }
-.kpi-value {
-  margin: 0;
-  font-size: var(--text-4xl);
+  border: 1px solid var(--brand-100);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
   font-weight: var(--font-bold);
-  color: var(--text-primary);
-  line-height: 1.1;
-  letter-spacing: var(--tracking-tight);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--brand-700);
 }
-.kpi-value.is-warn { color: var(--warning-700); }
-.kpi-label {
-  margin: var(--space-1) 0 0;
-  font-size: var(--text-sm);
+.hero-title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-5xl);
+  font-weight: var(--font-bold);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+.hero-sub {
+  margin: 0;
+  font-size: var(--text-base);
   color: var(--text-secondary);
-  font-weight: var(--font-medium);
+  max-width: 620px;
+}
+.hero-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background: var(--bg-surface);
+  color: var(--neutral-700);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  font-family: inherit;
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  white-space: nowrap;
+}
+.hero-refresh:hover:not(:disabled) {
+  border-color: var(--brand-200);
+  color: var(--brand-700);
+  background: var(--brand-50);
+}
+.hero-refresh:disabled { opacity: 0.6; cursor: not-allowed; }
+.hero-refresh .is-spinning { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ═══════════════════════════════════════════════════════════════
+   KPIs
+   ═══════════════════════════════════════════════════════════════ */
+.caja-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
 }
 
-/* TABS */
-.tabs { margin-bottom: var(--space-1); }
-.tab-count.is-warn {
+/* ═══════════════════════════════════════════════════════════════
+   TABS STICKY
+   ═══════════════════════════════════════════════════════════════ */
+.caja-tabs {
+  position: sticky;
+  top: var(--space-4);
+  z-index: var(--z-sticky, 40);
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-xs);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.caja-tabs::-webkit-scrollbar { display: none; }
+
+.caja-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-xl);
+  font-family: inherit;
+  font-size: var(--text-md);
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-base) var(--ease-out);
+  white-space: nowrap;
+  flex: 1;
+  justify-content: center;
+}
+.caja-tab:hover { color: var(--brand-700); background: var(--brand-50); }
+.caja-tab.is-active {
+  background: var(--brand-700);
+  color: var(--text-inverse);
+  box-shadow: 0 4px 12px -4px rgba(15, 118, 110, 0.35);
+}
+.caja-tab.is-active .tab-counter {
+  background: rgba(255, 255, 255, 0.22);
+  color: var(--text-inverse);
+}
+
+.tab-icon { display: inline-flex; }
+.tab-label { font-weight: var(--font-bold); }
+.tab-counter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--neutral-100);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  font-variant-numeric: tabular-nums;
+}
+.tab-counter.is-warn {
   background: var(--warning-50);
   color: var(--warning-700);
   border: 1px solid var(--warning-200);
 }
+.tab-counter.is-pulsing {
+  animation: tabPulse 2s ease-in-out infinite;
+}
+@keyframes tabPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.35); }
+  50%      { box-shadow: 0 0 0 5px rgba(217, 119, 6, 0); }
+}
 
-/* TABLE */
-.table-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-2xl);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-}
-.table-wrap { overflow-x: auto; }
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 780px;
-}
-.data-table thead { background: var(--bg-surface-alt); }
-.data-table th {
-  text-align: left;
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--text-xs);
-  font-weight: var(--font-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
-  border-bottom: 1px solid var(--border-subtle);
-  white-space: nowrap;
-}
-.data-table td {
-  padding: var(--space-4);
-  font-size: var(--text-md);
-  color: var(--text-primary);
-  border-bottom: 1px solid var(--neutral-100);
-  vertical-align: middle;
-}
-.fila-factura:hover td { background: var(--bg-surface-alt); }
-.der { text-align: right; }
-.centro { text-align: center; }
-.amount { font-weight: var(--font-bold); color: var(--brand-700); }
-.mono {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  font-weight: var(--font-bold);
-  color: var(--neutral-700);
-  background: var(--neutral-100);
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-sm);
-  display: inline-block;
-}
-.cell-fecha {
-  color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.cell-cliente { font-weight: var(--font-semibold); color: var(--text-primary); }
-.doc-pill {
-  display: inline-block;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--neutral-600);
-  background: var(--bg-surface-alt);
-  border: 1px solid var(--border-subtle);
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-sm);
-}
-.cell-monto strong {
-  font-size: var(--text-base);
-  font-weight: var(--font-bold);
-  color: var(--brand-700);
-}
-.btn-expand {
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-surface);
-  color: var(--text-secondary);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
-}
-.btn-expand:hover { border-color: var(--brand-700); color: var(--brand-700); background: var(--brand-50); }
+/* ═══════════════════════════════════════════════════════════════
+   CONTENIDO
+   ═══════════════════════════════════════════════════════════════ */
+.caja-content { min-height: 300px; }
+.caja-panel { display: flex; flex-direction: column; gap: var(--space-3); }
 
-/* Detalles */
-.detalles-row td {
-  background: var(--brand-50);
-  padding: 0;
-  border-bottom: 1px solid var(--brand-200);
-}
-.detalles-wrap { padding: var(--space-4) var(--space-5) var(--space-5); }
-.detalles-titulo {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0 0 var(--space-3);
-  font-size: var(--text-xs);
-  font-weight: var(--font-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--brand-700);
-}
-.data-table.inner {
-  background: var(--bg-surface);
-  border: 1px solid var(--brand-200);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  min-width: 0;
-}
-.data-table.inner thead { background: var(--bg-surface); }
-.data-table.inner th {
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-2xs);
-  border-bottom: 1px solid var(--border-subtle);
-}
-.data-table.inner td {
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-sm);
-  border-bottom: 1px solid var(--neutral-100);
-}
-.data-table.inner tbody tr:last-child td { border-bottom: none; }
-
-/* SKELETON */
-.skeleton-table { padding: var(--space-4); }
-.skeleton-row-table {
-  display: grid;
-  grid-template-columns: 1fr 1fr 2fr 1fr 1fr;
-  gap: var(--space-4);
-  padding: var(--space-4);
-  border-bottom: 1px solid var(--neutral-100);
-}
-.skeleton-row-table:last-child { border-bottom: none; }
-.w-15 { height: 12px; width: 60%; }
-.w-20 { height: 12px; width: 80%; }
-.w-25 { height: 12px; width: 100%; }
-.w-30 { height: 12px; width: 90%; }
-
+/* ═══════════════════════════════════════════════════════════════
+   SKELETONS
+   ═══════════════════════════════════════════════════════════════ */
 .skeleton-list { display: flex; flex-direction: column; gap: var(--space-3); }
 .skeleton-card {
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: var(--space-4);
   align-items: center;
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-5);
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-2xl);
 }
-.sk-fecha { width: 64px; height: 76px; border-radius: var(--radius-xl); }
-.skeleton-info { display: flex; flex-direction: column; gap: var(--space-2); }
-.sk-monto { width: 90px; height: 24px; border-radius: var(--radius-sm); }
-.w-40 { height: 12px; width: 40%; }
-.w-60 { height: 14px; width: 60%; }
+.skeleton-card-tall {
+  grid-template-columns: 1fr;
+  padding: var(--space-6);
+  gap: var(--space-3);
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--neutral-100) 25%, var(--neutral-200) 50%, var(--neutral-100) 75%);
+  background-size: 200% 100%;
+  border-radius: var(--radius-md);
+  animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.sk-date { width: 56px; height: 68px; border-radius: var(--radius-xl); }
+.skeleton-body { display: flex; flex-direction: column; gap: var(--space-2); }
+.sk-line-lg { height: 16px; width: 55%; }
+.sk-line-md { height: 14px; width: 70%; }
+.sk-line-sm { height: 12px; width: 40%; }
+.sk-monto { width: 100px; height: 24px; border-radius: var(--radius-md); }
 
-/* VERIFICACIÓN */
-.verificacion-list { display: flex; flex-direction: column; gap: var(--space-4); }
+/* ═══════════════════════════════════════════════════════════════
+   FACTURAS — LISTA
+   ═══════════════════════════════════════════════════════════════ */
+.facturas-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.factura-row {
+  position: relative;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+  transition: box-shadow var(--duration-base) var(--ease-out),
+              border-color var(--duration-base) var(--ease-out);
+}
+.factura-row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--brand-500);
+  transition: background var(--duration-base) var(--ease-out);
+}
+.factura-row.urgencia-media::before { background: var(--warning-500); }
+.factura-row.urgencia-alta::before  { background: var(--danger-500); }
+
+.factura-row:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.factura-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-5);
+  align-items: center;
+  padding: var(--space-4) var(--space-5) var(--space-4) var(--space-6);
+}
+
+/* Columna 1: fecha */
+.factura-fecha {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 60px;
+  padding: var(--space-2) 0;
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  flex-shrink: 0;
+}
+.fecha-dia {
+  font-size: var(--text-3xl);
+  font-weight: var(--font-extrabold);
+  color: var(--text-primary);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.fecha-mes {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-extrabold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+.fecha-hace {
+  margin-top: 3px;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-semibold);
+  color: var(--brand-700);
+  line-height: 1;
+}
+.factura-row.urgencia-media .fecha-hace { color: var(--warning-600); }
+.factura-row.urgencia-alta .fecha-hace  { color: var(--danger-600); }
+
+/* Columna 2: información */
+.factura-info { min-width: 0; }
+.factura-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-1);
+}
+.factura-control {
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  color: var(--text-tertiary);
+  letter-spacing: 0.03em;
+}
+.factura-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--danger-50);
+  color: var(--danger-700);
+  border: 1px solid var(--danger-200);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.factura-cliente {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.factura-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.meta-item svg { color: var(--text-tertiary); }
+.meta-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px var(--space-2);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--brand-700);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.meta-toggle:hover {
+  background: var(--brand-50);
+  border-color: var(--brand-100);
+}
+
+/* Columna 3: monto + acción */
+.factura-action {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  flex-shrink: 0;
+}
+.factura-monto {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 90px;
+}
+.monto-label {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-bold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.monto-valor {
+  font-size: var(--text-3xl);
+  font-weight: var(--font-extrabold);
+  color: var(--brand-700);
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.btn-cobrar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background: var(--brand-700);
+  color: var(--text-inverse);
+  border: none;
+  border-radius: var(--radius-lg);
+  font-family: inherit;
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  white-space: nowrap;
+}
+.btn-cobrar:hover {
+  background: var(--brand-800);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -4px rgba(15, 118, 110, 0.4);
+}
+.btn-cobrar:active { transform: translateY(0); }
+
+/* Detalle expandible */
+.factura-detalle {
+  padding: var(--space-4) var(--space-6);
+  background: var(--brand-50);
+  border-top: 1px solid var(--brand-100);
+}
+.detalle-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.detalle-table th {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--brand-200);
+}
+.detalle-table td {
+  padding: var(--space-3);
+  font-size: var(--text-md);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--brand-100);
+}
+.detalle-table tbody tr:last-child td { border-bottom: none; }
+.der { text-align: right; }
+.amount { font-weight: var(--font-bold); color: var(--brand-700); font-variant-numeric: tabular-nums; }
+
+/* ═══════════════════════════════════════════════════════════════
+   VERIFICACIÓN — LISTA
+   ═══════════════════════════════════════════════════════════════ */
+.verif-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
 .verif-card {
   background: var(--bg-surface);
   border: 1px solid var(--warning-200);
   border-radius: var(--radius-2xl);
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
-  transition: all var(--duration-base) var(--ease-out);
+  box-shadow: var(--shadow-xs);
+  transition: box-shadow var(--duration-base) var(--ease-out),
+              transform var(--duration-base) var(--ease-out);
 }
 .verif-card:hover {
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-md);
   transform: translateY(-1px);
 }
 .verif-card.is-focused {
   animation: highlightPulse 2.4s ease;
 }
 @keyframes highlightPulse {
-  0%, 100% { box-shadow: var(--shadow-sm); border-color: var(--warning-200); }
+  0%, 100% { box-shadow: var(--shadow-xs); border-color: var(--warning-200); }
   20%, 60% { box-shadow: 0 0 0 4px rgba(217, 119, 6, 0.18); border-color: var(--warning-500); }
 }
 
@@ -1224,14 +1584,14 @@ function fmtFieldLabel(key) {
   justify-content: space-between;
   gap: var(--space-4);
   padding: var(--space-4) var(--space-5);
-  background: linear-gradient(90deg, var(--warning-50) 0%, var(--bg-surface) 60%);
+  background: linear-gradient(90deg, var(--warning-50) 0%, var(--bg-surface) 65%);
   border-bottom: 1px solid var(--warning-200);
   flex-wrap: wrap;
 }
 .verif-metodo { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
-.verif-icon {
-  width: 42px;
-  height: 42px;
+.verif-metodo-icon {
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-xl);
   background: var(--bg-surface);
   border: 1px solid var(--warning-200);
@@ -1241,25 +1601,48 @@ function fmtFieldLabel(key) {
   justify-content: center;
   flex-shrink: 0;
 }
-.verif-metodo-nombre { margin: 0; font-size: var(--text-lg); font-weight: var(--font-bold); color: var(--text-primary); }
-.verif-metodo-tipo { margin: 2px 0 0; font-size: var(--text-sm); color: var(--text-secondary); }
-.verif-monto { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.verif-metodo-info { min-width: 0; }
+.verif-metodo-name {
+  margin: 0 0 2px;
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+.verif-metodo-ref {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-weight: var(--font-semibold);
+}
+
+.verif-monto-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
 .verif-monto-label {
   font-size: var(--text-2xs);
   font-weight: var(--font-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
-.verif-monto-valor { font-size: var(--text-4xl); font-weight: var(--font-bold); color: var(--brand-700); letter-spacing: -0.02em; }
-
+.verif-monto-valor {
+  font-size: var(--text-4xl);
+  font-weight: var(--font-extrabold);
+  color: var(--brand-700);
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
 .verif-monto-bs {
   font-size: var(--text-md);
   font-weight: var(--font-bold);
   color: var(--text-secondary);
-  letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
-  margin-top: var(--space-1);
 }
 
 .verif-body {
@@ -1267,45 +1650,55 @@ function fmtFieldLabel(key) {
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-4);
   padding: var(--space-4) var(--space-5);
-  border-bottom: 1px solid var(--neutral-100);
+  border-bottom: 1px solid var(--border-subtle);
 }
-.verif-col { min-width: 0; }
+.verif-cliente { min-width: 0; }
 .verif-label {
-  margin: 0 0 var(--space-1);
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: 4px;
+  margin: 0 0 var(--space-1);
   font-size: var(--text-2xs);
   font-weight: var(--font-bold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-tertiary);
 }
-.verif-valor { margin: 0; font-size: var(--text-md); font-weight: var(--font-bold); color: var(--text-primary); word-break: break-word; }
-.verif-meta { margin: 3px 0 0; font-size: var(--text-sm); color: var(--text-secondary); }
+.verif-valor {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  word-break: break-word;
+}
+.verif-meta {
+  margin: 3px 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
 
 .verif-transaccion {
   padding: var(--space-4) var(--space-5);
   background: var(--bg-surface-alt);
   border-bottom: 1px solid var(--border-subtle);
 }
-.verif-transaccion-titulo {
+.trans-titulo {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  margin: 0 0 var(--space-3);
+  margin-bottom: var(--space-3);
   font-size: var(--text-xs);
   font-weight: var(--font-bold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--brand-700);
 }
-.verif-grid {
+.trans-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: var(--space-3);
 }
-.verif-field {
+.trans-field {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -1315,25 +1708,68 @@ function fmtFieldLabel(key) {
   gap: 2px;
   min-width: 0;
 }
-.verif-field-label {
+.trans-label {
   font-size: var(--text-2xs);
   font-weight: var(--font-bold);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-tertiary);
 }
-.verif-field-valor { font-size: var(--text-md); font-weight: var(--font-bold); color: var(--text-primary); word-break: break-word; }
-.verif-field-valor.mono { font-family: var(--font-mono); font-size: var(--text-sm); }
+.trans-valor {
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  word-break: break-word;
+}
+.trans-valor.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
 
-.verif-actions {
+.verif-footer {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-5) var(--space-4);
   background: var(--bg-surface-alt);
 }
+.btn-rechazar,
+.btn-confirmar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-lg);
+  font-family: inherit;
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  white-space: nowrap;
+}
+.btn-rechazar {
+  background: var(--bg-surface);
+  color: var(--danger-600);
+  border: 1px solid var(--danger-200);
+}
+.btn-rechazar:hover {
+  background: var(--danger-50);
+  border-color: var(--danger-500);
+}
+.btn-confirmar {
+  background: var(--brand-700);
+  color: var(--text-inverse);
+  border: none;
+}
+.btn-confirmar:hover {
+  background: var(--brand-800);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -4px rgba(15, 118, 110, 0.4);
+}
 
-/* MODAL COBRO */
+/* ═══════════════════════════════════════════════════════════════
+   MODALES (mismos estilos que antes)
+   ═══════════════════════════════════════════════════════════════ */
 .cobro-content { display: flex; flex-direction: column; gap: var(--space-4); }
 
 .info-card {
@@ -1501,7 +1937,6 @@ function fmtFieldLabel(key) {
 }
 .checkbox-label { font-size: var(--text-md); font-weight: var(--font-semibold); color: var(--text-primary); }
 
-/* MODAL VERIFICACIÓN */
 .verif-modal-content { display: flex; flex-direction: column; gap: var(--space-4); }
 .verif-modal-texto {
   margin: 0;
@@ -1511,7 +1946,6 @@ function fmtFieldLabel(key) {
 }
 .verif-modal-texto strong { color: var(--text-primary); font-weight: var(--font-bold); }
 
-/* COMPROBANTE */
 .comprobante-content { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-4); }
 .success-icon-wrap {
   width: 76px;
@@ -1581,7 +2015,9 @@ function fmtFieldLabel(key) {
 }
 .total-bs { font-size: var(--text-sm); color: var(--text-secondary); font-weight: var(--font-medium); }
 
-/* TRANSITIONS */
+/* ═══════════════════════════════════════════════════════════════
+   TRANSICIONES
+   ═══════════════════════════════════════════════════════════════ */
 .expand-enter-active, .expand-leave-active {
   transition: opacity var(--duration-slow) var(--ease-out),
               transform var(--duration-slow) var(--ease-out);
@@ -1591,23 +2027,52 @@ function fmtFieldLabel(key) {
 
 .mt-2 { margin-top: var(--space-2); }
 
-/* RESPONSIVE */
-@media (max-width: 1024px) {
-  .kpis { grid-template-columns: 1fr 1fr; }
-  .verif-body { grid-template-columns: repeat(2, 1fr); }
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 1100px) {
+  .caja-kpis { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 768px) {
-  .caja-view { padding: var(--space-4); }
-  .kpis { grid-template-columns: 1fr; gap: var(--space-3); }
-  .verif-body { grid-template-columns: 1fr; gap: var(--space-3); }
-  .verif-actions { flex-direction: column-reverse; }
-  .verif-actions :deep(.btn) { width: 100%; }
+  .caja-view { padding: var(--space-4); gap: var(--space-4); }
+  .caja-hero { padding: var(--space-5); border-radius: var(--radius-2xl); flex-direction: column; align-items: stretch; }
+  .hero-title { font-size: var(--text-4xl); }
+  .hero-actions { width: 100%; }
+  .hero-refresh { width: 100%; justify-content: center; }
+
+  .caja-kpis { grid-template-columns: 1fr; gap: var(--space-3); }
+
+  .caja-tab { flex: 1 1 auto; padding: var(--space-2) var(--space-3); font-size: var(--text-sm); }
+  .tab-label { display: none; }
+  .caja-tab.is-active .tab-label { display: inline; }
+
+  .factura-card {
+    grid-template-columns: auto 1fr;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    padding-left: var(--space-5);
+  }
+  .factura-action {
+    grid-column: 1 / -1;
+    justify-content: space-between;
+    width: 100%;
+    padding-top: var(--space-3);
+    border-top: 1px dashed var(--border-subtle);
+    margin-top: var(--space-1);
+  }
+
   .verif-header { flex-direction: column; align-items: stretch; gap: var(--space-3); }
-  .verif-monto { align-items: flex-start; }
+  .verif-monto-block { align-items: flex-start; }
+  .verif-body { grid-template-columns: 1fr; gap: var(--space-3); }
+  .verif-footer { flex-direction: column-reverse; }
+  .verif-footer button { width: 100%; justify-content: center; }
 }
 @media (max-width: 480px) {
+  .caja-hero { padding: var(--space-4); }
+  .hero-title { font-size: var(--text-3xl); }
+  .monto-valor { font-size: var(--text-2xl); }
   .verif-monto-valor { font-size: var(--text-3xl); }
-  .cobro-resumen :deep(.resumen-fila) { flex-direction: column; align-items: flex-start; }
+  .cobro-resumen .resumen-fila { flex-direction: column; align-items: flex-start; }
   .resumen-value { text-align: left; }
   .total-value { align-items: flex-start; }
 }

@@ -607,6 +607,7 @@ onMounted(cargarDatos)
   letter-spacing: 0.06em;
   margin-bottom: var(--space-3);
   backdrop-filter: blur(4px);
+  color: var(--text-inverse);
 }
 .proximo-nombre {
   margin: 0 0 var(--space-1);
@@ -614,8 +615,9 @@ onMounted(cargarDatos)
   font-weight: var(--font-bold);
   letter-spacing: var(--tracking-tight);
   line-height: var(--leading-tight);
-    color: var(--text-inverse);   
+  color: var(--text-inverse);
 }
+
 .proximo-sub {
   margin: 0 0 var(--space-3);
   font-size: var(--text-md);

@@ -338,12 +338,11 @@
                   </div>
                 </div>
               </template>
-
-              <AppInput
-                v-model="fecha"
-                type="date"
-                :min="hoy"
-                :error="step2Errors.fecha ? 'Selecciona una fecha' : ''"
+              <DatePicker
+                  v-model="fecha"
+                  placeholder="Seleccionar fecha"
+                  :min="hoy"
+                  :error="step2Errors.fecha ? 'Selecciona una fecha' : ''"
               />
             </AppCard>
 
@@ -458,16 +457,12 @@
                     <label class="form-label">
                       {{ fmtFieldLabel(campo.key) }} <span class="required">*</span>
                     </label>
-                    <AppSelect
+                    <BancoSelector
                       v-if="campo.key === 'banco'"
                       v-model="datosPago[campo.key]"
                       :error="step3Errors[campo.key]"
-                    >
-                      <option value="" disabled>Seleccione el banco</option>
-                      <option v-for="b in BANCOS_VENEZUELA" :key="b.codigo" :value="b.nombre">
-                        {{ b.codigo }} - {{ b.nombre }}
-                      </option>
-                    </AppSelect>
+                      placeholder="Seleccione el banco emisor"
+                   />
                     <AppInput
                       v-else
                       v-model="datosPago[campo.key]"
@@ -702,29 +697,17 @@ import AppButton from '@/components/ui/AppButton.vue'
 import AppCard from '@/components/ui/AppCard.vue'
 import AppAlert from '@/components/ui/AppAlert.vue'
 import AppInput from '@/components/ui/AppInput.vue'
-import AppSelect from '@/components/ui/AppSelect.vue'
 import AppTextarea from '@/components/ui/AppTextarea.vue'
 import PetAvatar from '@/components/ui/PetAvatar.vue'
 import EntityAvatar from '@/components/ui/EntityAvatar.vue'
+import DatePicker from '@/components/ui/DatePicker.vue'
+import BancoSelector from '@/components/ui/BancoSelector.vue'
 
 import HorarioSemanalCard from '@/components/ui/HorarioSemanalCard.vue'
 import AppModal from '@/components/ui/AppModal.vue'
 
 const router = useRouter()
 const route = useRoute()
-
-const BANCOS_VENEZUELA = [
-  { codigo: '0102', nombre: 'Banco de Venezuela, S.A.C.A.' },
-  { codigo: '0104', nombre: 'Venezolano de Crédito, S.A.' },
-  { codigo: '0105', nombre: 'Mercantil Banco, C.A.' },
-  { codigo: '0108', nombre: 'Banco Provincial, S.A.' },
-  { codigo: '0114', nombre: 'Banco del Caribe, C.A.' },
-  { codigo: '0134', nombre: 'Banesco Banco Universal, C.A.' },
-  { codigo: '0151', nombre: 'Banco Fondo Común, C.A.' },
-  { codigo: '0163', nombre: 'Banco del Tesoro, C.A.' },
-  { codigo: '0177', nombre: 'BANFANB' },
-  { codigo: '0190', nombre: 'Banco Nacional de Crédito, C.A.' },
-]
 
 const METODO_LABEL = {
   Efectivo: 'Efectivo',

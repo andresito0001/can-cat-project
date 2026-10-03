@@ -46,13 +46,11 @@
         </div>
 
         <div class="sidebar-body">
-          <!-- Loading -->
           <div v-if="buscando" class="state-inline">
             <span class="spinner spinner-lg" />
             <p>Buscando pacientes…</p>
           </div>
 
-          <!-- Prompt inicial -->
           <div v-else-if="!filtroAplicado" class="state-inline">
             <div class="state-icon"><Search :size="22" /></div>
             <p class="state-title">Comienza a escribir</p>
@@ -61,7 +59,6 @@
             </p>
           </div>
 
-          <!-- Sin resultados -->
           <div v-else-if="!resultados.length" class="state-inline">
             <div class="state-icon"><PawPrint :size="22" /></div>
             <p class="state-title">Sin resultados</p>
@@ -71,7 +68,6 @@
             </p>
           </div>
 
-          <!-- Lista de pacientes -->
           <ul v-else class="patient-list">
             <li
               v-for="m in resultados"
@@ -119,7 +115,6 @@
           <ArrowLeft :size="15" /> Volver a la lista
         </button>
 
-        <!-- Empty detail -->
         <section v-if="!idMascota" class="detail-empty">
           <div class="detail-empty-icon">
             <FileText :size="32" />
@@ -219,16 +214,125 @@
           </section>
 
           <template v-else>
+            <!-- ═══ Barra de filtros (sticky) ═══ -->
+            <div class="historial-toolbar">
+              <div class="toolbar-row">
+                <div class="toolbar-shortcuts" role="group" aria-label="Atajos de fecha">
+                  <button
+                    type="button"
+                    class="shortcut"
+                    :class="{ 'is-active': atajoFecha === 'hoy' }"
+                    @click="aplicarAtajo('hoy')"
+                  >
+                    Hoy
+                  </button>
+                  <button
+                    type="button"
+                    class="shortcut"
+                    :class="{ 'is-active': atajoFecha === 'semana' }"
+                    @click="aplicarAtajo('semana')"
+                  >
+                    Esta semana
+                  </button>
+                  <button
+                    type="button"
+                    class="shortcut"
+                    :class="{ 'is-active': atajoFecha === 'mes' }"
+                    @click="aplicarAtajo('mes')"
+                  >
+                    Este mes
+                  </button>
+                  <button
+                    type="button"
+                    class="shortcut"
+                    :class="{ 'is-active': atajoFecha === 'custom' }"
+                    @click="aplicarAtajo('custom')"
+                  >
+                    Personalizado
+                  </button>
+                </div>
+
+                <div class="toolbar-dates" :class="{ 'is-disabled': atajoFecha !== 'custom' && atajoFecha !== '' }">
+                <DatePicker
+                  v-model="rangoDesde"
+                  placeholder="Desde"
+                  @update:model-value="atajoFecha = 'custom'"
+                />
+                  <span class="date-sep">—</span>
+                  <DatePicker
+                    v-model="rangoHasta"
+                    placeholder="Hasta"
+                    :min="rangoDesde"
+                    @update:model-value="atajoFecha = 'custom'"
+                  />
+                </div>
+
+                <button
+                  v-if="hayFiltrosActivos"
+                  type="button"
+                  class="btn-limpiar"
+                  title="Limpiar filtros"
+                  @click="limpiarFiltros"
+                >
+                  <X :size="14" />
+                  <span>Limpiar</span>
+                </button>
+              </div>
+
+              <div class="toolbar-row toolbar-row-estados">
+                <span class="estados-label">
+                  <SlidersHorizontal :size="13" />
+                  Estado
+                </span>
+                <div class="estados-chips" role="group" aria-label="Filtrar por estado">
+                  <button
+                    type="button"
+                    class="chip"
+                    :class="{ 'is-active': filtroEstado === 'todas' }"
+                    @click="filtroEstado = 'todas'"
+                  >
+                    Todas
+                    <span class="chip-count">{{ conteosPorEstado.todas }}</span>
+                  </button>
+                  <button
+                    v-for="e in ESTADOS_ATENCION"
+                    :key="e.value"
+                    type="button"
+                    class="chip"
+                    :class="{ 'is-active': filtroEstado === e.value, 'is-empty': conteosPorEstado[e.value] === 0 }"
+                    :disabled="conteosPorEstado[e.value] === 0"
+                    @click="filtroEstado = e.value"
+                  >
+                    {{ e.label }}
+                    <span class="chip-count">{{ conteosPorEstado[e.value] }}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ Header del timeline ═══ -->
             <div class="timeline-head">
               <h2 class="timeline-head-title">Historial de atenciones</h2>
               <span class="timeline-head-count">
-                {{ historial.length }} {{ historial.length === 1 ? 'registro' : 'registros' }}
+                {{ conteoTimeline }}
+                {{ historialFiltrado.length === 1 ? 'registro' : 'registros' }}
               </span>
             </div>
 
-            <div class="timeline">
+            <!-- ═══ Empty por filtros ═══ -->
+            <div v-if="!historialFiltrado.length" class="empty-filtered">
+              <div class="empty-icon"><CalendarRange :size="26" /></div>
+              <h3>Sin resultados</h3>
+              <p>No hay atenciones que coincidan con los filtros aplicados.</p>
+              <button type="button" class="btn-link" @click="limpiarFiltros">
+                <X :size="13" /> Limpiar filtros
+              </button>
+            </div>
+
+            <!-- ═══ Timeline filtrado ═══ -->
+            <div v-else class="timeline">
               <article
-                v-for="atencion in historial"
+                v-for="atencion in historialFiltrado"
                 :key="atencion.idAtencion"
                 class="timeline-entry"
               >
@@ -266,9 +370,10 @@
                     </div>
                   </button>
 
+                  <!-- ═══ ENTRY BODY — contenido restaurado ═══ -->
                   <Transition name="expand">
                     <div v-show="estaExpandida(atencion.idAtencion)" class="entry-body">
-                      <!-- Vitales -->
+                      <!-- Signos vitales -->
                       <div class="vitals-row">
                         <div class="vital">
                           <span class="vital-label">Peso</span>
@@ -420,18 +525,20 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  ArrowLeft, ChevronDown, ChevronRight, ClipboardList, CreditCard, Download,
-  FileText, Inbox, Loader2, Package, PawPrint, Phone, Pill, RefreshCw,
-  Search, Stethoscope, User, X,
+  ArrowLeft, CalendarRange, ChevronDown, ChevronRight, ClipboardList,
+  CreditCard, Download, FileText, Inbox, Loader2, Package, PawPrint,
+  Phone, Pill, RefreshCw, Search, SlidersHorizontal, Stethoscope, User, X,
 } from 'lucide-vue-next'
+
 import { useToast } from '@/composables/useToast'
 import ToastContainer from '@/components/ui/ToastContainer.vue'
 import PetAvatar from '@/components/ui/PetAvatar.vue'
+import DatePicker from '@/components/ui/DatePicker.vue'
 import { getHistorialMascota, descargarRecetaPdf } from '@/api/atenciones.api'
 import { buscarMascotas } from '@/api/mascotas.api'
 import { getApiErrorMessage } from '@/utils/apiError'
 import { descargarBlob } from '@/utils/descargas'
-import { fechaHoraCorta } from '@/utils/fecha'
+import { fechaHoraCorta, hoyISO } from '@/utils/fecha'
 
 const route = useRoute()
 const router = useRouter()
@@ -440,11 +547,14 @@ const { toastError } = useToast()
 const formatoUSD = (valor) => `$${Number(valor || 0).toFixed(2)}`
 
 /* ═══════════════════════════════════════════════════════════════
-   ESTADO
+   RUTA / QUERY
    ═══════════════════════════════════════════════════════════════ */
 const idMascota = computed(() => route.query.mascota)
 const nombreQuery = computed(() => route.query.nombre)
 
+/* ═══════════════════════════════════════════════════════════════
+   ESTADO PRINCIPAL  ← AHORA VA ARRIBA
+   ═══════════════════════════════════════════════════════════════ */
 const filtro = ref('')
 const filtroAplicado = ref('')
 const resultados = ref([])
@@ -460,8 +570,52 @@ const cachePacientes = ref({})
 const expandidas = ref({})
 
 /* ═══════════════════════════════════════════════════════════════
-   COMPUTED
+   FILTROS DEL HISTORIAL
    ═══════════════════════════════════════════════════════════════ */
+const rangoDesde = ref('')
+const rangoHasta = ref('')
+const atajoFecha = ref('')
+const filtroEstado = ref('todas')
+const hoy = computed(() => hoyISO())
+
+const ESTADOS_ATENCION = [
+  { value: 'En_Proceso', label: 'En proceso' },
+  { value: 'Finalizada', label: 'Finalizada' },
+  { value: 'Derivada', label: 'Derivada' },
+]
+
+/* ═══════════════════════════════════════════════════════════════
+   COMPUTED — derivados de `historial` (ya declarado arriba)
+   ═══════════════════════════════════════════════════════════════ */
+const historialFiltrado = computed(() => {
+  return historial.value.filter((a) => {
+    const fecha = String(a.fechaHoraInicio || '').slice(0, 10)
+    if (rangoDesde.value && fecha < rangoDesde.value) return false
+    if (rangoHasta.value && fecha > rangoHasta.value) return false
+
+    if (filtroEstado.value === 'todas') return true
+    return a.estadoAtencion === filtroEstado.value
+  })
+})
+
+const conteosPorEstado = computed(() => {
+  const acc = { todas: historial.value.length, En_Proceso: 0, Finalizada: 0, Derivada: 0 }
+  for (const a of historial.value) {
+    if (a.estadoAtencion && acc[a.estadoAtencion] !== undefined) acc[a.estadoAtencion]++
+  }
+  return acc
+})
+
+const hayFiltrosActivos = computed(() =>
+  Boolean(rangoDesde.value || rangoHasta.value || filtroEstado.value !== 'todas')
+)
+
+const conteoTimeline = computed(() => {
+  const filtrados = historialFiltrado.value.length
+  const total = historial.value.length
+  return hayFiltrosActivos.value ? `${filtrados} de ${total}` : String(total)
+})
+
 const nombrePaciente = computed(() =>
   pacienteActivo.value?.nombre
   || nombreQuery.value
@@ -473,13 +627,15 @@ const ultimaVisita = computed(() => {
   if (!primera?.fechaHoraInicio) return '—'
   return fechaHoraCorta(primera.fechaHoraInicio).split('·')[0]?.trim() || '—'
 })
+
 const totalRecetas = computed(() => historial.value.filter((a) => a.receta).length)
+
 const totalInsumos = computed(() =>
   historial.value.reduce((sum, a) => sum + (a.insumos?.length || 0), 0)
 )
 
 /* ═══════════════════════════════════════════════════════════════
-   BÚSQUEDA
+   WATCHERS
    ═══════════════════════════════════════════════════════════════ */
 watch(filtro, (valor) => {
   clearTimeout(temporizador)
@@ -507,6 +663,18 @@ watch(filtroAplicado, async (valor) => {
   }
 })
 
+watch([rangoDesde, rangoHasta], ([desde, hasta]) => {
+  if (atajoFecha.value && atajoFecha.value !== 'custom') {
+    const esperado = calcularRangoAtajo(atajoFecha.value)
+    if (esperado && (desde !== esperado.desde || hasta !== esperado.hasta)) {
+      atajoFecha.value = 'custom'
+    }
+  }
+})
+
+/* ═══════════════════════════════════════════════════════════════
+   ACCIONES DE PACIENTE
+   ═══════════════════════════════════════════════════════════════ */
 function seleccionarPaciente(mascota) {
   cachePacientes.value[mascota.idMascota] = mascota
   pacienteActivo.value = mascota
@@ -610,9 +778,66 @@ async function descargarReceta(receta) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   ATAJOS DE FECHA
+   ═══════════════════════════════════════════════════════════════ */
+function isoDe(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function aplicarAtajo(atajo) {
+  atajoFecha.value = atajo
+  const hoyDate = new Date()
+
+  if (atajo === 'hoy') {
+    rangoDesde.value = hoyISO()
+    rangoHasta.value = hoyISO()
+    return
+  }
+  if (atajo === 'semana') {
+    const inicio = new Date(hoyDate)
+    const dia = inicio.getDay() || 7
+    inicio.setDate(inicio.getDate() - (dia - 1))
+    rangoDesde.value = isoDe(inicio)
+    rangoHasta.value = hoyISO()
+    return
+  }
+  if (atajo === 'mes') {
+    const inicio = new Date(hoyDate.getFullYear(), hoyDate.getMonth(), 1)
+    rangoDesde.value = isoDe(inicio)
+    rangoHasta.value = hoyISO()
+    return
+  }
+  // 'custom' → no tocamos nada
+}
+
+function limpiarFiltros() {
+  rangoDesde.value = ''
+  rangoHasta.value = ''
+  atajoFecha.value = ''
+  filtroEstado.value = 'todas'
+}
+
+function calcularRangoAtajo(atajo) {
+  const hoyDate = new Date()
+  if (atajo === 'hoy') return { desde: hoyISO(), hasta: hoyISO() }
+  if (atajo === 'semana') {
+    const inicio = new Date(hoyDate)
+    const dia = inicio.getDay() || 7
+    inicio.setDate(inicio.getDate() - (dia - 1))
+    return { desde: isoDe(inicio), hasta: hoyISO() }
+  }
+  if (atajo === 'mes') {
+    const inicio = new Date(hoyDate.getFullYear(), hoyDate.getMonth(), 1)
+    return { desde: isoDe(inicio), hasta: hoyISO() }
+  }
+  return null
+}
+
+/* ═══════════════════════════════════════════════════════════════
    CICLO DE VIDA
    ═══════════════════════════════════════════════════════════════ */
 watch(idMascota, async () => {
+  limpiarFiltros()
   await resolverPacienteActivo()
   await cargarHistorial()
 })
@@ -626,6 +851,7 @@ onBeforeUnmount(() => {
   clearTimeout(temporizador)
 })
 </script>
+
 
 <style scoped>
 .history-view {
@@ -1516,5 +1742,254 @@ onBeforeUnmount(() => {
   .vitals-row { gap: var(--space-2); }
   .vital { padding: var(--space-2) var(--space-3); }
   .vital-value { font-size: var(--text-base); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BARRA DE FILTROS (sticky)
+   ═══════════════════════════════════════════════════════════════ */
+.historial-toolbar {
+  position: sticky;
+  top: var(--space-4);
+  z-index: var(--z-sticky, 40);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--space-2);
+}
+
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/* ─── Fila 1: atajos + fechas ─── */
+.toolbar-shortcuts {
+  display: inline-flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--neutral-100);
+  border-radius: var(--radius-lg);
+  flex-shrink: 0;
+}
+.shortcut {
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  white-space: nowrap;
+}
+.shortcut:hover:not(.is-active) {
+  color: var(--brand-700);
+  background: var(--bg-surface);
+}
+.shortcut.is-active {
+  background: var(--bg-surface);
+  color: var(--brand-700);
+  box-shadow: var(--shadow-xs);
+}
+
+.toolbar-dates {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1 1 320px;
+  min-width: 0;
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+.toolbar-dates.is-disabled { opacity: 0.75; }
+.toolbar-dates :deep(.date-picker) { flex: 1; min-width: 140px; }
+
+.date-sep {
+  color: var(--neutral-300);
+  font-weight: var(--font-bold);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.btn-limpiar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  flex-shrink: 0;
+}
+.btn-limpiar:hover {
+  background: var(--danger-50);
+  border-color: var(--danger-200);
+  color: var(--danger-600);
+}
+
+/* ─── Fila 2: chips de estado ─── */
+.toolbar-row-estados { justify-content: flex-start; }
+
+.estados-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--font-extrabold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.estados-label svg { color: var(--text-tertiary); }
+
+.estados-chips {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-4);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--neutral-600);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  white-space: nowrap;
+}
+.chip:hover:not(:disabled):not(.is-active) {
+  background: var(--brand-50);
+  border-color: var(--brand-200);
+  color: var(--brand-700);
+}
+.chip.is-active {
+  background: var(--brand-700);
+  border-color: var(--brand-700);
+  color: var(--text-inverse);
+  box-shadow: 0 2px 8px rgba(15, 118, 110, 0.25);
+}
+.chip.is-empty {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+.chip-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--neutral-100);
+  color: var(--text-secondary);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-bold);
+  font-variant-numeric: tabular-nums;
+}
+.chip.is-active .chip-count {
+  background: rgba(255, 255, 255, 0.22);
+  color: var(--text-inverse);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   EMPTY FILTRADO
+   ═══════════════════════════════════════════════════════════════ */
+.empty-filtered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-12) var(--space-6);
+  text-align: center;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2xl);
+}
+.empty-filtered .empty-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--brand-50);
+  color: var(--brand-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.empty-filtered h3 {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+}
+.empty-filtered p {
+  margin: 0;
+  max-width: 380px;
+  color: var(--text-secondary);
+  line-height: var(--leading-normal);
+}
+.empty-filtered .btn-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: none;
+  border: none;
+  padding: var(--space-2) var(--space-4);
+  color: var(--brand-700);
+  font-family: inherit;
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: background-color var(--duration-fast) var(--ease-out);
+  margin-top: var(--space-2);
+}
+.empty-filtered .btn-link:hover { background: var(--brand-50); }
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .historial-toolbar { padding: var(--space-3); }
+  .toolbar-shortcuts { overflow-x: auto; max-width: 100%; }
+  .toolbar-dates { flex: 1 1 100%; }
+  .toolbar-dates :deep(.date-picker) { min-width: 0; }
+}
+
+@media (max-width: 640px) {
+  .historial-toolbar {
+    top: var(--space-2);
+    padding: var(--space-3);
+    gap: var(--space-2);
+  }
+  .shortcut { padding: var(--space-2) var(--space-3); font-size: var(--text-xs); }
+  .estados-chips { gap: var(--space-1); }
+  .chip { padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3); font-size: var(--text-xs); }
+  .chip-count { min-width: 18px; height: 16px; padding: 0 var(--space-1); font-size: var(--text-2xs); }
+  .toolbar-row-estados { flex-direction: column; align-items: flex-start; }
 }
 </style>

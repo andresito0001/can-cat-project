@@ -133,11 +133,9 @@
               <label class="form-label" for="fecha">
                 Fecha de recepción <span class="required">*</span>
               </label>
-              <input
-                id="fecha"
+              <DatePicker
                 v-model="form.fechaRecepcion"
-                type="date"
-                class="form-input"
+                placeholder="Seleccionar fecha"
                 :max="hoy"
                 :disabled="procesando"
               />
@@ -361,10 +359,9 @@
                     <label class="form-label">
                       Fecha de vencimiento <span class="optional">(opcional)</span>
                     </label>
-                    <input
+                    <DatePicker
                       v-model="linea.fechaVencimientoLote"
-                      type="date"
-                      class="form-input"
+                      placeholder="Sin vencimiento"
                       :disabled="procesando"
                     />
                   </div>
@@ -460,6 +457,9 @@ import ProductFormModal from '@/components/almacen/ProductFormModal.vue'
 import { getProductos, getProveedores, registrarEntrada } from '@/api/almacen.api'
 import { getApiErrorMessage } from '@/utils/apiError'
 import { useToast } from '@/composables/useToast'
+
+import DatePicker from '@/components/ui/DatePicker.vue'
+import { hoyISO } from '@/utils/fecha'
 
 const router = useRouter()
 const { toastError } = useToast()

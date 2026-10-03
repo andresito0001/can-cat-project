@@ -87,20 +87,20 @@
             {{ horaCorta(proximaCita.horaInicio) }} · Próximo en atender
           </span>
           <h2 class="proximo-nombre">
-            {{ proximaCita.mascotaNombre || proximaCita.mascota || 'Paciente' }}
+            {{ proximaCita.nombreMascota || 'Sin nombre' }}
           </h2>
           <p class="proximo-sub">
-            <User :size="13" /> {{ proximaCita.clienteNombre || 'Cliente' }}
+            <User :size="13" /> {{ proximaCita.nombreCliente || 'Sin dueño' }}
           </p>
           <div class="proximo-meta">
-            <span v-if="proximaCita.servicioNombre">
-              <FileText :size="13" /> {{ proximaCita.servicioNombre }}
+            <span v-if="proximaCita.nombreServicio">
+            <FileText :size="13" /> {{ proximaCita.nombreServicio }}
             </span>
             <span v-if="proximaCita.horaFin">
               <Clock :size="13" /> {{ horaCorta(proximaCita.horaInicio) }} – {{ horaCorta(proximaCita.horaFin) }}
             </span>
-            <span v-if="proximaCita.estadoNombre" class="proximo-estado">
-              {{ etiquetaEstado(proximaCita.estadoNombre) }}
+            <span v-if="proximaCita.estado" class="proximo-estado">
+              {{ etiquetaEstado(proximaCita.estado) }}
             </span>
           </div>
         </div>
@@ -153,7 +153,7 @@
               v-for="cita in citasVisibles"
               :key="cita.idCita"
               class="cita-item"
-              :class="{ 'is-completada': cita.atendida || cita.estadoNombre === 'Completada' }"
+              :class="{ 'is-completada': cita.estado === 'Completada' }"
             >
               <div class="cita-hora">
                 <span class="hora-inicio">{{ horaCorta(cita.horaInicio) }}</span>
@@ -162,29 +162,28 @@
 
               <div class="cita-info">
                 <p class="cita-mascota">
-                  {{ cita.mascotaNombre || cita.mascota || 'Paciente' }}
+                  {{ cita.nombreMascota || 'Sin nombre' }}
                 </p>
                 <p class="cita-detalle">
-                  {{ cita.especie || cita.tipoAtencion || 'Consulta' }}
-                  <template v-if="cita.raza"> · {{ cita.raza }}</template>
+                  {{ cita.nombreServicio || 'Consulta' }}
                 </p>
                 <p class="cita-dueno">
-                  <User :size="12" /> {{ cita.clienteNombre || 'Cliente' }}
+                  <User :size="12" /> {{ cita.nombreCliente || 'Sin dueño' }}
                 </p>
               </div>
 
               <div class="cita-estado">
                 <span
                   class="status-pill"
-                  :style="estiloEstado(cita.estadoNombre, cita.estadoColor)"
+                  :style="estiloEstado(cita.estado, cita.colorUi)"
                 >
-                  {{ etiquetaEstado(cita.estadoNombre) }}
+                  {{ etiquetaEstado(cita.estado) }}
                 </span>
               </div>
 
               <div class="cita-accion">
                 <AppButton
-                  v-if="!cita.atendida && cita.estadoNombre !== 'Completada'"
+                  v-if="cita.estado !== 'Completada' && cita.estado !== 'Cancelada'"
                   variant="primary"
                   size="sm"
                   @click="verDetalleCita(cita.idCita)"
@@ -299,8 +298,8 @@ const nombreRecep = computed(() => authStore.userName || 'Recepción')
 
 const completadasHoy = computed(() =>
   agendaHoy.value.filter((c) => {
-    const estado = String(c.estadoNombre || '').trim()
-    return estado === 'Completada' || c.atendida === true
+    const estado = String(c.estado || '').trim()
+    return estado === 'Completada'
   }).length
 )
 
@@ -327,9 +326,9 @@ const cobrosPendientes = computed(() => {
     id: `cita-${c.idCita}`,
     tipo: 'cita',
     idOriginal: c.idCita,
-    titulo: c.mascotaNombre || c.mascota || 'Cita',
-    sub: c.clienteNombre || '',
-    detalle: c.servicioNombre || c.tipoAtencion || 'Cita pendiente',
+    titulo: c.nombreMascota || 'Sin nombre',
+    sub: c.nombreCliente || '',
+    detalle: c.nombreServicio || 'Cita pendiente',
     monto: c.costoEstimado || c.costoUsd || null,
     hora: horaCorta(c.horaInicio),
     fechaISO: c.fechaCita,
@@ -539,6 +538,7 @@ onMounted(cargarDatos)
   letter-spacing: 0.06em;
   margin-bottom: var(--space-3);
   backdrop-filter: blur(4px);
+  color: var(--text-inverse);
 }
 .proximo-nombre {
   margin: 0 0 var(--space-1);
@@ -546,7 +546,9 @@ onMounted(cargarDatos)
   font-weight: var(--font-bold);
   letter-spacing: var(--tracking-tight);
   line-height: var(--leading-tight);
+  color: var(--text-inverse);
 }
+
 .proximo-sub {
   margin: 0 0 var(--space-3);
   font-size: var(--text-md);

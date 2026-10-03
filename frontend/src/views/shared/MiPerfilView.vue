@@ -181,11 +181,12 @@
 
                 <AppFormField label="Fecha de nacimiento" optional>
                   <template #default="{ id }">
-                    <AppInput
+                    <DatePicker
                       :id="id"
                       v-model="form.fechaNacimiento"
-                      type="date"
-                    />
+                      placeholder="Seleccionar fecha"
+                      :max="hoy"
+                   />
                   </template>
                 </AppFormField>
               </div>
@@ -440,9 +441,12 @@ import AppInput from '@/components/ui/AppInput.vue'
 import AppPasswordField from '@/components/ui/AppPasswordField.vue'
 import AppModal from '@/components/ui/AppModal.vue'
 import AppAlert from '@/components/ui/AppAlert.vue'
+import DatePicker from '@/components/ui/DatePicker.vue'
 
 const authStore = useAuthStore()
 const { toastSuccess, toastError } = useToast()
+
+const hoy = new Date().toISOString().split('T')[0]
 
 /* ═══════════════════════════════════════════════════════════════
    ESTADO

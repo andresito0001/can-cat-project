@@ -286,27 +286,13 @@
                   <label :for="`field-${key}`">
                     {{ labelCampo(key) }} <span class="required">*</span>
                   </label>
-
-                  <select
+                  <BancoSelector
                     v-if="key === 'banco'"
                     :id="`field-${key}`"
                     v-model="datosPago[key]"
-                    class="form-select"
-                    :class="{ 'field-invalid': erroresCampos[key] }"
-                    @change="erroresCampos[key] = ''"
-                  >
-                    <option value="" disabled>Selecciona un banco…</option>
-                    <optgroup label="Bancos universales">
-                      <option
-                        v-for="b in BANCOS_VENEZUELA"
-                        :key="b.codigo"
-                        :value="`${b.codigo} - ${b.nombre}`"
-                      >
-                        {{ b.codigo }} — {{ b.nombre }}
-                      </option>
-                    </optgroup>
-                  </select>
-
+                    :error="erroresCampos[key]"
+                    @update:model-value="erroresCampos[key] = ''"
+                  />
                   <input
                     v-else
                     :id="`field-${key}`"
@@ -399,13 +385,15 @@
             <span class="detail-label">Total USD</span>
             <span class="detail-value amount">{{ fmtUsd(pagoExitoso.montoUsd) }} USD</span>
           </div>
-          <div v-if="pagoExitoso.montoBs != null" class="detail-row detail-row-total">
+          <div v-if="montoBsFinal != null" class="detail-row detail-row-total">
             <span class="detail-label">Total Bs</span>
-            <span class="detail-value amount-bs">Bs. {{ fmtBs(pagoExitoso.montoBs) }}</span>
+            <span class="detail-value amount-bs">Bs. {{ fmtBs(montoBsFinal) }}</span>
           </div>
-          <div v-if="pagoExitoso.tasaCambio != null" class="detail-row detail-row-tasa">
+          <div v-if="tasaImplicita || pagoExitoso.tasaCambio" class="detail-row detail-row-tasa">
             <span class="detail-label">Tasa aplicada</span>
-            <span class="detail-value tasa">{{ fmtTasa(pagoExitoso.tasaCambio) }} Bs/USD</span>
+            <span class="detail-value tasa">
+              {{ fmtTasa(pagoExitoso.tasaCambio || tasaImplicita) }} Bs/USD
+            </span>
           </div>
         </div>
 
@@ -452,8 +440,7 @@ import ToastContainer from '@/components/ui/ToastContainer.vue'
 import AppButton from '@/components/ui/AppButton.vue'
 import AppAlert from '@/components/ui/AppAlert.vue'
 import AppModal from '@/components/ui/AppModal.vue'
-
-import { BANCOS_VENEZUELA } from '@/utils/constants/bancos'
+import BancoSelector from '@/components/ui/BancoSelector.vue'
 
 import { cancelarCitaExpirada } from '@/api/citas.api.js'
 
@@ -575,6 +562,20 @@ const tasaImplicita = computed(() => {
   if (!usd || !bs) return null
   return bs / usd
 })
+
+const montoBsFinal = computed(() => {
+  const usd = Number(pagoExitoso.value?.montoUsd)
+  if (!usd) return null
+
+  const bsDelBackend = Number(pagoExitoso.value?.montoBs)
+  if (bsDelBackend && !Number.isNaN(bsDelBackend)) return bsDelBackend
+
+  const tasa = Number(pagoExitoso.value?.tasaCambio) || Number(tasaImplicita.value)
+  if (!tasa || Number.isNaN(tasa)) return null
+
+  return usd * tasa
+})
+
 
 /* ─── Estado no pagable ─── */
 const estadoIcono = computed(() => {

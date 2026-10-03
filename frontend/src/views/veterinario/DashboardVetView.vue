@@ -3,13 +3,14 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   ArrowRight, CalendarCheck, CalendarDays, CheckCircle2, ChevronRight,
-  Clock, Clock3, FileText, Inbox, Search, Stethoscope, User,
+  Clock, Clock3, FileText, Inbox, Stethoscope, User,
 } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth.store'
 import { useToast } from '@/composables/useToast'
 import ToastContainer from '@/components/ui/ToastContainer.vue'
 import AppButton from '@/components/ui/AppButton.vue'
 import AppEmptyState from '@/components/ui/AppEmptyState.vue'
+import KpiCard from '@/components/ui/KpiCard.vue'
 import { getAgendaVet } from '@/api/atenciones.api'
 import { getApiErrorMessage } from '@/utils/apiError'
 import { ESTADO_COLOR } from '@/utils/constants/estadosCita'
@@ -22,39 +23,31 @@ const { toastError } = useToast()
 const hoy = hoyISO()
 const cargando = ref(true)
 const agendaHoy = ref([])
-const atencionesMes = ref(null)
+
+// ─── Métricas del mes (con caché para no recomputar en cada render) ───
+const metricasMes = ref({ atendidas: 0, porAtender: 0 })
+const cargandoMes = ref(false)
+let metricasMesCache = null
 
 const nombreVet = computed(() => authStore.user?.nombreCompleto || 'Doctor(a)')
 
-const stats = computed(() => [
-  {
-    etiqueta: 'Citas de hoy',
-    valor: agendaHoy.value.length,
-    icono: CalendarDays,
-    color: 'brand',
-  },
-  {
-    etiqueta: 'Por atender',
-    valor: agendaHoy.value.filter((c) => !c.atendida).length,
-    icono: Clock3,
-    color: 'warning',
-  },
-  {
-    etiqueta: 'Atendidas hoy',
-    valor: agendaHoy.value.filter((c) => c.atendida).length,
-    icono: CheckCircle2,
-    color: 'success',
-  },
-  {
-    etiqueta: 'Atenciones este mes',
-    valor: atencionesMes.value ?? '…',
-    icono: Stethoscope,
-    color: 'purple',
-  },
-])
+// ─── Derivados de la agenda de HOY ───
+const esAtendida = (c) => c.atendida === true || c.estado === 'Completada'
+const esCancelada = (c) => c.estado === 'Cancelada'
 
-const proximaCita = computed(() => agendaHoy.value.find((c) => !c.atendida) || null)
+const citasPendientesHoy = computed(() =>
+  agendaHoy.value.filter((c) => !esAtendida(c) && !esCancelada(c)).length
+)
+const citasAtendidasHoy = computed(() =>
+  agendaHoy.value.filter(esAtendida).length
+)
 
+// ─── Hero: próxima cita pendiente ───
+const proximaCita = computed(() =>
+  agendaHoy.value.find((c) => !esAtendida(c) && !esCancelada(c)) || null
+)
+
+// ─── Lista compacta (excluye la próxima) ───
 const citasAgenda = computed(() =>
   proximaCita.value
     ? agendaHoy.value.filter((c) => c.idCita !== proximaCita.value.idCita)
@@ -63,39 +56,49 @@ const citasAgenda = computed(() =>
 const citasVisibles = computed(() => citasAgenda.value.slice(0, 5))
 const citasOcultas = computed(() => Math.max(0, citasAgenda.value.length - 5))
 
-const accesos = [
+// ─── KPIs ───
+const kpis = computed(() => [
   {
-    titulo: 'Mi Agenda Hoy',
-    descripcion: 'Citas confirmadas del día',
-    icono: CalendarCheck,
-    ruta: '/veterinario/agenda',
+    icon: CalendarDays,
+    tone: 'brand',
+    label: 'Citas de hoy',
+    value: agendaHoy.value.length,
   },
   {
-    titulo: 'Atención Clínica',
-    descripcion: 'Iniciar una consulta médica',
-    icono: Stethoscope,
-    ruta: '/veterinario/atencion',
+    icon: Clock3,
+    tone: 'warning',
+    label: 'Por atender hoy',
+    value: citasPendientesHoy.value,
   },
   {
-    titulo: 'Historiales',
-    descripcion: 'Expedientes clínicos',
-    icono: FileText,
-    ruta: '/veterinario/historiales',
+    icon: CheckCircle2,
+    tone: 'success',
+    label: 'Atendidas hoy',
+    value: citasAtendidasHoy.value,
   },
-]
+  {
+    icon: Stethoscope,
+    tone: 'purple',
+    label: 'Por atender este mes',
+    value: cargandoMes.value ? '…' : metricasMes.value.porAtender,
+    hint: cargandoMes.value
+      ? 'Calculando…'
+      : `${metricasMes.value.atendidas} ya atendidas este mes`,
+  },
+])
 
+// ═══════════════════════════════════════════════════════════════
+// Helpers de formato
+// ═══════════════════════════════════════════════════════════════
 function etiquetaEstado(estadoNombre) {
   return String(estadoNombre || '').replaceAll('_', ' ')
 }
-function estiloEstado(estadoNombre, estadoColor) {
-  const color = estadoColor || ESTADO_COLOR[estadoNombre] || 'var(--neutral-500)'
-  return { color, borderColor: color }
+function colorEstado(estadoNombre, estadoColor) {
+  return estadoColor || ESTADO_COLOR[estadoNombre] || 'var(--neutral-500)'
 }
-
 function horaCorta(h) {
   return h ? String(h).slice(0, 5) : ''
 }
-
 function minutosHasta(horaInicio) {
   if (!horaInicio) return null
   const [h, m] = String(horaInicio).split(':').map(Number)
@@ -113,6 +116,9 @@ function textoCuentaRegresiva(horaInicio) {
   return m === 0 ? `En ${h}h` : `En ${h}h ${m}m`
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Carga de datos
+// ═══════════════════════════════════════════════════════════════
 async function cargarAgenda() {
   cargando.value = true
   try {
@@ -125,21 +131,57 @@ async function cargarAgenda() {
   }
 }
 
-async function calcularAtencionesMes() {
-  const ahora = new Date()
-  const anio = ahora.getFullYear()
-  const mes = String(ahora.getMonth() + 1).padStart(2, '0')
-  const diaActual = ahora.getDate()
-  const fechas = []
-  for (let d = 1; d <= diaActual; d += 1) {
-    fechas.push(`${anio}-${mes}-${String(d).padStart(2, '0')}`)
+/**
+ * Métricas del mes: se cargan en segundo plano, cacheadas 5 min.
+ * Solo cuenta citas NO canceladas. Separación clara entre:
+ *   - atendidas  → atendida === true  O estado === 'Completada'
+ *   - porAtender → fecha >= HOY Y NO atendidas Y NO canceladas
+ */
+async function calcularMetricasMes() {
+  if (metricasMesCache && Date.now() - metricasMesCache.ts < 5 * 60_000) {
+    metricasMes.value = metricasMesCache.data
+    return
   }
-  const resultados = await Promise.allSettled(fechas.map((f) => getAgendaVet(f)))
-  atencionesMes.value = resultados.reduce(
-    (total, r) =>
-      r.status === 'fulfilled' ? total + r.value.filter((c) => c.atendida).length : total,
-    0,
-  )
+  cargandoMes.value = true
+  try {
+    const hoyDate = new Date()
+    const anio = hoyDate.getFullYear()
+    const mes = hoyDate.getMonth()
+    const ultimoDia = new Date(anio, mes + 1, 0).getDate()
+    const hoyStr = hoyISO()
+
+    const fechas = Array.from({ length: ultimoDia }, (_, i) => {
+      const d = String(i + 1).padStart(2, '0')
+      const m = String(mes + 1).padStart(2, '0')
+      return `${anio}-${m}-${d}`
+    })
+
+    const resultados = await Promise.allSettled(fechas.map((f) => getAgendaVet(f)))
+
+    let atendidas = 0
+    let porAtender = 0
+
+    for (const r of resultados) {
+      if (r.status !== 'fulfilled') continue
+      for (const cita of r.value || []) {
+        if (cita.estado === 'Cancelada') continue
+        const atendida = cita.atendida === true || cita.estado === 'Completada'
+        if (atendida) {
+          atendidas++
+        } else if (String(cita.fechaCita).slice(0, 10) >= hoyStr) {
+          porAtender++
+        }
+      }
+    }
+
+    const data = { atendidas, porAtender }
+    metricasMes.value = data
+    metricasMesCache = { ts: Date.now(), data }
+  } catch {
+    // Silencioso: es un KPI secundario, no bloquea la vista
+  } finally {
+    cargandoMes.value = false
+  }
 }
 
 function irAtencion(idCita) {
@@ -149,7 +191,7 @@ function irAtencion(idCita) {
 
 onMounted(async () => {
   await cargarAgenda()
-  calcularAtencionesMes()
+  calcularMetricasMes()
 })
 </script>
 
@@ -170,7 +212,11 @@ onMounted(async () => {
           <CalendarDays :size="15" />
           <span>Mi agenda</span>
         </button>
-        <button class="quick-action quick-action-primary" type="button" @click="router.push('/veterinario/atencion')">
+        <button
+          class="quick-action quick-action-primary"
+          type="button"
+          @click="router.push('/veterinario/atencion')"
+        >
           <Stethoscope :size="15" />
           <span>Iniciar atención</span>
         </button>
@@ -184,20 +230,20 @@ onMounted(async () => {
     </div>
 
     <template v-else>
-      <!-- ═══ STATS STRIP (línea horizontal, no cards gigantes) ═══ -->
-      <section class="stats-strip">
-        <article v-for="s in stats" :key="s.etiqueta" class="stat" :class="`stat-${s.color}`">
-          <div class="stat-icon">
-            <component :is="s.icono" :size="18" />
-          </div>
-          <div class="stat-content">
-            <p class="stat-value">{{ s.valor }}</p>
-            <p class="stat-label">{{ s.etiqueta }}</p>
-          </div>
-        </article>
+      <!-- ═══ KPIs (componente reutilizable) ═══ -->
+      <section class="stats-grid">
+        <KpiCard
+          v-for="kpi in kpis"
+          :key="kpi.label"
+          :icon="kpi.icon"
+          :tone="kpi.tone"
+          :label="kpi.label"
+          :value="kpi.value"
+          :hint="kpi.hint"
+        />
       </section>
 
-      <!-- ═══ PRÓXIMO PACIENTE (card destacada horizontal) ═══ -->
+      <!-- ═══ PRÓXIMO PACIENTE ═══ -->
       <section v-if="proximaCita" class="next-patient">
         <div class="next-accent" />
         <div class="next-content">
@@ -239,7 +285,6 @@ onMounted(async () => {
 
       <!-- ═══ GRID PRINCIPAL ═══ -->
       <section class="main-grid">
-        <!-- Agenda de hoy -->
         <article class="panel">
           <header class="panel-header">
             <div class="panel-header-info">
@@ -274,7 +319,7 @@ onMounted(async () => {
                 v-for="cita in citasVisibles"
                 :key="cita.idCita"
                 class="agenda-row"
-                :class="{ 'is-done': cita.atendida }"
+                :class="{ 'is-done': esAtendida(cita) }"
               >
                 <div class="row-time">
                   <span class="row-time-start">{{ horaCorta(cita.horaInicio) }}</span>
@@ -293,16 +338,14 @@ onMounted(async () => {
                 <div class="row-status">
                   <span
                     class="status-dot"
-                    :style="{ background: cita.estadoColor || ESTADO_COLOR[cita.estadoNombre] }"
+                    :style="{ background: colorEstado(cita.estado, cita.estadoColor) }"
                   />
-                  <span class="status-label">
-                    {{ etiquetaEstado(cita.estadoNombre) }}
-                  </span>
+                  <span class="status-label">{{ etiquetaEstado(cita.estado) }}</span>
                 </div>
 
                 <div class="row-action">
                   <button
-                    v-if="!cita.atendida"
+                    v-if="!esAtendida(cita)"
                     class="row-btn"
                     type="button"
                     @click="irAtencion(cita.idCita)"
@@ -315,19 +358,23 @@ onMounted(async () => {
             </ul>
 
             <p v-if="citasOcultas > 0" class="more-hint">
-              + {{ citasOcultas }} {{ citasOcultas === 1 ? 'cita más' : 'citas más' }} en tu agenda completa
+              + {{ citasOcultas }}
+              {{ citasOcultas === 1 ? 'cita más' : 'citas más' }} en tu agenda completa
             </p>
           </div>
         </article>
 
-        <!-- Accesos rápidos -->
         <article class="panel panel-narrow">
           <header class="panel-header">
             <h3 class="panel-title">Accesos rápidos</h3>
           </header>
           <div class="panel-body panel-body-compact">
             <ul class="shortcuts">
-              <li v-for="a in accesos" :key="a.titulo">
+              <li v-for="a in [
+                { titulo: 'Mi Agenda Hoy', descripcion: 'Citas confirmadas del día', icono: CalendarCheck, ruta: '/veterinario/agenda' },
+                { titulo: 'Atención Clínica', descripcion: 'Iniciar una consulta médica', icono: Stethoscope, ruta: '/veterinario/atencion' },
+                { titulo: 'Historiales', descripcion: 'Expedientes clínicos', icono: FileText, ruta: '/veterinario/historiales' },
+              ]" :key="a.titulo">
                 <button class="shortcut" type="button" @click="router.push(a.ruta)">
                   <span class="shortcut-icon">
                     <component :is="a.icono" :size="18" />
@@ -347,6 +394,7 @@ onMounted(async () => {
   </div>
 </template>
 
+
 <style scoped>
 .dashboard-vet {
   max-width: 1280px;
@@ -357,9 +405,9 @@ onMounted(async () => {
   gap: var(--space-6);
 }
 
-/* ═══════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════
    HEADER COMPACTO
-   ═══════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════ */
 .page-top {
   display: flex;
   align-items: flex-end;
@@ -425,66 +473,34 @@ onMounted(async () => {
   color: var(--text-inverse);
 }
 
-/* ═══════════════════════════════════════════════════════════
-   STATS STRIP (compacto, horizontal)
-   ═══════════════════════════════════════════════════════════ */
-.stats-strip {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0;
+/* ═══════════════════════════════════════════════════════════════
+   LOADING
+   ═══════════════════════════════════════════════════════════════ */
+.loading-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-12);
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  overflow: hidden;
-}
-.stat {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-5) var(--space-6);
-  border-right: 1px solid var(--border-subtle);
-  transition: background-color var(--duration-fast) var(--ease-out);
-}
-.stat:last-child { border-right: none; }
-.stat:hover { background: var(--bg-surface-alt); }
-
-.stat-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-lg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.stat-brand .stat-icon   { background: var(--brand-50);   color: var(--brand-700); }
-.stat-warning .stat-icon { background: var(--warning-50); color: var(--warning-600); }
-.stat-success .stat-icon { background: var(--success-50); color: var(--success-600); }
-.stat-purple .stat-icon  { background: var(--purple-50);  color: var(--purple-600); }
-
-.stat-content { min-width: 0; }
-.stat-value {
-  margin: 0;
-  font-size: var(--text-4xl);
-  font-weight: var(--font-bold);
-  color: var(--text-primary);
-  line-height: 1;
-  letter-spacing: var(--tracking-tight);
-  font-variant-numeric: tabular-nums;
-}
-.stat-label {
-  margin: var(--space-1) 0 0;
-  font-size: var(--text-sm);
+  border-radius: var(--radius-2xl);
   color: var(--text-secondary);
-  font-weight: var(--font-medium);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: var(--text-md);
 }
 
-/* ═══════════════════════════════════════════════════════════
-   PRÓXIMO PACIENTE — card destacada con acento lateral
-   ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   KPIs — grid que envuelve los KpiCard
+   ═══════════════════════════════════════════════════════════════ */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PRÓXIMO PACIENTE — card destacada con acento
+   ═══════════════════════════════════════════════════════════════ */
 .next-patient {
   position: relative;
   display: grid;
@@ -532,6 +548,7 @@ onMounted(async () => {
   letter-spacing: 0.06em;
   margin-bottom: var(--space-3);
   backdrop-filter: blur(4px);
+  color: var(--text-inverse);
 }
 .next-name {
   margin: 0 0 var(--space-1);
@@ -539,6 +556,7 @@ onMounted(async () => {
   font-weight: var(--font-bold);
   letter-spacing: var(--tracking-tight);
   line-height: 1;
+  color: var(--text-inverse);
 }
 .next-species {
   margin: 0 0 var(--space-4);
@@ -587,9 +605,9 @@ onMounted(async () => {
   box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.25);
 }
 
-/* ═══════════════════════════════════════════════════════════
-   GRID PRINCIPAL
-   ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   GRID PRINCIPAL (2 columnas)
+   ═══════════════════════════════════════════════════════════════ */
 .main-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
@@ -647,9 +665,25 @@ onMounted(async () => {
 .panel-body { padding: var(--space-4) var(--space-5) var(--space-5); }
 .panel-body-compact { padding: var(--space-3); }
 
-/* ═══════════════════════════════════════════════════════════
-   AGENDA — filas compactas, info densa
-   ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   COMPACT EMPTY (solo próxima cita sin más)
+   ═══════════════════════════════════════════════════════════════ */
+.compact-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+  background: var(--bg-surface-alt);
+  border-radius: var(--radius-lg);
+  justify-content: center;
+}
+.compact-empty svg { color: var(--success-500); flex-shrink: 0; }
+
+/* ═══════════════════════════════════════════════════════════════
+   AGENDA — filas compactas
+   ═══════════════════════════════════════════════════════════════ */
 .agenda-list {
   list-style: none;
   margin: 0;
@@ -759,19 +793,6 @@ onMounted(async () => {
   display: block;
 }
 
-.compact-empty {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-5);
-  color: var(--text-secondary);
-  font-size: var(--text-md);
-  background: var(--bg-surface-alt);
-  border-radius: var(--radius-lg);
-  justify-content: center;
-}
-.compact-empty svg { color: var(--success-500); flex-shrink: 0; }
-
 .more-hint {
   margin: var(--space-4) 0 0;
   text-align: center;
@@ -780,9 +801,9 @@ onMounted(async () => {
   font-weight: var(--font-medium);
 }
 
-/* ═══════════════════════════════════════════════════════════
-   SHORTCUTS
-   ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   SHORTCUTS (accesos rápidos)
+   ═══════════════════════════════════════════════════════════════ */
 .shortcuts {
   list-style: none;
   margin: 0;
@@ -850,31 +871,11 @@ onMounted(async () => {
   transform: translateX(2px);
 }
 
-/* ═══════════════════════════════════════════════════════════
-   LOADING
-   ═══════════════════════════════════════════════════════════ */
-.loading-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-12);
-  color: var(--text-secondary);
-  font-size: var(--text-md);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-2xl);
-}
-
-/* ═══════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════
    RESPONSIVE
-   ═══════════════════════════════════════════════════════════ */
-@media (max-width: 1024px) {
-  .stats-strip { grid-template-columns: repeat(2, 1fr); }
-  .stat { border-right: none; border-bottom: 1px solid var(--border-subtle); }
-  .stat:nth-child(odd) { border-right: 1px solid var(--border-subtle); }
-  .stat:nth-last-child(-n+2) { border-bottom: none; }
-
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 1100px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .main-grid { grid-template-columns: 1fr; }
   .next-patient { grid-template-columns: 1fr; gap: var(--space-5); }
   .next-action { width: 100%; }
@@ -882,19 +883,26 @@ onMounted(async () => {
 }
 
 @media (max-width: 640px) {
-  .dashboard-vet { padding: var(--space-5) var(--space-4) var(--space-10); gap: var(--space-5); }
-  .page-top { flex-direction: column; align-items: flex-start; gap: var(--space-4); padding-bottom: var(--space-5); }
+  .dashboard-vet {
+    padding: var(--space-5) var(--space-4) var(--space-10);
+    gap: var(--space-5);
+  }
+  .page-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+    padding-bottom: var(--space-5);
+  }
   .page-top-title { font-size: var(--text-4xl); }
   .page-top-actions { width: 100%; }
   .quick-action { flex: 1; justify-content: center; }
 
-  .stats-strip { grid-template-columns: 1fr; }
-  .stat { border-right: none; border-bottom: 1px solid var(--border-subtle); padding: var(--space-4); }
-  .stat:nth-child(odd) { border-right: none; }
-  .stat:last-child { border-bottom: none; }
-  .stat-value { font-size: var(--text-3xl); }
+  .stats-grid { grid-template-columns: 1fr; gap: var(--space-3); }
 
-  .next-patient { padding: var(--space-5); border-radius: var(--radius-xl); }
+  .next-patient {
+    padding: var(--space-5);
+    border-radius: var(--radius-xl);
+  }
   .next-name { font-size: var(--text-4xl); }
   .next-meta { gap: var(--space-2); font-size: var(--text-sm); }
   .next-meta-sep { display: none; }
@@ -908,7 +916,11 @@ onMounted(async () => {
     gap: var(--space-3);
     padding: var(--space-3);
   }
-  .row-time { grid-row: 1 / 3; grid-column: 1; justify-self: start; }
+  .row-time {
+    grid-row: 1 / 3;
+    grid-column: 1;
+    justify-self: start;
+  }
   .row-main { grid-column: 2; grid-row: 1; }
   .row-status { grid-column: 1 / -1; grid-row: 2; }
   .row-action { grid-column: 1 / -1; grid-row: 3; justify-self: end; }
