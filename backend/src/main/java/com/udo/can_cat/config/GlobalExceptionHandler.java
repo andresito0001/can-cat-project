@@ -33,6 +33,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import com.udo.can_cat.citas.domain.exception.TransicionInvalidaException;
 import com.udo.can_cat.usuarios.application.service.TokenRecuperacionInvalidoException;
@@ -151,7 +152,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationErrors(MethodArgumentNotValidException ex) {
-        Map<String, String> errors = new HashMap<>();
+        // Map<String, String> errors = new HashMap<>();
+        Map<String, String> errors = new LinkedHashMap<>();
         ex.getBindingResult().getAllErrors().forEach(error -> {
             String fieldName = ((FieldError) error).getField();
             String errorMessage = error.getDefaultMessage();
@@ -159,7 +161,17 @@ public class GlobalExceptionHandler {
         });
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(
                 LocalDateTime.now(), HttpStatus.BAD_REQUEST.value(),
-                "Error de validación", errors.toString()));
+                "Error de validación", errors));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException ex) {
+        logger.warn("Conflicto de estado: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.CONFLICT.value(),
+                "Conflicto",
+                ex.getMessage()));
     }
 
     // ================================================================
@@ -322,6 +334,6 @@ public class GlobalExceptionHandler {
             LocalDateTime timestamp,
             int status,
             String error,
-            String message
+            Object message
     ) {}
 }

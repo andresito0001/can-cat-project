@@ -8,7 +8,7 @@ import java.util.List;
 
 public record RegistrarEntradaRequestDTO(
         @NotNull Integer idProveedor,
-        @NotBlank @Size(max = 50) String numeroFactura,
+        @Size(max = 50) String numeroFactura,
         @NotNull LocalDate fechaRecepcion,
         @Size(max = 200) String observaciones,
         @NotEmpty @Valid List<LineaEntrada> lineas

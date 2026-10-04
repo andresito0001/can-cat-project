@@ -213,19 +213,27 @@ public class AlmacenApplicationService {
             totalUnidades += linea.cantidadRecibida();
         }
 
-        // 4. Autogenerar número de orden: ENT-YYYYMMDD-NNNN
+        // 4. Resolver la factura del proveedor (opcional)
+        //    Si el usuario no la proporciona, generamos un placeholder trazable.
         LocalDate hoy = LocalDate.now();
         long correlativo = compraProveedorRepo.contarPorFechaOrden(hoy) + 1;
-        String numeroOrden = String.format("%s-%s-%04d",
-                PREFIJO_ORDEN,
-                hoy.format(DateTimeFormatter.BASIC_ISO_DATE),
-                correlativo);
 
-        // 5. Crear cabecera de compra
+        String facturaProveedor = (request.numeroFactura() != null 
+                && !request.numeroFactura().isBlank())
+            ? request.numeroFactura().trim()
+            : "SIN-FACTURA-" + hoy.format(DateTimeFormatter.BASIC_ISO_DATE)
+                + "-" + String.format("%04d", correlativo);
+
+        // 5. Autogenerar número de orden interno
+        String numeroOrden = String.format("%s-%s-%04d", PREFIJO_ORDEN,
+                hoy.format(DateTimeFormatter.BASIC_ISO_DATE), correlativo);
+
+        // 6. Crear cabecera de compra
         CompraProveedor compra = new CompraProveedor();
         compra.setIdProveedor(proveedor.getId().value());
         compra.setIdPersonal(idPersonal);
         compra.setNumeroOrden(numeroOrden);
+        compra.setNumeroFacturaProveedor(facturaProveedor);   // ← persistir
         compra.setFechaOrden(hoy);
         compra.setFechaRecepcion(request.fechaRecepcion());
         compra.setEstadoCompra("Recibida_Total");
@@ -233,16 +241,16 @@ public class AlmacenApplicationService {
         compra.setObservacionesRecepcion(request.observaciones());
         CompraProveedor compraGuardada = compraProveedorRepo.guardar(compra);
 
-        // 6. Procesar cada línea: sumar stock + DetalleCompra + Movimiento
+        // 7. Procesar cada línea: sumar stock + DetalleCompra + Movimiento
         for (int i = 0; i < request.lineas().size(); i++) {
             var linea = request.lineas().get(i);
             Producto producto = productosPorLinea.get(i);
 
-            // 6.1 Sumar stock
+            // 7.1 Sumar stock
             producto.agregarStock(linea.cantidadRecibida());
             productoRepo.guardar(producto);
 
-            // 6.2 Detalle de la compra
+            // 7.2 Detalle de la compra
             DetalleCompra detalle = new DetalleCompra();
             detalle.setIdCompra(compraGuardada.getId().value());
             detalle.setIdProducto(producto.getId().value());
@@ -253,20 +261,20 @@ public class AlmacenApplicationService {
             detalle.setFechaVencimientoLote(linea.fechaVencimientoLote());
             detalleCompraRepo.guardar(detalle);
 
-            // 6.3 Movimiento de inventario (referencia = numeroOrden interno)
+            // 7.3 Movimiento de inventario (referencia = factura del proveedor, más útil en auditoría)
             MovimientoInventario movimiento = new MovimientoInventario();
             movimiento.setIdProducto(producto.getId().value());
             movimiento.setIdPersonal(idPersonal);
             movimiento.setTipoMovimiento(MovimientoInventario.TIPO_ENTRADA);
             movimiento.setCantidad(linea.cantidadRecibida());
             movimiento.setMotivo(MovimientoInventario.MOTIVO_COMPRA);
-            movimiento.setDocumentoReferencia(numeroOrden);
+            movimiento.setDocumentoReferencia(facturaProveedor);
             movimiento.setFechaMovimiento(LocalDateTime.now());
             movimientoRepo.guardar(movimiento);
         }
 
         log.info("Entrada registrada: orden={}, facturaProv={}, lineas={}, unidades={}, monto={}",
-                numeroOrden, request.numeroFactura(), request.lineas().size(),
+                numeroOrden, facturaProveedor, request.lineas().size(),
                 totalUnidades, montoTotal);
 
         return new EntradaResponseDTO(
@@ -301,12 +309,12 @@ public class AlmacenApplicationService {
     // PROVEEDORES
     // ═══════════════════════════════════════════════════════════════
 
-        @Transactional(readOnly = true)
-        public List<ProveedorDTO> listarProveedores() {
+    @Transactional(readOnly = true)
+    public List<ProveedorDTO> listarProveedores() {
         return proveedorRepo.buscarActivos().stream()
                 .map(this::toProveedorDTO)
                 .toList();
-        }
+    }
     
     // ═══════════════════════════════════════════════════════════════
     // MOVIMIENTOS
@@ -344,33 +352,32 @@ public class AlmacenApplicationService {
     }
 
     // ═══════════════════════════════════════════════════════════════
-        // CRUD PROVEEDORES
-        // ═══════════════════════════════════════════════════════════════
+    // CRUD PROVEEDORES
+    // ═══════════════════════════════════════════════════════════════
 
-        @Transactional(readOnly = true)
-        public List<ProveedorDTO> listarTodosProveedores() {
+    @Transactional(readOnly = true)
+    public List<ProveedorDTO> listarTodosProveedores() {
         return proveedorRepo.findAll().stream()
                 .map(this::toProveedorDTO)
                 .toList();
-        }
+    }
 
-        @Transactional(readOnly = true)
-        public ProveedorDTO obtenerProveedor(Integer id) {
+    @Transactional(readOnly = true)
+    public ProveedorDTO obtenerProveedor(Integer id) {
         Proveedor p = proveedorRepo.findById(new Proveedor.ProveedorId(id))
                 .orElseThrow(() -> new ProveedorNoEncontradoException(id));
         return toProveedorDTO(p);
-        }
+    }
 
-        @Transactional
-        public ProveedorDTO crearProveedor(CrearProveedorRequestDTO request) {
+    @Transactional
+    public ProveedorDTO crearProveedor(CrearProveedorRequestDTO request) {
         String rif = request.rif().trim().toUpperCase();
 
         if (!Proveedor.esRifValido(rif)) {
-                throw new EntradaInvalidaException(
-                        "RIF inválido. Formato esperado: J-12345678-9");
+            throw new EntradaInvalidaException("RIF inválido. Formato esperado: J-12345678-9");
         }
         if (proveedorRepo.existePorRif(rif)) {
-                throw new EntradaInvalidaException("Ya existe un proveedor con el RIF " + rif);
+            throw new EntradaInvalidaException("Ya existe un proveedor con el RIF " + rif);
         }
 
         Proveedor nuevo = new Proveedor();
@@ -387,10 +394,10 @@ public class AlmacenApplicationService {
         log.info("Proveedor creado: id={}, RIF={}, empresa={}",
                 guardado.getId().value(), guardado.getRif(), guardado.getNombreEmpresa());
         return toProveedorDTO(guardado);
-        }
+    }
 
-        @Transactional
-        public ProveedorDTO actualizarProveedor(Integer id, ActualizarProveedorRequestDTO request) {
+    @Transactional
+    public ProveedorDTO actualizarProveedor(Integer id, ActualizarProveedorRequestDTO request) {
         Proveedor proveedor = proveedorRepo.findById(new Proveedor.ProveedorId(id))
                 .orElseThrow(() -> new ProveedorNoEncontradoException(id));
 
@@ -404,10 +411,10 @@ public class AlmacenApplicationService {
         Proveedor guardado = proveedorRepo.guardar(proveedor);
         log.info("Proveedor actualizado: id={}, empresa={}", id, guardado.getNombreEmpresa());
         return toProveedorDTO(guardado);
-        }
+    }
 
-        @Transactional
-        public ProveedorDTO cambiarEstadoProveedor(Integer id, boolean activo) {
+    @Transactional
+    public ProveedorDTO cambiarEstadoProveedor(Integer id, boolean activo) {
         Proveedor proveedor = proveedorRepo.findById(new Proveedor.ProveedorId(id))
                 .orElseThrow(() -> new ProveedorNoEncontradoException(id));
 
@@ -416,9 +423,9 @@ public class AlmacenApplicationService {
         log.info("Proveedor {} {}: id={}",
                 activo ? "activado" : "desactivado", guardado.getNombreEmpresa(), id);
         return toProveedorDTO(guardado);
-        }
+    }
 
-        private ProveedorDTO toProveedorDTO(Proveedor p) {
+    private ProveedorDTO toProveedorDTO(Proveedor p) {
         return new ProveedorDTO(
                 p.getId() != null ? p.getId().value() : null,
                 p.getRif(),
@@ -432,11 +439,12 @@ public class AlmacenApplicationService {
                 p.getCreatedAt(),
                 p.getUpdatedAt()
         );
-        }
+    }
 
-        private String limpiar(String s) {
+    private String limpiar(String s) {
         return (s == null || s.isBlank()) ? null : s.trim();
-        }
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // MAPPER PRIVADO
     // ═══════════════════════════════════════════════════════════════

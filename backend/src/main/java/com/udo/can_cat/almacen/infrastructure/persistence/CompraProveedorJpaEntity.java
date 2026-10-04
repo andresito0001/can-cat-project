@@ -44,6 +44,9 @@ public class CompraProveedorJpaEntity {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "numero_factura_proveedor", length = 50)
+    private String numeroFacturaProveedor;
+
     // --- Getters y Setters ---
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
@@ -67,4 +70,6 @@ public class CompraProveedorJpaEntity {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public void setNumeroFacturaProveedor(String numeroFacturaProveedor) { this.numeroFacturaProveedor = numeroFacturaProveedor; }
+    public String getNumeroFacturaProveedor() { return numeroFacturaProveedor; }
 }

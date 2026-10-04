@@ -19,6 +19,7 @@ public class CompraProveedor {
     private String observacionesRecepcion;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String numeroFacturaProveedor;
 
     public CompraProveedor() {}
 
@@ -54,4 +55,7 @@ public class CompraProveedor {
     
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public String getNumeroFacturaProveedor() { return numeroFacturaProveedor; }
+    public void setNumeroFacturaProveedor(String v) { this.numeroFacturaProveedor = v; }
 }

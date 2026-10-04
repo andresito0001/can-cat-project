@@ -45,6 +45,7 @@ public class CompraProveedorRepositoryImpl implements CompraProveedorRepository 
         e.setObservacionesRecepcion(compra.getObservacionesRecepcion());
         e.setCreatedAt(compra.getCreatedAt());
         e.setUpdatedAt(compra.getUpdatedAt());
+        e.setNumeroFacturaProveedor(compra.getNumeroFacturaProveedor());
         return e;
     }
 
@@ -61,6 +62,7 @@ public class CompraProveedorRepositoryImpl implements CompraProveedorRepository 
         compra.setObservacionesRecepcion(e.getObservacionesRecepcion());
         compra.setCreatedAt(e.getCreatedAt());
         compra.setUpdatedAt(e.getUpdatedAt());
+        compra.setNumeroFacturaProveedor(e.getNumeroFacturaProveedor());
         return compra;
     }
 }
