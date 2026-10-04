@@ -1360,7 +1360,8 @@ async function cargarCitasDelDia() {
 async function cargarProductos(silencioso = false) {
   cargandoProductos.value = true
   try {
-    productos.value = await getProductos()
+    const { data } = await getProductos()
+    productos.value = data || []
     insumosSeleccionados.value.forEach((item) => {
       const fresco = productos.value.find((p) => p.idProducto === item.idProducto)
       if (fresco) {

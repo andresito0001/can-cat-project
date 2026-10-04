@@ -288,7 +288,8 @@ async function guardar() {
   background: rgba(15, 23, 42, .5);
   backdrop-filter: blur(4px);
   display: flex; align-items: center; justify-content: center;
-  padding: 24px; z-index: 100;
+  padding: 24px;
+  z-index: var(--z-modal);
   font-family: 'Inter', 'Segoe UI', Roboto, sans-serif;
 }
 .modal-card {

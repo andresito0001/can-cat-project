@@ -404,7 +404,7 @@ async function guardar() {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  z-index: 100;
+  z-index: var(--z-modal); 
   font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 

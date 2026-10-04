@@ -110,22 +110,21 @@
 
             <div class="form-group">
               <label class="form-label" for="factura">
-                N.º factura del proveedor <span class="required">*</span>
+                N.º factura del proveedor
+                <span class="optional">(opcional)</span>
               </label>
               <input
                 id="factura"
                 v-model="form.numeroFactura"
                 type="text"
                 class="form-input"
-                :class="{ 'is-invalid': errors.numeroFactura }"
                 placeholder="Ej: FAC-2024-00123"
                 :disabled="procesando"
+                maxlength="50"
               />
               <span class="field-hint">
-                El número de orden interno se generará automáticamente al procesar.
-              </span>
-              <span v-if="errors.numeroFactura" class="form-error">
-                El número de factura es obligatorio.
+                Si no la tienes a mano, el sistema generará un identificador interno
+                trazable (formato <code>ENT-YYYYMMDD-NNNN</code>).
               </span>
             </div>
 
@@ -509,7 +508,13 @@ const totalUnidades = computed(() =>
 const totalMonto = computed(() =>
   form.lineas.reduce((s, l) => s + subtotalLinea(l), 0)
 )
-const puedeProcesar = computed(() => form.lineas.length > 0 && form.lineas.every(l => l.idProducto))
+
+const puedeProcesar = computed(() =>
+  form.idProveedor != null
+  && !!form.fechaRecepcion
+  && form.lineas.length > 0
+  && form.lineas.every((l) => l.idProducto)
+)
 
 function subtotalLinea(l) {
   const c = Number(l.cantidadRecibida) || 0
@@ -629,7 +634,7 @@ function cerrarModalProducto() {
 async function onProductoCreado(producto) {
   cerrarModalProducto()
   await cargarCatalogo()
-  toastError(null) // limpia errores previos
+  // toastError(null) // limpia errores previos
   // Auto-agregar el producto recién creado a la primera línea vacía
   const lineaVacia = form.lineas.find(l => !l.idProducto)
   if (lineaVacia) {
@@ -644,7 +649,7 @@ async function onProductoCreado(producto) {
 async function cargarCatalogo() {
   try {
     const { data } = await getProductos()
-    catalogoProductos.value = data || []
+    catalogoProductos.value = data || []  
   } catch (err) {
     toastError(getApiErrorMessage(err))
   }
@@ -669,10 +674,6 @@ function validar() {
 
   if (!form.idProveedor) {
     errors.idProveedor = true
-    ok = false
-  }
-  if (!form.numeroFactura.trim()) {
-    errors.numeroFactura = true
     ok = false
   }
   if (!form.fechaRecepcion) {
@@ -713,16 +714,19 @@ async function procesarEntrada() {
 
   procesando.value = true
   try {
+    // Helper: garantiza string seguro
+    const t = (v) => (v == null ? '' : String(v).trim())
+
     const payload = {
       idProveedor: form.idProveedor,
-      numeroFactura: form.numeroFactura.trim(),
+      numeroFactura: t(form.numeroFactura) || null,       
       fechaRecepcion: form.fechaRecepcion,
-      observaciones: form.observaciones.trim() || null,
-      lineas: form.lineas.map(l => ({
+      observaciones: t(form.observaciones) || null,       
+      lineas: form.lineas.map((l) => ({
         idProducto: l.idProducto,
         cantidadRecibida: Number(l.cantidadRecibida),
         precioUnitario: Number(l.precioUnitario),
-        numeroLote: l.numeroLote?.trim() || null,
+        numeroLote: t(l.numeroLote) || null,
         fechaVencimientoLote: l.fechaVencimientoLote || null,
       })),
     }

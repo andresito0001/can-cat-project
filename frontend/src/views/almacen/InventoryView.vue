@@ -1405,7 +1405,7 @@ button { font-family: inherit; }
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 60;
+  z-index: var(--z-modal);
   padding: 20px;
 }
 .confirm-modal {

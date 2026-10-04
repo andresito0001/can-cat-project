@@ -309,8 +309,8 @@ const totalCobros = computed(() =>
 
 const proximaCita = computed(() =>
   agendaHoy.value.find((c) => {
-    const estado = String(c.estadoNombre || '').trim()
-    return c.atendida !== true && !['Completada', 'Cancelada'].includes(estado)
+  const estado = String(c.estado || '').trim()
+  return estado !== 'Completada' && estado !== 'Cancelada'
   }) || null
 )
 
