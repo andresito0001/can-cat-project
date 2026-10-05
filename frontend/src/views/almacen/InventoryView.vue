@@ -247,7 +247,7 @@
               </td>
               <td class="der">
                 <div class="precio-cell">
-                  <span class="precio-principal">{{ fmtUsd(p.precioUsd) }}</span>
+                  <span class="precio-principal">{{ fmtUsd(p.precioVenta) }}</span>
                   <span v-if="p.costoAdquisicion" class="precio-costo">
                     costo {{ fmtUsd(p.costoAdquisicion) }}
                   </span>

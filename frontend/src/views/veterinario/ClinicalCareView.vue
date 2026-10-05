@@ -667,7 +667,7 @@
                       </p>
                     </div>
                     <div class="product-side">
-                      <span class="product-price">{{ formatoUSD(p.precioUsd) }}</span>
+                      <span class="product-price">{{ formatoUSD(p.precioVenta) }}</span>
                       <span class="product-stock" :class="{ 'stock-zero': p.stockActual <= 0 }">
                         {{ p.stockActual > 0 ? `Stock ${p.stockActual}` : 'Agotado' }}
                       </span>
@@ -1458,7 +1458,7 @@ function agregarInsumo(producto) {
       nombre: producto.nombre,
       codigoSku: producto.codigoSku,
       unidadMedida: producto.unidadMedida,
-      precioUsd: producto.precioUsd,
+       precioUsd: producto.precioVenta,
       cantidad: 1,
       stockActual: producto.stockActual,
       requiereReceta: producto.requiereReceta,
