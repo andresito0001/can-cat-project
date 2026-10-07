@@ -404,11 +404,19 @@
         <div class="total-card">
           <div class="total-left">
             <span class="total-label">Total a cobrar</span>
-            <span class="total-hint">Bs. se calcula con la tasa oficial al confirmar</span>
+            <span v-if="tasaCambio" class="total-hint">
+              Tasa aplicada: Bs. {{ fmtBs(tasaCambio) }} / USD
+            </span>
+            <span v-else class="total-hint">
+              Bs. se calculará con la tasa oficial al confirmar
+            </span>
           </div>
           <div class="total-right">
             <span class="total-monto">{{ fmtUsd(facturaACobrar.totalNeto) }}</span>
             <span class="total-currency">USD</span>
+            <span v-if="totalBsEstimado != null" class="total-bs">
+              ≈ Bs. {{ fmtBs(totalBsEstimado) }}
+            </span>
           </div>
         </div>
 
@@ -640,7 +648,8 @@ import { useRoute } from 'vue-router'
 import {
   getMetodosPresenciales, enviarFactura, descargarFactura,
   getFacturasPendientes, cobrarFactura,
-  getPagosPendientesVerificacion, verificarPago,  getEstadisticasCajaHoy,
+  getPagosPendientesVerificacion, verificarPago,  getEstadisticasCajaHoy, 
+  getTasaCambio,
 } from '@/api/pagos.api'
 import ToastContainer from '@/components/ui/ToastContainer.vue'
 import AppButton from '@/components/ui/AppButton.vue'
@@ -678,6 +687,7 @@ const cargandoFacturas = ref(false)
 const errorFacturas = ref('')
 const facturaExpandida = ref(null)
 const estadisticasHoy = ref(null)
+const tasaCambio = ref(null)
 
 /* Verificación */
 const pagosPorVerificar = ref([])
@@ -727,6 +737,12 @@ const camposDinamicos = computed(() =>
     .filter(([key]) => key !== 'referencia')
     .map(([key]) => ({ key }))
 )
+
+const totalBsEstimado = computed(() => {
+  if (!facturaACobrar.value || !tasaCambio.value) return null
+  const usd = Number(facturaACobrar.value.totalNeto) || 0
+  return usd * tasaCambio.value
+})
 
 /* ═══ Stats del día (para los KPIs) ═══ */
 const statsDelDia = computed(() => {
@@ -938,7 +954,10 @@ function enfocarPagoDesdeQuery() {
 
 onMounted(async () => {
   if (route.query.tab === 'verificacion') tab.value = 'verificacion'
-  await cargarTodo()
+  await Promise.all([
+    cargarTodo(),
+    cargarTasaCambio(),
+  ])
   enfocarPagoDesdeQuery()
 })
 
@@ -954,6 +973,16 @@ watch(() => route.query, () => {
    ═══════════════════════════════════════════════════════════════ */
 function alternarDetalles(idFactura) {
   facturaExpandida.value = facturaExpandida.value === idFactura ? null : idFactura
+}
+
+async function cargarTasaCambio() {
+  try {
+    const { data } = await getTasaCambio()
+    const valor = Number(data?.tasa ?? 0)
+    tasaCambio.value = valor > 0 ? valor : null
+  } catch {
+    tasaCambio.value = null
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2075,5 +2104,28 @@ function cerrarComprobante() {
   .cobro-resumen .resumen-fila { flex-direction: column; align-items: flex-start; }
   .resumen-value { text-align: left; }
   .total-value { align-items: flex-start; }
+}
+
+.total-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.total-currency {
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  color: var(--brand-700);
+  letter-spacing: 0.05em;
+}
+
+.total-bs {
+  margin-top: 2px;
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 </style>
