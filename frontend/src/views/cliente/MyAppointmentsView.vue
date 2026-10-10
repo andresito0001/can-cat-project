@@ -125,13 +125,18 @@
           <!-- Costos -->
           <div class="cita-costos">
             <div class="costo">
-              <span class="costo-label">Total USD</span>
-              <span class="costo-num">${{ cita.costoUsd }}</span>
+              <span class="costo-label">Subtotal</span>
+              <span class="costo-num">${{ cita.subtotalUsd }}</span>
             </div>
             <span class="costo-divisor" aria-hidden="true" />
             <div class="costo">
-              <span class="costo-label">Total Bs</span>
-              <span class="costo-num">Bs. {{ formatBs(cita.costoBs) }}</span>
+              <span class="costo-label">IVA {{ cita.porcentajeIva }}%</span>
+              <span class="costo-num">${{ cita.ivaUsd }}</span>
+            </div>
+            <span class="costo-divisor" aria-hidden="true" />
+            <div class="costo">
+              <span class="costo-label">Total</span>
+              <span class="costo-num costo-total">${{ cita.costoUsd }}</span>
             </div>
           </div>
         </div>
@@ -639,13 +644,47 @@ function formatBs(v) {
 .cita-costos {
   margin-top: auto;
   display: flex;
-  align-items: stretch;
-  gap: var(--space-3);
+  flex-direction: column;
+  gap: var(--space-2);
   padding: var(--space-3);
   background: var(--bg-surface-alt);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
 }
+
+/* Reemplaza los .costo en fila por filas apiladas */
+.cita-costos .costo {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+.cita-costos .costo-label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+.cita-costos .costo-num {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--neutral-700);
+  font-variant-numeric: tabular-nums;
+}
+
+.cita-costos .costo.costo-total {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.cita-costos .costo-total .costo-num {
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--brand-700);
+  letter-spacing: -0.01em;
+}
+
 .costo {
   flex: 1;
   min-width: 0;

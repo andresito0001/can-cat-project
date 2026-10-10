@@ -10,18 +10,21 @@ public record AgendarMostradorResponseDTO(
         String mensaje,
         ResumenMostradorDTO resumen
 ) {
-    public record ResumenMostradorDTO (
-            String cliente,
-            String documentoCliente,
-            String mascota,
-            String veterinario,
-            String servicio,
-            String fecha,
-            String horaInicio,
-            String horaFin,
-            BigDecimal costoUsd,
-            BigDecimal costoBs,
-            BigDecimal tasaCambio,
-            String metodoPago
-    ) {}
+        public record ResumenMostradorDTO(
+        String cliente,
+        String documentoCliente,
+        String mascota,
+        String veterinario,
+        String servicio,
+        String fecha,
+        String horaInicio,
+        String horaFin,
+        BigDecimal costoUsd,
+        BigDecimal costoBs,
+        BigDecimal tasaCambio,
+        BigDecimal subtotalUsd,       
+        BigDecimal ivaUsd,            
+        BigDecimal porcentajeIva,     
+        String metodoPago
+        ) {}
 }

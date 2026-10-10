@@ -29,12 +29,22 @@
       <!-- Total -->
       <div class="total-card">
         <div class="total-left">
-          <span class="total-label">Total a cobrar</span>
+          <span class="total-label">Resumen del cobro</span>
           <span class="total-hint">Bs. se calcula con la tasa oficial</span>
         </div>
         <div class="total-right">
-          <span class="total-monto">{{ fmtUsd(cita?.costoUsd) }}</span>
-          <span class="total-currency">USD</span>
+          <div class="total-row">
+            <span class="total-row-label">Subtotal</span>
+            <span class="total-row-value">${{ fmtUsd(cita.subtotalUsd) }}</span>
+          </div>
+          <div class="total-row">
+            <span class="total-row-label">IVA ({{ cita.porcentajeIva }}%)</span>
+            <span class="total-row-value">${{ fmtUsd(cita.ivaUsd) }}</span>
+          </div>
+          <div class="total-row total-row-final">
+            <span class="total-row-label">Total</span>
+            <span class="total-row-total">{{ fmtUsd(cita.costoUsd) }} USD</span>
+          </div>
         </div>
       </div>
 
@@ -327,6 +337,7 @@ function fmtFieldLabel(key) {
   flex-shrink: 0;
 }
 .info-label svg { color: var(--text-tertiary); }
+
 .info-value {
   color: var(--text-primary);
   font-weight: var(--font-bold);
@@ -337,14 +348,50 @@ function fmtFieldLabel(key) {
 
 .total-card {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-4);
+  flex-direction: column;
+  gap: var(--space-3);
   padding: var(--space-4) var(--space-5);
   background: linear-gradient(135deg, var(--brand-50) 0%, var(--bg-surface) 100%);
   border: 1px solid var(--brand-200);
   border-radius: var(--radius-xl);
 }
+
+.total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+}
+.total-row-label {
+  color: var(--text-secondary);
+  font-weight: var(--font-medium);
+}
+.total-row-value {
+  color: var(--neutral-700);
+  font-weight: var(--font-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.total-row-final {
+  padding-top: var(--space-3);
+  margin-top: var(--space-1);
+  border-top: 1px solid var(--brand-200);
+}
+.total-row-final .total-row-label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-extrabold);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+.total-row-total {
+  font-size: 22px;
+  font-weight: var(--font-bold);
+  color: var(--brand-700);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
 .total-left { display: flex; flex-direction: column; gap: 2px; }
 .total-label {
   font-size: var(--text-xs);

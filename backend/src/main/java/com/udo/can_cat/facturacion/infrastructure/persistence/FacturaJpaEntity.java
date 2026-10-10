@@ -40,7 +40,7 @@ public class FacturaJpaEntity {
     private BigDecimal porcentajeDescuento = BigDecimal.ZERO;
 
     @Column(name = "porcentaje_iva", precision = 5, scale = 2)
-    private BigDecimal porcentajeIva = new BigDecimal("16.00");
+    private BigDecimal porcentajeIva;
 
     // Campos GENERATED ALWAYS — no insertables ni actualizables por Hibernate
     @Column(name = "monto_descuento", insertable = false, updatable = false, precision = 10, scale = 2)
@@ -73,7 +73,7 @@ public class FacturaJpaEntity {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
         if (this.porcentajeDescuento == null) this.porcentajeDescuento = BigDecimal.ZERO;
-        if (this.porcentajeIva == null) this.porcentajeIva = new BigDecimal("16.00");
+        // if (this.porcentajeIva == null) this.porcentajeIva = new BigDecimal("16.00");
         if (this.estadoFactura == null) this.estadoFactura = "Emitida";
     }
 

@@ -39,6 +39,9 @@ app:
     secret: ClaveSuperSecretaYMuylargaParaFirmarTokensJWT1234567890abcdefghijklmnopqrstuvwxyz
     # 86400000 ms = 24 horas
     expiration-ms: 86400000
+    
+  impuestos:
+    iva-porcentaje: ${IVA_PORCENTAJE:16.00}
 
 # azep dbel tguq usdz
 

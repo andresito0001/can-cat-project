@@ -139,9 +139,16 @@
             </div>
 
             <div class="divider" />
-
             <div class="total-block">
               <div class="total-line">
+                <span>Subtotal</span>
+                <span class="total-subtotal">$ {{ fmtUsd(cita.subtotalUsd) }}</span>
+              </div>
+              <div class="total-line">
+                <span>IVA ({{ Number(cita.porcentajeIva || 16).toFixed(0) }}%)</span>
+                <span class="total-iva">$ {{ fmtUsd(cita.ivaUsd) }}</span>
+              </div>
+              <div class="total-line total-line-final">
                 <span>Total USD</span>
                 <span class="total-usd">$ {{ fmtUsd(cita.costoUsd) }}</span>
               </div>
@@ -149,9 +156,6 @@
                 <span>Total Bs</span>
                 <span class="total-bs">Bs. {{ fmtBs(cita.costoBs) }}</span>
               </div>
-              <p v-if="tasaImplicita" class="tasa-hint">
-                Tasa aplicada: {{ fmtTasa(tasaImplicita) }} Bs/USD
-              </p>
             </div>
           </div>
 
@@ -867,6 +871,11 @@ function fmtUsd(v) {
   })
 }
 
+function fmtPct(v) {
+  if (v == null) return '16'
+  return Number(v).toFixed(0)
+}
+
 function fmtBs(v) {
   if (v == null) return '0,00'
   return Number(v).toLocaleString('es-VE', {
@@ -1070,33 +1079,66 @@ async function copiarDato(texto, etiqueta) {
   margin: var(--space-3) 0 var(--space-4);
 }
 
-.total-block { display: flex; flex-direction: column; gap: var(--space-2); }
+.total-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+}
+
 .total-line {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.total-line > span:first-child {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: var(--font-medium);
+}
+
+.total-subtotal,
+.total-iva {
   font-size: var(--text-md);
+  font-weight: var(--font-semibold);
+  color: var(--neutral-700);
+  font-variant-numeric: tabular-nums;
 }
-.total-line > span:first-child { color: var(--text-secondary); font-weight: var(--font-medium); }
-.total-usd {
-  font-size: var(--text-3xl);
+
+/* Fila final destacada */
+.total-line-final {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.total-line-final > span:first-child {
+  font-size: var(--text-xs);
   font-weight: var(--font-extrabold);
-  color: var(--brand-700);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-secondary);
 }
+
+.total-usd {
+  font-size: 24px;
+  font-weight: var(--font-bold);
+  color: var(--brand-700);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
 .total-bs-line {
   padding-top: var(--space-2);
   border-top: 1px dashed var(--border-subtle);
 }
 .total-bs {
-  font-size: var(--text-lg);
+  font-size: var(--text-md);
   font-weight: var(--font-bold);
   color: var(--neutral-700);
-}
-.tasa-hint {
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-  margin: var(--space-1) 0 0;
-  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Datos bancarios ── */

@@ -15,6 +15,9 @@ public record MisCitasResponseDTO(
     String horaFin,
     BigDecimal costoUsd,
     BigDecimal costoBs,
+    BigDecimal subtotalUsd,
+    BigDecimal ivaUsd,
+    BigDecimal porcentajeIva,
     LocalDateTime expiraEn,
     String estadoPago
 ) {}

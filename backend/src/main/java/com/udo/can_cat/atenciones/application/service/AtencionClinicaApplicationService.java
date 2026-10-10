@@ -31,6 +31,7 @@ import com.udo.can_cat.atenciones.domain.repository.EntradaHistorialRepository;
 import com.udo.can_cat.atenciones.domain.repository.RecetaItemRepository;
 import com.udo.can_cat.atenciones.domain.repository.RecetaRepository;
 import com.udo.can_cat.citas.application.service.CitaTransitionService;
+import com.udo.can_cat.shared.impuestos.ImpuestosProperties;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,7 +73,8 @@ public class AtencionClinicaApplicationService {
     private static final String ESTADO_CONFIRMADA = "Confirmada";
     private static final String ESTADO_EN_ATENCION = "En_Atencion";
     private static final String ESTADO_COMPLETADA = "Completada";
-    private static final BigDecimal IVA_PORCENTAJE = new BigDecimal("16.00");
+    // private static final BigDecimal IVA_PORCENTAJE = new BigDecimal("16.00");
+     private final ImpuestosProperties impuestos;
 
     private final AtencionClinicaRepository atencionRepo;
     private final AtencionInsumoRepository atencionInsumoRepo;
@@ -101,7 +103,8 @@ public class AtencionClinicaApplicationService {
                                              PersonalPort personalPort,
                                              FacturacionPort facturacionPort,
                                              ClienteRepository clienteRepo,
-                                             CitaTransitionService citaTransitionService) {
+                                             CitaTransitionService citaTransitionService,
+                                            ImpuestosProperties impuestos) {
         this.atencionRepo = atencionRepo;
         this.atencionInsumoRepo = atencionInsumoRepo;
         this.recetaRepo = recetaRepo;
@@ -115,7 +118,7 @@ public class AtencionClinicaApplicationService {
         this.facturacionPort = facturacionPort;
         this.clienteRepo = clienteRepo;
         this.citaTransitionService = citaTransitionService;
-
+        this.impuestos = impuestos;
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -323,7 +326,7 @@ public class AtencionClinicaApplicationService {
             FacturacionPort.FacturaCreada factura = facturacionPort.crearFacturaInsumos(
                     new FacturacionPort.FacturaInsumosNueva(
                             mascota.idCliente(), personal.personalId(), numeroControl,
-                            subtotalInsumos, IVA_PORCENTAJE, lineas));
+                            subtotalInsumos, impuestos.getIvaPorcentaje(), lineas));
             idFactura = factura.idFactura();
             totalFactura = factura.totalNeto();
         }

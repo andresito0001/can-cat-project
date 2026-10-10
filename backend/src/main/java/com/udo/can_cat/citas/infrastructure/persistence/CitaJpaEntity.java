@@ -69,6 +69,9 @@ public class CitaJpaEntity {
     @Column(name = "expira_en")
     private LocalDateTime expiraEn;
 
+    @Column(name = "porcentaje_iva", nullable = false, precision = 5, scale = 2)
+    private BigDecimal porcentajeIva;
+
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
@@ -140,4 +143,7 @@ public class CitaJpaEntity {
 
     public LocalDateTime getExpiraEn() { return expiraEn; }
     public void setExpiraEn(LocalDateTime expiraEn) { this.expiraEn = expiraEn; }
+
+    public BigDecimal getPorcentajeIva() { return porcentajeIva; }
+    public void setPorcentajeIva(BigDecimal porcentajeIva) { this.porcentajeIva = porcentajeIva; }
 }

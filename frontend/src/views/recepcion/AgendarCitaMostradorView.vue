@@ -613,10 +613,18 @@
             </div>
           </div>
           <footer class="summary-card-footer">
-            <div class="summary-total">
-              <span class="total-label">Total estimado</span>
-              <span class="total-value">{{ resumenActual.total || '—' }}</span>
-            </div>
+          <div class="summary-total">
+            <span class="total-label">Subtotal</span>
+            <span class="total-value">{{ resumenActual.subtotal }}</span>
+          </div>
+          <div class="summary-total">
+            <span class="total-label">IVA ({{ resumenActual.ivaPct }}%)</span>
+            <span class="total-value">{{ resumenActual.iva }}</span>
+          </div>
+          <div class="summary-total summary-total-final">
+            <span class="total-label">Total</span>
+            <span class="total-value">{{ resumenActual.total }}</span>
+          </div>
             <div v-if="resumenActual.totalBs" class="total-bs">
               {{ resumenActual.totalBs }}
             </div>
@@ -811,6 +819,9 @@ const resumenActual = computed(() => {
       : null,
     total: precioUsd != null ? fmtUsd(precioUsd) : null,
     totalBs: totalBs != null ? fmtBs(totalBs) : null,
+    subtotal: r.subtotalUsd != null ? formatCurrency(r.subtotalUsd) : null,
+    iva: r.ivaUsd != null ? formatCurrency(r.ivaUsd) : null,
+    ivaPct: r.porcentajeIva != null ? Number(r.porcentajeIva).toFixed(0) : '16',
   }
 })
 
@@ -1246,47 +1257,60 @@ onMounted(async () => {
 }
 .summary-line-value { font-size: var(--text-base); font-weight: var(--font-semibold); color: var(--text-primary); line-height: var(--leading-snug); word-break: break-word; }
 .summary-line.is-empty .summary-line-value { color: var(--text-tertiary); font-weight: var(--font-medium); font-style: italic; }
+
 .summary-card-footer {
-  padding: var(--space-4) var(--space-5) var(--space-5);
+  padding: var(--space-5);
   background: linear-gradient(180deg, var(--neutral-50) 0%, var(--brand-50) 100%);
   border-top: 1px solid var(--border-subtle);
 }
+
 .summary-total {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-3);
-  flex-wrap: wrap;
+  padding: var(--space-1) 0;
 }
-.total-label {
+
+.summary-total .total-label {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+}
+.summary-total .total-value {
+  font-size: var(--text-md);
+  font-weight: var(--font-semibold);
+  color: var(--neutral-700);
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-total-final {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.summary-total-final .total-label {
   font-size: var(--text-xs);
   font-weight: var(--font-extrabold);
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  flex-shrink: 0;
 }
-.total-value {
-  font-size: 18px;
+.summary-total-final .total-value {
+  font-size: 24px;
   font-weight: var(--font-bold);
   color: var(--brand-700);
   letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  white-space: nowrap;
-  margin-left: auto;
+  line-height: 1.1;
 }
-.summary-note {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: var(--space-3) 0 0;
-  font-size: var(--text-xs);
+
+.total-bs {
+  margin-top: var(--space-1);
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
   color: var(--text-secondary);
-  line-height: var(--leading-snug);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
-.summary-note svg { flex-shrink: 0; }
 
 /* CARD HEADER */
 .card-header-left { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }

@@ -46,6 +46,7 @@ import com.udo.can_cat.facturacion.domain.repository.MetodoPagoRepository;
 import com.udo.can_cat.facturacion.domain.repository.PagoRepository;
 import com.udo.can_cat.mascotas.domain.entity.Mascota;
 import com.udo.can_cat.mascotas.domain.repository.MascotaRepository;
+import com.udo.can_cat.shared.impuestos.ImpuestosProperties;
 import com.udo.can_cat.usuarios.domain.entity.Cliente;
 import com.udo.can_cat.usuarios.domain.entity.Personal;
 import com.udo.can_cat.usuarios.domain.entity.Usuario.UsuarioId;
@@ -82,6 +83,7 @@ public class PagoApplicationService {
     private final UsuarioRepository usuarioRepo;
     private final CobroMostradorPort cobroMostradorPort;
     private final CitaTransitionService citaTransitionService;
+    private final ImpuestosProperties impuestos;
 
     public PagoApplicationService(CitaRepository citaRepo,
                                   EstadoCitaRepository estadoCitaRepo,
@@ -95,7 +97,8 @@ public class PagoApplicationService {
                                   MetodoPagoRepository metodoPagoRepo,
                                   UsuarioRepository usuarioRepository,
                                   CobroMostradorPort cobroMostradorPort,
-                                  CitaTransitionService citaTransitionService) {
+                                  CitaTransitionService citaTransitionService,
+                                  ImpuestosProperties impuestos) {
         this.citaRepo = citaRepo;
         this.estadoCitaRepo = estadoCitaRepo;
         this.servicioRepo = servicioRepo;
@@ -109,6 +112,7 @@ public class PagoApplicationService {
         this.usuarioRepo = usuarioRepository;
         this.cobroMostradorPort = cobroMostradorPort;
         this.citaTransitionService = citaTransitionService;
+        this.impuestos = impuestos;
     }
 
     // ═══════════════════════════════════════════════════
@@ -208,14 +212,17 @@ public class PagoApplicationService {
         String numeroControl = generarNumeroControl();
 
         // 6. Crear factura
+        BigDecimal totalCita = cita.getCostoUsd();
+        BigDecimal subtotal  = impuestos.extraerSubtotalDeTotal(totalCita);
+        
         Factura factura = new Factura();
         factura.setIdCliente(idCliente);
         factura.setIdCita(cita.getId());
         factura.setIdPersonal(cita.getIdVeterinario());
         factura.setNumeroControl(numeroControl);
-        factura.setSubtotal(cita.getCostoUsd());
+        factura.setSubtotal(subtotal);
         factura.setPorcentajeDescuento(BigDecimal.ZERO);
-        factura.setPorcentajeIva(new BigDecimal("16.00"));
+        factura.setPorcentajeIva(impuestos.getIvaPorcentaje());
         factura.setEstadoFactura(FACTURA_EMITIDA);
         factura.setMetodoPagoPrincipal(metodoPago.getNombre());
         factura = facturaRepo.guardar(factura);
@@ -375,7 +382,10 @@ public class PagoApplicationService {
                 horaInicio,
                 detalles,
                 factura.getSubtotal(),
-                factura.getPorcentajeIva() != null ? factura.getPorcentajeIva() : new BigDecimal("16.00"),
+                // factura.getPorcentajeIva() != null ? factura.getPorcentajeIva() : new BigDecimal("16.00"),
+                factura.getPorcentajeIva() != null
+                    ? factura.getPorcentajeIva()
+                    : impuestos.getIvaPorcentaje(),
                 factura.getTotalNeto(),
                 factura.getMetodoPagoPrincipal(),
                 emailCliente,
@@ -735,9 +745,10 @@ public class PagoApplicationService {
 
     private BigDecimal calcularTotal(BigDecimal subtotal, BigDecimal porcentajeIva) {
         BigDecimal st = subtotal != null ? subtotal : BigDecimal.ZERO;
-        BigDecimal iva = porcentajeIva != null ? porcentajeIva : new BigDecimal("16.00");
-        return st.multiply(BigDecimal.ONE.add(iva.divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP)))
-                .setScale(2, RoundingMode.HALF_UP);
+            BigDecimal iva = porcentajeIva != null ? porcentajeIva : impuestos.getIvaPorcentaje();
+            return st.multiply(BigDecimal.ONE.add(
+                        iva.divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP)))
+                    .setScale(2, RoundingMode.HALF_UP);
     }
 
     /** Patrón 1.2: recepcionista autenticado (principal Integer = usuarioId). */

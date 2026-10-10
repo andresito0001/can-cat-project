@@ -13,6 +13,7 @@ import com.udo.can_cat.facturacion.domain.entity.Pago;
 import com.udo.can_cat.facturacion.domain.repository.PagoRepository;
 import com.udo.can_cat.mascotas.domain.entity.Mascota;
 import com.udo.can_cat.mascotas.domain.repository.MascotaRepository;
+import com.udo.can_cat.shared.impuestos.ImpuestosProperties;
 import com.udo.can_cat.shared.tasa.TasaCambioException;
 import com.udo.can_cat.shared.tasa.TasaCambioService;
 import com.udo.can_cat.usuarios.domain.entity.Cliente;
@@ -49,7 +50,7 @@ public class CitaApplicationService {
     private final UsuarioRepository usuarioRepo;
     private final TasaCambioService tasaCambioService;
     private final PagoRepository pagoRepo;
-
+    private final ImpuestosProperties impuestos;
 
     public CitaApplicationService(CitaRepository citaRepository,
                                   EstadoCitaRepository estadoCitaRepo,
@@ -59,7 +60,8 @@ public class CitaApplicationService {
                                   PersonalRepository personalRepo,
                                   UsuarioRepository usuarioRepo,
                                   TasaCambioService tasaCambioService,
-                                  PagoRepository pagoRepo) {
+                                  PagoRepository pagoRepo,
+                                  ImpuestosProperties impuestos) {
         this.citaRepository = citaRepository;
         this.estadoCitaRepo = estadoCitaRepo;
         this.servicioRepo = servicioRepo;
@@ -69,6 +71,7 @@ public class CitaApplicationService {
         this.usuarioRepo = usuarioRepo;
         this.tasaCambioService = tasaCambioService;
         this.pagoRepo = pagoRepo;
+        this.impuestos = impuestos;
     }
 
     // ================================================================
@@ -184,9 +187,11 @@ public class CitaApplicationService {
         } catch (TasaCambioException e) {
             throw new OperacionNoPermitidaException(e.getMessage());
         }
-
-        BigDecimal costoUsd = servicio.getPrecioUsd();
-        BigDecimal costoBs = costoUsd.multiply(tasa).setScale(2, RoundingMode.HALF_UP);
+        
+        BigDecimal costoBase = servicio.getPrecioUsd();
+        BigDecimal costoUsd  = costoBase.multiply(impuestos.getFactorIva())
+                                        .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal costoBs   = costoUsd.multiply(tasa).setScale(2, RoundingMode.HALF_UP);
 
         // 8. Crear cita en estado PENDIENTE_PAGO
         EstadoCita estadoPendientePago = estadoCitaRepo.buscarPorNombre("Pendiente_Pago")
@@ -208,6 +213,7 @@ public class CitaApplicationService {
         cita.setTasaCambioAplicada(tasa);
         cita.setCostoEstimado(costoBs);
         cita.setExpiraEn(LocalDateTime.now().plusMinutes(5));
+        cita.setPorcentajeIva(impuestos.getIvaPorcentaje()); 
 
 
         cita = citaRepository.guardar(cita);
@@ -216,12 +222,21 @@ public class CitaApplicationService {
                 cita.getId(), request.idMascota(), nombreVet,
                 request.fechaCita(), request.horaInicio());
 
+
         // Nombre de la mascota para el resumen
         String nombreMascota = mascotasDelCliente.stream()
                 .filter(m -> m.getId().value().equals(request.idMascota()))
                 .map(Mascota::getNombre)
                 .findFirst()
                 .orElse("Desconocida");
+
+        BigDecimal ivaPct = impuestos.getIvaPorcentaje();
+        BigDecimal factor = BigDecimal.ONE.add(
+                ivaPct.divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP)
+        );
+
+        BigDecimal subtotalUsd = costoUsd.divide(factor, 2, RoundingMode.HALF_UP);
+        BigDecimal ivaUsd = costoUsd.subtract(subtotalUsd);
 
         ResumenCitaDTO resumen = new ResumenCitaDTO(
                 nombreMascota,
@@ -232,7 +247,10 @@ public class CitaApplicationService {
                 horaFin.toString(),
                 costoUsd,
                 costoBs,
-                tasa
+                tasa,
+                subtotalUsd,
+                ivaUsd,
+                ivaPct
         );
 
         return new SolicitarCitaResponseDTO(
@@ -384,10 +402,25 @@ public class CitaApplicationService {
         Map<Integer, String> nombresServicios = cargarNombresServicios(citas);
         Map<Integer, EstadoCita> estadosPorId = cargarEstados();
         Map<Integer, String> nombresVets = cargarNombresVeterinarios(citas);
-
         return citas.stream()
                 .map(cita -> {
                     EstadoCita estado = estadosPorId.get(cita.getIdEstado());
+
+                    // ─── Desglose IVA ───
+                    BigDecimal ivaPct = cita.getPorcentajeIva() != null
+                            ? cita.getPorcentajeIva()
+                            : impuestos.getIvaPorcentaje();
+
+                    BigDecimal totalConIva = cita.getCostoUsd() != null
+                            ? cita.getCostoUsd()
+                            : BigDecimal.ZERO;
+
+                    BigDecimal factor = BigDecimal.ONE.add(
+                            ivaPct.divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP)
+                    );
+
+                    BigDecimal subtotal = totalConIva.divide(factor, 2, RoundingMode.HALF_UP);
+                    BigDecimal ivaMonto = totalConIva.subtract(subtotal);
 
                     // Consultar el pago asociado a la cita (si existe)
                     String estadoPago = pagoRepo.buscarPorFacturaCita(cita.getId())
@@ -406,14 +439,16 @@ public class CitaApplicationService {
                             cita.getHoraFin() != null ? cita.getHoraFin().toString() : "",
                             cita.getCostoUsd(),
                             cita.getCostoBs(),
+                            subtotal,               
+                            ivaMonto,               
+                            ivaPct,                 
                             cita.getExpiraEn(),
                             estadoPago
                     );
                 })
                 .filter(dto -> estadoFiltro == null || estadoFiltro.isBlank()
                         || dto.estado().equalsIgnoreCase(estadoFiltro.trim()))
-                .toList();
-    }
+                .toList();}
 
     // ================================================================
     // FILTRAR BLOQUES LIBRES (usado por DisponibilidadApplicationService)

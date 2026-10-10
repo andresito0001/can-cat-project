@@ -121,7 +121,8 @@ public class CitaRepositoryImpl implements CitaRepository {
             c.setFechaSolicitud(e.getFechaSolicitud());
             c.setCreatedAt(e.getCreatedAt());
             c.setUpdatedAt(e.getUpdatedAt());
-            c.setExpiraEn(e.getExpiraEn());   // ← NUEVO
+            c.setExpiraEn(e.getExpiraEn());
+            c.setPorcentajeIva(e.getPorcentajeIva());
             return c;
         }
 
@@ -143,7 +144,8 @@ public class CitaRepositoryImpl implements CitaRepository {
             e.setTasaCambioAplicada(c.getTasaCambioAplicada());
             e.setObservacionesRecepcion(c.getObservacionesRecepcion());
             e.setFechaSolicitud(c.getFechaSolicitud());
-            e.setExpiraEn(c.getExpiraEn());   // ← NUEVO
+            e.setExpiraEn(c.getExpiraEn());
+            e.setPorcentajeIva(c.getPorcentajeIva());
             return e;
         }
     }

@@ -6,14 +6,21 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import com.udo.can_cat.citas.application.dto.AgendarMostradorRequestDTO;
 import com.udo.can_cat.citas.application.dto.AgendarMostradorResponseDTO;
 import com.udo.can_cat.citas.application.dto.CitaAgendaDTO;
@@ -41,6 +48,7 @@ import com.udo.can_cat.facturacion.domain.repository.MetodoPagoRepository;
 import com.udo.can_cat.facturacion.domain.repository.PagoRepository;
 import com.udo.can_cat.mascotas.domain.entity.Mascota;
 import com.udo.can_cat.mascotas.domain.repository.MascotaRepository;
+import com.udo.can_cat.shared.impuestos.ImpuestosProperties;
 import com.udo.can_cat.shared.tasa.TasaCambioException;
 import com.udo.can_cat.shared.tasa.TasaCambioService;
 import com.udo.can_cat.usuarios.domain.entity.Cliente;
@@ -75,6 +83,7 @@ public class AgendaMostradorApplicationService {
     private final TasaCambioService tasaCambioService;
     private final PagoVerificacionPort pagoVerifPort;             
     private final CitaTransitionService citaTransitionService;    
+    private final ImpuestosProperties impuestos;
 
     public AgendaMostradorApplicationService(CitaRepository citaRepo,
                                              EstadoCitaRepository estadoCitaRepo,
@@ -87,8 +96,9 @@ public class AgendaMostradorApplicationService {
                                              PagoRepository pagoRepo,
                                              MetodoPagoRepository metodoPagoRepo,
                                              TasaCambioService tasaCambioService,
-                                             PagoVerificacionPort pagoVerifPort,          // ← NUEVO
-                                             CitaTransitionService citaTransitionService) { // ← NUEVO
+                                             PagoVerificacionPort pagoVerifPort,
+                                             CitaTransitionService citaTransitionService,
+                                            ImpuestosProperties impuestos) { 
         this.citaRepo = citaRepo;
         this.estadoCitaRepo = estadoCitaRepo;
         this.servicioRepo = servicioRepo;
@@ -102,6 +112,7 @@ public class AgendaMostradorApplicationService {
         this.tasaCambioService = tasaCambioService;
         this.pagoVerifPort = pagoVerifPort;
         this.citaTransitionService = citaTransitionService;
+        this.impuestos = impuestos;
     }
 
     // ================================================================
@@ -181,8 +192,11 @@ public class AgendaMostradorApplicationService {
         } catch (TasaCambioException e) {
             throw new OperacionNoPermitidaException(e.getMessage());
         }
-        BigDecimal costoUsd = servicio.getPrecioUsd();
-        BigDecimal costoBs = costoUsd.multiply(tasa).setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal costoBase = servicio.getPrecioUsd();
+        BigDecimal costoUsd  = costoBase.multiply(impuestos.getFactorIva())
+                                        .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal costoBs   = costoUsd.multiply(tasa).setScale(2, RoundingMode.HALF_UP);
 
         EstadoCita estadoConfirmada = estadoCitaRepo.buscarPorNombre("Confirmada")
                 .orElseThrow(() -> new OperacionNoPermitidaException(
@@ -206,6 +220,8 @@ public class AgendaMostradorApplicationService {
                 ? "Agendada y cobrada en mostrador por " + recepcionista.getNombreCompleto()
                 : "Agendada y cobrada en mostrador");
         cita = citaRepo.guardar(cita);
+        cita.setPorcentajeIva(impuestos.getIvaPorcentaje());
+
 
         Factura factura = guardarFacturaYPago(cita, servicio, cliente.getId().value(),
                 metodoPago, recepcionista, request.referenciaTransaccion(), request.datosPago());
@@ -391,6 +407,23 @@ public class AgendaMostradorApplicationService {
                     Mascota mascota = mascotas.get(cita.getIdMascota());
                     Cliente cliente = mascota != null ? clientes.get(mascota.getClienteId().value()) : null;
                     EstadoCita estado = estados.get(cita.getIdEstado());
+
+                    // ─── Desglose IVA (snapshot de la cita, con fallback al % vigente) ───
+                    BigDecimal ivaPct = cita.getPorcentajeIva() != null
+                            ? cita.getPorcentajeIva()
+                            : impuestos.getIvaPorcentaje();
+
+                    BigDecimal totalConIva = cita.getCostoUsd() != null
+                            ? cita.getCostoUsd()
+                            : BigDecimal.ZERO;
+
+                    BigDecimal factor = BigDecimal.ONE.add(
+                            ivaPct.divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP)
+                    );
+
+                    BigDecimal subtotal = totalConIva.divide(factor, 2, RoundingMode.HALF_UP);
+                    BigDecimal ivaMonto = totalConIva.subtract(subtotal);
+
                     return new CitaAgendaDTO(
                             cita.getId(),
                             cita.getIdVeterinario(),
@@ -408,7 +441,10 @@ public class AgendaMostradorApplicationService {
                             estado != null ? estado.getNombre() : "Desconocido",
                             estado != null ? estado.getColorUi() : "#6C757D",
                             cita.getCostoUsd(),
-                            cita.getCostoBs()
+                            cita.getCostoBs(),
+                            subtotal,
+                            ivaMonto,
+                            ivaPct
                     );
                 })
                 .toList();
@@ -417,14 +453,18 @@ public class AgendaMostradorApplicationService {
     private Factura guardarFacturaYPago(Cita cita, Servicio servicio, Integer idCliente,
                                         MetodoPago metodoPago, Personal recepcionista,
                                         String referenciaTransaccion, Map<String, String> datosPago) {
+        
+        BigDecimal totalCita = cita.getCostoUsd();
+        BigDecimal subtotal  = impuestos.extraerSubtotalDeTotal(totalCita);
+        
         Factura factura = new Factura();
         factura.setIdCliente(idCliente);
         factura.setIdCita(cita.getId());
         factura.setIdPersonal(cita.getIdVeterinario());
         factura.setNumeroControl(generarNumeroControl());
-        factura.setSubtotal(cita.getCostoUsd());
+        factura.setSubtotal(subtotal);
         factura.setPorcentajeDescuento(BigDecimal.ZERO);
-        factura.setPorcentajeIva(new BigDecimal("16.00"));
+        factura.setPorcentajeIva(impuestos.getIvaPorcentaje());
         factura.setEstadoFactura("Emitida");
         factura.setMetodoPagoPrincipal(metodoPago.getNombre());
         factura = facturaRepo.guardar(factura);
@@ -435,7 +475,7 @@ public class AgendaMostradorApplicationService {
         detalle.setIdReferencia(cita.getIdServicio());
         detalle.setDescripcion(servicio.getNombre());
         detalle.setCantidad(1);
-        detalle.setPrecioUnitario(cita.getCostoUsd());
+        detalle.setPrecioUnitario(subtotal);
         detalle.setDescuentoAplicado(BigDecimal.ZERO);
         detalleFacturaRepo.guardar(detalle);
 
@@ -458,6 +498,23 @@ public class AgendaMostradorApplicationService {
     private AgendarMostradorResponseDTO.ResumenMostradorDTO construirResumen(
             Cliente cliente, Mascota mascota, Personal vet, Servicio servicio,
             Cita cita, MetodoPago metodoPago) {
+
+        // ─── Desglose IVA ───
+        BigDecimal ivaPct = cita.getPorcentajeIva() != null
+                ? cita.getPorcentajeIva()
+                : impuestos.getIvaPorcentaje();
+
+        BigDecimal totalConIva = cita.getCostoUsd() != null
+                ? cita.getCostoUsd()
+                : BigDecimal.ZERO;
+
+        BigDecimal factor = BigDecimal.ONE.add(
+                ivaPct.divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP)
+        );
+
+        BigDecimal subtotal = totalConIva.divide(factor, 2, RoundingMode.HALF_UP);
+        BigDecimal ivaMonto = totalConIva.subtract(subtotal);
+
         return new AgendarMostradorResponseDTO.ResumenMostradorDTO(
                 cliente.getNombreCompleto(),
                 cliente.getDocumentoIdentidad(),
@@ -470,6 +527,9 @@ public class AgendaMostradorApplicationService {
                 cita.getCostoUsd(),
                 cita.getCostoBs(),
                 cita.getTasaCambioAplicada(),
+                subtotal,               
+                ivaMonto,               
+                ivaPct,                 
                 metodoPago.getNombre()
         );
     }

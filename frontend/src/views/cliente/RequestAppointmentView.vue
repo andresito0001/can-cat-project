@@ -843,12 +843,24 @@
 
           <!-- ═══ FOOTER: monto + nota ═══ -->
           <footer class="summary-card-footer">
-            <div class="summary-total">
-              <span class="total-label">
-                {{ currentStep === 3 ? 'Total a pagar' : 'Total estimado' }}
-              </span>
-              <span class="total-value">{{ resumenActual.total || '—' }}</span>
+            <div class="desglose">
+              <div class="desglose-row">
+                <span class="desglose-label">Subtotal</span>
+                <span class="desglose-value">{{ resumenActual.subtotal || '—' }}</span>
+              </div>
+              <div class="desglose-row">
+                <span class="desglose-label">IVA ({{ resumenActual.ivaPct }}%)</span>
+                <span class="desglose-value">{{ resumenActual.iva || '—' }}</span>
+              </div>
             </div>
+
+            <div class="desglose-divider" />
+
+            <div class="total-row">
+              <span class="total-row-label">Total</span>
+              <span class="total-row-value">{{ resumenActual.total || '—' }}</span>
+            </div>
+
             <div v-if="resumenActual.totalBs" class="total-bs">
               {{ resumenActual.totalBs }}
             </div>
@@ -1134,6 +1146,24 @@ const canGoNextFromStep1 = computed(
 
 const resumenActual = computed(() => {
   const r = citaResumen.value || {}
+
+  // Fallback: si el backend no manda desglose (cita sin factura aún),
+  // lo calculamos localmente con el % por defecto.
+  const ivaPct = r.porcentajeIva != null ? Number(r.porcentajeIva) : 16
+  const totalUsd = r.costoUsd != null
+    ? Number(r.costoUsd)
+    : (servicioSeleccionado.value ? Number(servicioSeleccionado.value.precioUsd) : null)
+
+  let subtotalUsd = r.subtotalUsd != null ? Number(r.subtotalUsd) : null
+  let ivaUsd = r.ivaUsd != null ? Number(r.ivaUsd) : null
+
+  // Si el backend no los mandó, calcular localmente (ingeniería inversa)
+  if (subtotalUsd == null && totalUsd != null) {
+    const factor = 1 + ivaPct / 100
+    subtotalUsd = Number((totalUsd / factor).toFixed(2))
+    ivaUsd = Number((totalUsd - subtotalUsd).toFixed(2))
+  }
+
   return {
     mascota: r.mascota || mascotaSeleccionada.value?.nombre || null,
     veterinario: r.veterinario || vetSeleccionado.value?.nombre || null,
@@ -1145,9 +1175,12 @@ const resumenActual = computed(() => {
           ? `${formatTime12h(selectedBloque.value.horaInicio)} — ${formatTime12h(selectedBloque.value.horaFin)}`
           : null),
     duracion: servicioSeleccionado.value?.duracionMinutos || null,
-    total: r.costoUsd != null
-      ? formatCurrency(r.costoUsd)
-      : (servicioSeleccionado.value ? formatCurrency(servicioSeleccionado.value.precioUsd) : null),
+
+    subtotal: subtotalUsd != null ? formatCurrency(subtotalUsd) : null,
+    iva: ivaUsd != null ? formatCurrency(ivaUsd) : null,
+    ivaPct: ivaPct,
+
+    total: totalUsd != null ? formatCurrency(totalUsd) : null,
     totalBs: r.costoBs != null ? formatCurrencyBs(r.costoBs) : null,
   }
 })
@@ -1991,32 +2024,80 @@ onUnmounted(() => {
 
 /* ═══ FOOTER: monto ═══ */
 .summary-card-footer {
-  padding: var(--space-4) var(--space-5) var(--space-5);
+  padding: var(--space-5) var(--space-5) var(--space-5);
   background: linear-gradient(180deg, var(--neutral-50) 0%, var(--brand-50) 100%);
   border-top: 1px solid var(--border-subtle);
 }
-.summary-total {
+
+/* ─── Bloque desglose (subtotal + IVA) ─── */
+.desglose {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.desglose-row {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-3);
 }
-.total-label {
+
+.desglose-label {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+}
+
+.desglose-value {
+  font-size: var(--text-md);
+  font-weight: var(--font-semibold);
+  color: var(--neutral-700);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ─── Divisor ─── */
+.desglose-divider {
+  height: 1px;
+  margin: var(--space-4) 0 var(--space-3);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--border-strong) 30%,
+    var(--border-strong) 70%,
+    transparent 100%
+  );
+}
+
+/* ─── Total (destacado) ─── */
+.total-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.total-row-label {
   font-size: var(--text-xs);
   font-weight: var(--font-extrabold);
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--text-secondary);
-  white-space: nowrap;
 }
-.total-value {
-  font-size: 22px;
+
+.total-row-value {
+  font-size: 24px;
   font-weight: var(--font-bold);
   color: var(--brand-700);
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
-  line-height: 1;
+  line-height: 1.1;
+  white-space: nowrap;
 }
+
+/* ─── Bs. (subordinado al USD) ─── */
 .total-bs {
   margin-top: var(--space-1);
   font-size: var(--text-md);
@@ -2026,13 +2107,17 @@ onUnmounted(() => {
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
 }
+
+/* ─── Nota inferior ─── */
 .summary-note {
   display: flex;
   align-items: flex-start;
   gap: var(--space-1);
-  margin: var(--space-3) 0 0;
+  margin: var(--space-4) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--border-subtle);
   font-size: var(--text-xs);
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   line-height: var(--leading-snug);
 }
 .summary-note svg { flex-shrink: 0; margin-top: 2px; }

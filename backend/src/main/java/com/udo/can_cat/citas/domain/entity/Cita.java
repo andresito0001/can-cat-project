@@ -26,6 +26,8 @@ public class Cita {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime expiraEn;
+    private BigDecimal porcentajeIva;
+
 
     // --- Getters y Setters ---
 
@@ -85,4 +87,7 @@ public class Cita {
     
     public LocalDateTime getExpiraEn() { return expiraEn; }
     public void setExpiraEn(LocalDateTime expiraEn) { this.expiraEn = expiraEn; }
+
+    public BigDecimal getPorcentajeIva() { return porcentajeIva; }
+    public void setPorcentajeIva(BigDecimal porcentajeIva) { this.porcentajeIva = porcentajeIva; }
 }

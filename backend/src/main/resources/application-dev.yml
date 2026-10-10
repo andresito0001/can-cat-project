@@ -53,6 +53,8 @@ logging:
 app:
   frontend:
     url: ${APP_FRONTEND_URL:http://localhost:5173}
+  impuestos:
+    iva-porcentaje: ${IVA_PORCENTAJE:16.00}
   banco:
     nombre-titular: ${BANCO_NOMBRE_TITULAR:Clínica Veterinaria CanCat}
     rif: ${BANCO_RIF:J-12345678-9}
