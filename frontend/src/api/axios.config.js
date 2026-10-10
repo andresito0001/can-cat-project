@@ -2,11 +2,12 @@ import axios from 'axios'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
-  headers: { 'Content-Type': 'application/json' }
+  headers: { 'Content-Type': 'application/json' },
 })
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
+  // ⚠️ sessionStorage → token propio de cada pestaña
+  const token = sessionStorage.getItem('token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
@@ -26,7 +27,9 @@ api.interceptors.response.use(
     const yaEnAuth = window.location.pathname.startsWith('/auth/')
 
     if (status === 401 && !esEndpointAuth && !yaEnAuth) {
-      localStorage.removeItem('token')
+      // ⚠️ Limpia SOLO la sesión de ESTA pestaña, no la de las demás
+      sessionStorage.removeItem('token')
+      sessionStorage.removeItem('cancat_user')
       window.location.href = '/auth/login?session=expired'
     }
 
